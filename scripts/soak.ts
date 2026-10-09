@@ -7,7 +7,7 @@
 // No forma parte de `npm.cmd test`; se ejecuta con `npm.cmd run soak`.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
+import { isNextTo, MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
 import { openStore } from "../apps/server/src/store.ts";
 import { joinWorld, sleep, startServer, tempDb, waitFor, type TestPlayer } from "../apps/server/test/helpers.ts";
 
@@ -24,12 +24,44 @@ for (const name of ["bot1", "bot2", "bot3", "bot4"]) bots.push(await joinWorld(s
 
 let running = true;
 let paused = false;
-const sent = { moves: 0, collects: 0, transfers: 0, contributions: 0 };
+const sent = { moves: 0, collects: 0, transfers: 0, contributions: 0, builds: 0, crafts: 0 };
 const project = config.projects[0];
+const structure = config.structures[0];
+const recipe = config.recipes[0];
+
+/** Paso hacia una casilla junto a la huella de la estructura. */
+function stepToward(me: { x: number; y: number }, target: { x: number; y: number }): MoveMessage {
+  if (Math.random() < 0.2) return randomStep();
+  return Math.abs(target.x - me.x) >= Math.abs(target.y - me.y)
+    ? { dx: Math.sign(target.x - me.x), dy: 0 }
+    : { dx: 0, dy: Math.sign(target.y - me.y) };
+}
 
 /** Un paso del bot: depositar si está lleno, recolectar si tiene un nodo al lado, o acercarse. */
 async function act(bot: TestPlayer) {
   const me = bot.me();
+  const { state } = bot.room;
+  // Construir cuando el proyecto está listo; fabricar cuando hay materiales en el almacén común.
+  if (structure) {
+    const built = Boolean(state.structures.get(structure.id)?.built);
+    const ready = state.projects.get(structure.projectId)?.status === "listo";
+    const canCraft = built && recipe && Object.entries(recipe.inputs).every(([r, n]) => (state.community.get(r) ?? 0) >= n);
+    if ((ready && !built) || canCraft) {
+      if (isNextTo(me, structure)) {
+        if (!built) {
+          bot.room.send(MESSAGE.build, { requestId: randomUUID(), structureId: structure.id });
+          sent.builds++;
+        } else {
+          bot.room.send(MESSAGE.craft, { requestId: randomUUID(), recipeId: recipe!.id });
+          sent.crafts++;
+        }
+        return 300;
+      }
+      bot.room.send(MESSAGE.move, stepToward(me, { x: structure.x - 1, y: structure.y + structure.height }));
+      sent.moves++;
+      return 130;
+    }
+  }
   const projectState = project && bot.room.state.projects.get(project.id);
   if (project && projectState) {
     for (const task of project.tasks) {
@@ -45,7 +77,9 @@ async function act(bot: TestPlayer) {
       return 300;
     }
   }
-  const full = config.resources.find((r) => (me.inventory.get(r.id) ?? 0) >= config.inventoryMax);
+  // Con el taller construido se deposita antes (a partir de 3) para que haya materiales que fabricar.
+  const threshold = structure && state.structures.get(structure.id)?.built ? 3 : config.inventoryMax;
+  const full = config.resources.find((r) => (me.inventory.get(r.id) ?? 0) >= threshold);
   if (full) {
     bot.room.send(MESSAGE.transfer, { requestId: randomUUID(), resource: full.id, amount: me.inventory.get(full.id), to: "community" });
     sent.transfers++;
@@ -85,9 +119,11 @@ function fullSnapshot(bot: TestPlayer): string {
     .sort();
   const nodes = [...state.nodes.entries()].sort().join(";");
   const community = [...state.community.entries()].sort().join(";");
+  const structures = [...state.structures.entries()].map(([id, s]) => `${id}:${s.built}:${s.builtBy}`).sort().join(";");
+  const missions = [...state.missions.entries()].map(([id, m]) => `${id}:${m.status}:${m.completedBy}`).sort().join(";");
   const projects = [...state.projects.entries()].map(([id, p]) =>
     `${id}:${p.status}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}`);
-  return `${players.join(" ")} | ${nodes} | ${community} | ${projects.join(" ")}`;
+  return `${players.join(" ")} | ${nodes} | ${community} | ${projects.join(" ")} | ${structures} | ${missions}`;
 }
 
 const deadline = Date.now() + minutes * 60_000;
@@ -119,8 +155,14 @@ running = false;
 await Promise.all(workers);
 const rejections = bots.reduce((n, b) => n + b.rejections.length, 0);
 const projectSummary = project ? (() => {
-  const p = bots[0]!.room.state.projects.get(project.id)!;
-  return { status: p.status, progress: Object.fromEntries(p.progress.entries()) };
+  const { state } = bots[0]!.room;
+  const p = state.projects.get(project.id)!;
+  return {
+    status: p.status, progress: Object.fromEntries(p.progress.entries()),
+    built: structure ? state.structures.get(structure.id)?.built : null,
+    mission: config.missions[0] ? state.missions.get(config.missions[0].id)?.status : null,
+    tools: recipe ? state.community.get(recipe.output.item) ?? 0 : null,
+  };
 })() : null;
 const connected = bots.every((b) => b.me().connected);
 for (const b of bots) await b.room.leave();

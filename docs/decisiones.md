@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q155 (BORRADOR)
+# Registro de decisiones — Q001 a Q158 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -159,6 +159,9 @@
 | Q153 | Proyectos | Los aportes que exceden lo que falta se recortan; el sobrante se queda en su origen. Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
 | Q154 | Proyectos | El proyecto se cierra en «listo para construir»; construir el taller es M5 (RF-007). Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
 | Q155 | Identidad | Nombres parecidos («Mund01»/«mundo1») se resuelven con la identidad de M6 (RF-003, Q151), no en M4. Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
+| Q156 | Construcción | Construir exige el proyecto listo, estar junto al solar (distancia 1) y el solar libre de jugadores; consume exactamente los materiales aportados. Aprobado con el plan de M5 | VERIFICADO (decisión); MVP |
+| Q157 | Fabricación | La herramienta es un objeto (items), no un recurso: vive en el almacén común; fabricar exige estar junto al taller y consume del almacén común. Aprobado con el plan de M5 | VERIFICADO (decisión); MVP |
+| Q158 | Misiones | La misión se completa la primera vez que la comunidad tiene la herramienta, con autor y hora; no se repite y se puede seguir fabricando. Aprobado con el plan de M5 | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
 

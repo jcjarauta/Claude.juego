@@ -71,6 +71,8 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 - **Posiciones:** se guardan al salir, al cortarse la conexión y cada 5 s (Q149).
 - **Copias de seguridad:** fuera del MVP hasta BL-09. Para empezar de cero basta con borrar `data/world.db`.
 - **Migración v2 (M4):** `player.last_seen_at` e índice `event(type, at)`. Antes de migrar una base con datos se crea `data/world.db.v1.bak` con `VACUUM INTO`.
+- **Construcción, fabricación y misiones (M5):** migración v3 (tablas `structure` y `mission` con clave primaria: no se construye ni se completa dos veces). `build` consume del inventario del proyecto exactamente lo requerido; `craft` consume del almacén común y deja el producto en él; la misión se completa en la misma transacción que la fabricación que la cumple. Las casillas de una estructura construida se suman a los bloqueos de movimiento. El progreso de un proyecto se calcula desde el registro de aportes, de modo que no vuelve a 0 al consumirse los materiales.
+- **Auditoría general:** para cada recurso u objeto, recolectado + fabricado = en inventarios + consumido; `audit().balanced` debe ser `true`.
 - **Proyectos (M4):** ámbito de inventario `project` (una tarea por recurso); aportes con evento `contribute`; quién aportó, actividad reciente y novedades se calculan desde el registro de eventos. El cliente pide sus novedades (`news`) cuando su manejador está listo.
 
 ## 5. Autenticación, privacidad y seguridad
