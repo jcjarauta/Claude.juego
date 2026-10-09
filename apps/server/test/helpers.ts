@@ -31,7 +31,17 @@ function runServer(env: Record<string, string>) {
   return { proc, port, output: () => output };
 }
 
-export function startServer(env: Record<string, string> = {}): Promise<RunningServer> {
+/** Arranca un servidor de prueba; si el puerto elegido está ocupado, reintenta con otro. */
+export async function startServer(env: Record<string, string> = {}, attempts = 3): Promise<RunningServer> {
+  try {
+    return await startServerOnce(env);
+  } catch (err) {
+    if (attempts > 1 && String((err as Error).message).includes("EADDRINUSE")) return startServer(env, attempts - 1);
+    throw err;
+  }
+}
+
+function startServerOnce(env: Record<string, string>): Promise<RunningServer> {
   const { proc, port, output } = runServer(env);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`El servidor no arrancó:\n${output()}`)), 15000);
