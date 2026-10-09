@@ -1,6 +1,8 @@
 // Configuración del mundo (Q144: el contenido es datos, no código).
 // El servidor la valida al arrancar y el cliente la recibe ya validada.
 
+import { isValidName } from "./contracts.ts";
+
 export const RESOURCE_SHAPES = ["triangle", "square", "diamond", "circle"] as const;
 export type ResourceShape = (typeof RESOURCE_SHAPES)[number];
 
@@ -35,7 +37,15 @@ export interface TaskDef {
   title: string;
   resource: string;
   required: number;
+  /** Criterio de aceptación legible; el verificable es resource + required. Por defecto «Aportar N de X». */
+  acceptance: string;
 }
+
+/** Clasificación de realidad de un proyecto (CLAUDE.md §9, AUD-05). */
+export const REALITIES = ["VIRTUAL", "SIMULACION", "REAL"] as const;
+export type Reality = (typeof REALITIES)[number];
+/** En el MVP solo se admiten proyectos virtuales (Q163). */
+export const MVP_REALITIES: readonly Reality[] = ["VIRTUAL"];
 
 /** Proyecto comunitario (Q144: los proyectos, y en el futuro las misiones, son configuración). */
 export interface ProjectDef {
@@ -44,6 +54,12 @@ export interface ProjectDef {
   description: string;
   /** Una tarea por recurso dentro del proyecto: el progreso de la tarea es el inventario del proyecto. */
   tasks: TaskDef[];
+  /** Por defecto "VIRTUAL". */
+  reality: Reality;
+  /** Nombres que pueden revisar tareas (Q161: por nombre hasta las cuentas de M6). Por defecto, ninguno. */
+  coordinators: string[];
+  /** Si es true, construir exige todas las tareas aprobadas (Q162). Por defecto false. */
+  buildRequiresApproval: boolean;
 }
 
 /** Estructura que se levanta al completar un proyecto (M5). */
@@ -203,7 +219,20 @@ export function validateWorldConfig(input: unknown): ValidationResult {
       else if (taskResources.has(t.resource)) fail(`${where}: el recurso "${t.resource}" ya lo usa otra tarea del proyecto`);
       else taskResources.add(t.resource);
       if (!isInt(t.required, 1, 10000)) fail(`${where}: required debe ser un entero 1–10000`);
+      if (t.acceptance !== undefined && (typeof t.acceptance !== "string" || !t.acceptance.trim() || t.acceptance.length > 200)) {
+        fail(`${where}: acceptance debe ser un texto de 1–200 caracteres`);
+      }
     });
+    if (p.reality !== undefined) {
+      if (!REALITIES.includes(p.reality as Reality)) fail(`projects[${i}] "${p.id}": reality debe ser ${REALITIES.join(", ")}`);
+      else if (!MVP_REALITIES.includes(p.reality as Reality)) fail(`projects[${i}] "${p.id}": en el MVP solo se admiten proyectos VIRTUAL (AUD-05)`);
+    }
+    if (p.coordinators !== undefined && (!Array.isArray(p.coordinators) || !p.coordinators.every(isValidName))) {
+      fail(`projects[${i}] "${p.id}": coordinators debe ser una lista de nombres válidos`);
+    }
+    if (p.buildRequiresApproval !== undefined && typeof p.buildRequiresApproval !== "boolean") {
+      fail(`projects[${i}] "${p.id}": buildRequiresApproval debe ser true o false`);
+    }
   });
 
   const structureIds = new Set<string>();
@@ -270,7 +299,23 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   if (!isObject(spawn) || !inside(spawn.x, spawn.y)) fail("spawn: fuera del mapa");
   else if (nodeCells.has(`${spawn.x},${spawn.y}`)) fail("spawn: la casilla de aparición está bloqueada por un nodo");
 
-  return errors.length ? { ok: false, errors } : { ok: true, config: input as unknown as WorldConfig };
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, config: withDefaults(input as unknown as WorldConfig) };
+}
+
+/** Completa los campos opcionales de los proyectos sin modificar la entrada. */
+function withDefaults(config: WorldConfig): WorldConfig {
+  const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
+  return {
+    ...config,
+    projects: config.projects.map((p) => ({
+      ...p,
+      reality: p.reality ?? "VIRTUAL",
+      coordinators: p.coordinators ?? [],
+      buildRequiresApproval: p.buildRequiresApproval ?? false,
+      tasks: p.tasks.map((t) => ({ ...t, acceptance: t.acceptance ?? `Aportar ${t.required} de ${resourceName.get(t.resource) ?? t.resource}` })),
+    })),
+  };
 }
 
 /** Consultas sobre una configuración ya validada. */
