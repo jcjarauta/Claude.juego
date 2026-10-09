@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q158 (BORRADOR)
+# Registro de decisiones — Q001 a Q164 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -162,6 +162,12 @@
 | Q156 | Construcción | Construir exige el proyecto listo, estar junto al solar (distancia 1) y el solar libre de jugadores; consume exactamente los materiales aportados. Aprobado con el plan de M5 | VERIFICADO (decisión); MVP |
 | Q157 | Fabricación | La herramienta es un objeto (items), no un recurso: vive en el almacén común; fabricar exige estar junto al taller y consume del almacén común. Aprobado con el plan de M5 | VERIFICADO (decisión); MVP |
 | Q158 | Misiones | La misión se completa la primera vez que la comunidad tiene la herramienta, con autor y hora; no se repite y se puede seguir fabricando. Aprobado con el plan de M5 | VERIFICADO (decisión); MVP |
+| Q159 | Producto | **ENGREMIAT** es el nombre del producto; el bloque de informe `ENGREMIAT_PACKAGE` conserva su nombre (Q142). Decidido en el gate de la auditoría del 2026-10-09 | VERIFICADO (decisión); MVP |
+| Q160 | Arquitectura | Etapa M5b antes de M6: núcleo de proyectos extraído como módulo en el mismo proceso (alternativa 2 de `docs/auditoria-engremiat-2026-10-09.md`) y panel profesional en forma de lista; Kanban y Gantt siguen post-MVP (Q012) | VERIFICADO (decisión); MVP |
+| Q161 | Permisos | Coordinadores por proyecto como lista de nombres en la configuración; cualquiera aporta y solo la coordinación revisa. Hasta las cuentas de M6 (RF-003) el rol va ligado al nombre y es suplantable, como Q151 | VERIFICADO (decisión); MVP |
+| Q162 | Aprobación | La aprobación de tareas es configurable por proyecto (`buildRequiresApproval`); desactivada en el taller para no bloquear el juego asíncrono (RF-013) | VERIFICADO (decisión); MVP |
+| Q163 | Realidad | Los proyectos llevan clasificación `VIRTUAL`/`SIMULACION`/`REAL`; en el MVP solo se admite `VIRTUAL` (AUD-05) | VERIFICADO (decisión); MVP |
+| Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
 

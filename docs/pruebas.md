@@ -30,6 +30,8 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-12 | Paquetes duplicados, fuera de orden o malformados | Rechazo/idempotencia según reglas y estado íntegro |
 | TP-13 | Un jugador aporta al proyecto estando solo; después se conecta otro | El segundo ve el avance y el autor del aporte; sin pérdida ni duplicado |
 | TP-14 | Agotar un nodo y dejar pasar tiempo de mundo con y sin clientes conectados (reloj controlable en pruebas) | El nodo recupera unidades según la regla, sin superar su máximo |
+| TP-15 | Panel profesional y jugador a la vez; plazas | Aportes cruzados visibles en ambas vistas; el panel no crea personaje ni ocupa plaza; acciones de mundo desde el panel rechazadas |
+| TP-16 | Revisar tareas con y sin rol, completas e incompletas | Solo la coordinación revisa tareas completas; nota obligatoria; decisión y evidencia persisten; aprobación obligatoria configurable |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |

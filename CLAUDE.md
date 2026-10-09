@@ -4,7 +4,7 @@
 
 ## 1. Proyecto y alcance
 
-Juego cooperativo multijugador con mundo persistente, comunidades, misiones, proyectos, recursos y aprendizaje. **MVP:** prototipo vertical web 2D, varios jugadores, una comunidad, exploración, recolección, taller, un proyecto, una misión y persistencia.
+**ENGREMIAT** (Q159): juego cooperativo multijugador con mundo persistente, comunidades, misiones, proyectos, recursos y aprendizaje, que evoluciona hacia un gestor de proyectos colaborativo cuyo núcleo de proyectos es la fuente de verdad y el mundo y el panel profesional son representaciones. **MVP:** prototipo vertical web 2D, varios jugadores, una comunidad, exploración, recolección, taller, un proyecto, una misión y persistencia.
 
 No confundir **visión** con **alcance del MVP**. Federación, IA compleja, economía federada, RAG, editores de nodos, automatizaciones amplias, integraciones reales y escalado horizontal son fases futuras salvo autorización documentada. No implementar funciones futuras por el mero hecho de estar en la visión.
 

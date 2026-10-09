@@ -22,7 +22,8 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | M3 | Recursos, inventario y persistencia transaccional | M2 | Recolección/reinicio no duplica ni pierde recursos confirmados — **CERRADA** 2026-10-09 (evidencia en `docs/pruebas.md` §5, incluida la prueba del usuario) |
 | M4 | Comunidad inicial, proyecto y tareas | M3 | Tareas visibles y actualizadas para varios jugadores — **CERRADA** 2026-10-09 (evidencia en `docs/pruebas.md` §5; fusión autorizada sin prueba manual registrada) |
 | M5 | Construcción taller, producción simple y cierre de misión | M4 | Ciclo completo probado de principio a fin — **CERRADA** (evidencia en `docs/pruebas.md` §5; probada por la persona responsable y fusionada) |
-| M6 | Endurecimiento: permisos, accesibilidad básica, fallos, pruebas integrales | M5 | Evidencias y aprobación formal del MVP |
+| M5b | Núcleo de proyectos y panel profesional (auditoría `docs/auditoria-engremiat-2026-10-09.md`, Q159–Q164) | M5 | Las 10 capacidades del incremento cubiertas por pruebas — **HECHA en `m5b-nucleo-proyectos`** (evidencia en `docs/pruebas.md` §5); pendiente: prueba del usuario y fusión |
+| M6 | Endurecimiento: permisos, accesibilidad básica, fallos, pruebas integrales | M5b | Evidencias y aprobación formal del MVP |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -91,4 +92,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** decidir si antes de M6 se hace la auditoría ENGREMIAT y el incremento «núcleo de proyectos + panel profesional» (M5b); después, plan de M6 (identidad y permisos, accesibilidad incluida Firefox, pruebas integrales y aprobación formal del MVP).
+**NEXT:** prueba de M5b por la persona responsable y fusión; después, plan de M6 (identidad y permisos sobre el punto `authorize` del núcleo, accesibilidad incluida Firefox, pruebas integrales y aprobación formal del MVP).
