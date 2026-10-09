@@ -166,3 +166,30 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 74 de 74.
 | Prueba del usuario | Persona responsable | «ya está probado» (2026-10-09); fusión autorizada | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 85 de 85.
+
+### M6 — 2026-10-09 (rama `m6-endurecimiento`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias de cuentas | `npm.cmd test` | Nombre, contraseña de 8 a 128 caracteres y declaración de edad obligatorias; nombre único sin distinguir mayúsculas; bloqueo tras 5 fallos durante 30 s; cierre de sesión; caducidad a los 30 días; token inventado rechazado | OK |
+| Secretos en reposo | `npm.cmd test` | La contraseña y el token no aparecen en claro en la base ni en el WAL; solo se guarda el hash SHA-256 del token | OK |
+| TP-03 | `npm.cmd test` | Sin token, con token inventado o tras cerrar sesión no se entra (`sesion-invalida`), tampoco al panel; un `name` enviado por el cliente se ignora; una contraseña equivocada no da acceso a la cuenta de la coordinadora; un no coordinador recibe `sin-permiso` | OK |
+| Endpoints de cuentas | `npm.cmd test` | 400 (edad, contraseña, JSON inválido, cuerpo > 4 KB), 409 (nombre ocupado, también con otras mayúsculas), 401 y 429 tras 5 fallos | OK |
+| Logs | `npm.cmd test` | Líneas JSON de arranque, registro, inicio de sesión y sesión inválida; sin contraseñas ni tokens en la salida | OK |
+| Límite de frecuencia (Q167) | `npm.cmd test`: 50 aportes en ráfaga | ≥ 40 rechazados con `demasiadas-solicitudes`; solo cuentan los 3 con saldo; auditoría cuadrada | OK |
+| TA-02 | `npm.cmd test` | Fallo inyectado a mitad de un aporte o de la construcción: no cambia ningún saldo, no queda evento ni estructura y el mismo `requestId` se puede reintentar | OK |
+| Migración v4 → v5 | `npm.cmd test` | Datos conservados, copia `*.v4.bak`; la primera cuenta con un nombre antiguo recupera su inventario (Q166) | OK |
+| Reconexión (umbral ≤ 5 s) | `npm.cmd test` | 64 ms | OK |
+| Recuperación (umbral ≤ 30 s) | `npm.cmd test` con 50 000 eventos | Arranque y primera entrada en 402 ms | OK |
+| Regresión | `npm.cmd test` | Todas las pruebas anteriores con cuentas automáticas en los helpers | OK |
+| TP-11 (Chromium) | Navegador integrado, solo teclado | Crear cuenta (el error de edad se anuncia y pone el foco en la casilla) → el foco pasa al mapa → recolectar → P → aportar → M → depositar → construir → fabricar → misión completada, con todos los avisos; recarga con sesión guardada; salir de la cuenta. Orden de tabulación lógico | OK |
+| Contraste | Navegador integrado, medición por script de todo el texto HTML visible | Mundo: 53 textos, mínimo 9,99:1. Panel: mínimo 8,64:1 (estados, etiquetas, errores). Umbral WCAG AA 4,5:1. No se mide el texto dentro del lienzo, cuya información también está en HTML | OK |
+| TP-11 (Chrome, Edge, Firefox) | Persona responsable | Pendiente | NO VERIFICADO |
+| Carga (4 clientes + 1 panel con cuentas, 15 min) | `npm.cmd run soak` | 173 comprobaciones, 0 divergencias, convergencia máx. 1 ms; proyecto construido, tareas aprobadas por `coordinacion`, misión completada, 28 herramientas; auditoría cuadrada (madera 120 = 16 + 104; piedra 78 = 7 + 71; fibra 100 = 39 + 61; herramienta 28 = 28) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 98 de 98 | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 98 de 98.
+
+Defectos encontrados y corregidos:
+- `fetch` se niega a conectar con ciertos puertos (por ejemplo, el 3659). Las pruebas elegían puertos al azar entre 3600 y 4000 y fallaban de vez en cuando; ahora usan 42000–43999.
+- Tras entrar, el foco se quedaba en la página y había que buscar el mapa con el teclado; ahora pasa al mapa.

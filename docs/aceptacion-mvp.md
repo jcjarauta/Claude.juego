@@ -45,7 +45,7 @@ Fuera del MVP (visión futura, `docs/especificacion.md` §5): federación, IA, R
 | Reconexión | ≤ 5 s | 64 ms (M6) | OK |
 | Persistencia | RPO = 0 para lo confirmado | SIGKILL en M3, M4, M5 y M5b sin pérdida; auditoría cuadrada | OK |
 | Recuperación | ≤ 30 s | 402 ms con 50 000 eventos | OK |
-| Carga | 4 clientes, 15 min, sin divergencias | SOAK_M6 | SOAK_M6_ESTADO |
+| Carga | 4 clientes, 15 min, sin divergencias | 4 jugadores y 1 panel con cuentas: 173 comprobaciones, 0 divergencias, auditoría cuadrada (M6) | OK |
 
 ## 4. Riesgos residuales (aceptados para el MVP)
 
