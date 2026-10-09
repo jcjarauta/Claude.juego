@@ -1,6 +1,6 @@
-# Plan de pruebas — BORRADOR / NO EJECUTADO
+# Plan de pruebas y evidencias
 
-Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba está en `docs/especificacion.md` §2.
+Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba está en `docs/especificacion.md` §2; el resumen para aceptar el MVP, en `docs/aceptacion-mvp.md`.
 
 ## 1. Clasificación
 
@@ -41,7 +41,7 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 
 Decididos (Q134, Q143): 2–4 clientes simultáneos en local/LAN; Chrome, Edge y Firefox recientes de escritorio; acciones esenciales con teclado.
 
-Umbrales **PROPUESTA** (pendientes de revisión humana, ajustables tras el spike):
+Umbrales **PROPUESTA** (Q168: se fijan con lo medido al firmar la aceptación; medidas en `docs/aceptacion-mvp.md` §3):
 
 | Umbral | Propuesta |
 |---|---|
