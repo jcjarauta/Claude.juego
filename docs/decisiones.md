@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q151 (BORRADOR)
+# Registro de decisiones — Q001 a Q155 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -155,6 +155,10 @@
 | Q149 | Persistencia | La posición se guarda al salir y cada 5 s (tras una caída pueden perderse hasta 5 s de movimiento); los recursos se guardan en cada transacción y nunca se pierden. Aprobado con el plan de M3 | VERIFICADO (decisión); MVP |
 | Q150 | Privacidad | Los inventarios son visibles para todos los jugadores del mundo (juego cooperativo de adultos); privacidad por ámbito con los permisos de M6. Aprobado con el plan de M3 | VERIFICADO (decisión); MVP |
 | Q151 | Identidad | Hasta M6, el inventario individual pertenece al nombre: quien entra con ese nombre lo recupera. Riesgo conocido y aceptado; se cierra con RF-003. Aprobado con el plan de M3 | VERIFICADO (decisión); MVP |
+| Q152 | Comunidad | En el MVP todos los jugadores son miembros de la única comunidad y cualquiera puede aportar al proyecto desde el almacén común; sin roles ni votaciones (gobernanza post-MVP, Q007). Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
+| Q153 | Proyectos | Los aportes que exceden lo que falta se recortan; el sobrante se queda en su origen. Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
+| Q154 | Proyectos | El proyecto se cierra en «listo para construir»; construir el taller es M5 (RF-007). Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
+| Q155 | Identidad | Nombres parecidos («Mund01»/«mundo1») se resuelven con la identidad de M6 (RF-003, Q151), no en M4. Aprobado con el plan de M4 | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
 

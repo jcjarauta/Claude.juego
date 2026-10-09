@@ -70,6 +70,8 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 - **Auditoría:** `store.audit()` compara lo recolectado según los eventos con lo que hay en todos los inventarios; deben coincidir por recurso.
 - **Posiciones:** se guardan al salir, al cortarse la conexión y cada 5 s (Q149).
 - **Copias de seguridad:** fuera del MVP hasta BL-09. Para empezar de cero basta con borrar `data/world.db`.
+- **Migración v2 (M4):** `player.last_seen_at` e índice `event(type, at)`. Antes de migrar una base con datos se crea `data/world.db.v1.bak` con `VACUUM INTO`.
+- **Proyectos (M4):** ámbito de inventario `project` (una tarea por recurso); aportes con evento `contribute`; quién aportó, actividad reciente y novedades se calculan desde el registro de eventos. El cliente pide sus novedades (`news`) cuando su manejador está listo.
 
 ## 5. Autenticación, privacidad y seguridad
 
