@@ -29,6 +29,42 @@ test("la migración crea el esquema y los datos sobreviven a reabrir la base", (
   again.close();
 });
 
+test("migración v2 → v3, construir y completar solo una vez, y auditoría con consumos y objetos", () => {
+  const path = tempDb();
+  const v2 = new DatabaseSync(path);
+  v2.exec(MIGRATIONS[1]!);
+  v2.exec(MIGRATIONS[2]!);
+  v2.exec("PRAGMA user_version = 2");
+  v2.exec("INSERT INTO inventory VALUES ('community', 'main', 'madera', 7)");
+  v2.close();
+
+  const store = openStore(path);
+  assert.equal(store.schemaVersion(), 3);
+  assert.ok(existsSync(`${path}.v2.bak`));
+  assert.deepEqual(store.getInventory(COMMUNITY), { madera: 7 });
+
+  store.transaction(() => store.addStructure("taller", "ana", 10));
+  assert.throws(() => store.transaction(() => store.addStructure("taller", "bea", 11)), "no se construye dos veces");
+  assert.deepEqual(store.getStructures(), [{ id: "taller", builtAt: 10, builtBy: "ana" }]);
+  store.transaction(() => store.completeMission("m1", "bea", 20));
+  assert.throws(() => store.transaction(() => store.completeMission("m1", "ana", 21)));
+  assert.deepEqual(store.getMissions(), [{ id: "m1", completedAt: 20, completedBy: "bea" }]);
+
+  // Conservación: 4 recolectadas; 3 consumidas al fabricar 1 herramienta.
+  const fresh = openStore(tempDb());
+  fresh.transaction(() => {
+    for (let i = 0; i < 4; i++) fresh.event("collect", "ana", `c${i}`, { resource: "madera" });
+    fresh.addAmount(COMMUNITY, "madera", 1);
+    fresh.addAmount(COMMUNITY, "herramienta", 1);
+    fresh.event("craft", "ana", "f1", { recipe: "herramienta", consumed: { madera: 3 }, produced: { herramienta: 1 } });
+  });
+  assert.deepEqual(fresh.audit(), {
+    inInventories: { madera: 1, herramienta: 1 }, collected: { madera: 4 }, consumed: { madera: 3 }, produced: { herramienta: 1 }, balanced: true,
+  });
+  fresh.close();
+  store.close();
+});
+
 test("migración v1 → v2: conserva los datos y deja una copia de seguridad", () => {
   const path = tempDb();
   const v1 = new DatabaseSync(path);
@@ -39,7 +75,7 @@ test("migración v1 → v2: conserva los datos y deja una copia de seguridad", (
   v1.close();
 
   const store = openStore(path);
-  assert.equal(store.schemaVersion(), 2);
+  assert.equal(store.schemaVersion(), SCHEMA_VERSION);
   assert.deepEqual(store.getInventory(playerScope("ana")), { madera: 4 });
   assert.deepEqual(store.getPlayer("ana"), { x: 3, y: 2 });
   assert.equal(store.getLastSeen("ana"), null);
@@ -113,6 +149,6 @@ test("la auditoría compara lo recolectado con lo que hay en inventarios", () =>
     store.addAmount(playerScope("ana"), "madera", -1);
     store.addAmount(COMMUNITY, "madera", 1);
   });
-  assert.deepEqual(store.audit(), { inInventories: { madera: 2 }, collected: { madera: 2 } });
+  assert.deepEqual(store.audit(), { inInventories: { madera: 2 }, collected: { madera: 2 }, consumed: {}, produced: {}, balanced: true });
   store.close();
 });

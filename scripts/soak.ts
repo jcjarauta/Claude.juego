@@ -129,8 +129,7 @@ await server.kill();
 const store = openStore(dbPath);
 const audit = store.audit();
 store.close();
-const resources = new Set([...Object.keys(audit.collected), ...Object.keys(audit.inInventories)]);
-const conserved = [...resources].every((r) => (audit.collected[r] ?? 0) === (audit.inInventories[r] ?? 0));
+const conserved = audit.balanced;
 
 const result = { minutes, checks, failures, sent, rejections, maxConvergeMs: Math.round(maxConvergeMs), allConnected: connected, project: projectSummary, audit, conserved };
 console.log(`RESULTADO ${JSON.stringify(result)}`);

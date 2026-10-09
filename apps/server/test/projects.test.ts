@@ -189,7 +189,7 @@ test("TP-09: tras una caída, el proyecto conserva progreso, autores y actividad
   await server.kill();
 
   const store = openStore(dbPath);
-  assert.deepEqual(store.audit(), { inInventories: { madera: 3 }, collected: { madera: 3 } });
+  assert.deepEqual(store.audit(), { inInventories: { madera: 3 }, collected: { madera: 3 }, consumed: {}, produced: {}, balanced: true });
   store.close();
 
   server = await startServer({ WORLD_CONFIG: WORLD, DB_PATH: dbPath });

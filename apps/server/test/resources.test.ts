@@ -167,7 +167,7 @@ test("TP-09: tras una caída brusca no se pierde ni se duplica nada confirmado; 
   const store = openStore(dbPath);
   assert.deepEqual(store.getInventory(playerScope("ana")), { madera: 1 });
   assert.deepEqual(store.getInventory(COMMUNITY), { madera: 2 });
-  assert.deepEqual(store.audit(), { inInventories: { madera: 3 }, collected: { madera: 3 } });
+  assert.deepEqual(store.audit(), { inInventories: { madera: 3 }, collected: { madera: 3 }, consumed: {}, produced: {}, balanced: true });
   store.close();
 
   server = await startServer({ WORLD_CONFIG: WORLD, DB_PATH: dbPath });
