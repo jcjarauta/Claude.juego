@@ -1,0 +1,17 @@
+# Paquete original conservado fuera del control de versiones (su contenido está en el commit inicial)
+*.zip
+
+# Obsidian: configuración local del vault
+.obsidian/
+
+# Claude Code: ajustes personales
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Secretos y entorno
+.env
+.env.*
+
+# Dependencias y artefactos
+node_modules/
+dist/

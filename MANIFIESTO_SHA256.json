@@ -1,0 +1,76 @@
+{
+  "status": "GENERADO_EN_ESTA_EJECUCION",
+  "fecha": "2026-10-09",
+  "archivos": [
+    {
+      "archivo": "00_LEEME.md",
+      "bytes": 3286,
+      "sha256": "8b5dcfcc0c4bff1d882052b2edb838bb32ec02f31cfa6fd06034dee5f78bb86f"
+    },
+    {
+      "archivo": "02_PROMPT_MAESTRO.md",
+      "bytes": 3774,
+      "sha256": "9ca91e4d150e6400284a62267ac12e6a370af0a795a3ea8ac50999331ef2a78f"
+    },
+    {
+      "archivo": "03_ESPECIFICACION_FUNCIONAL.md",
+      "bytes": 4905,
+      "sha256": "140991c21db3346b47a172e309aa16a56d11a8f1dee815fff346d87b80fdae98"
+    },
+    {
+      "archivo": "04_ARQUITECTURA_TECNICA.md",
+      "bytes": 4634,
+      "sha256": "a768e7972fe6bb63380ce4f6e8f26b0cd6658caaa365774b10b7ce5ff480a1c9"
+    },
+    {
+      "archivo": "05_HOJA_RUTA_MVP.md",
+      "bytes": 3251,
+      "sha256": "2fbde99f271194babe194f73e4408a44bc1586cfb6e9cec822776886bde59156"
+    },
+    {
+      "archivo": "06_MATRIZ_TRAZABILIDAD.md",
+      "bytes": 2604,
+      "sha256": "45a5e6b731b8a72656643c17149f78c0ee6d2b3a67da8a140effd888f7b0c388"
+    },
+    {
+      "archivo": "07_PLAN_PRUEBAS.md",
+      "bytes": 3193,
+      "sha256": "28c0e06f2e6cd6a7b8e4c053120f9434ea0629ba1699174f3e5e6660a1df900e"
+    },
+    {
+      "archivo": "08_PROTOCOLO_MULTIAGENTE.md",
+      "bytes": 3076,
+      "sha256": "2324808f3c6f5ac9059c2dead46d71f9cf0cd4354bf83018d618a64bedb04aaa"
+    },
+    {
+      "archivo": "09_AUDITORIA_CONSOLIDACION.md",
+      "bytes": 6246,
+      "sha256": "19319789790f59be94f7501ee35fe43c57ccab6aa3927bc2aa2e6dcf70e22079"
+    },
+    {
+      "archivo": "10_REGISTRO_DECISIONES.md",
+      "bytes": 16379,
+      "sha256": "54dd9d0d4bab54bd42cbfaa7c8c856550338f67e7f4dba01c862322c6e1d8400"
+    },
+    {
+      "archivo": "11_PROMPTS_ESPECIALIZADOS.md",
+      "bytes": 3023,
+      "sha256": "d996b702b2932f26655052a146b7e65c9c8f340432b0a039a28d380ccf59f8b4"
+    },
+    {
+      "archivo": "12_PLANTILLA_PROMPT_TAREA.md",
+      "bytes": 1745,
+      "sha256": "d784b3cd1042e46107612a22bf006ef4d82d46b0316f730e1c75cf9b30d45bbd"
+    },
+    {
+      "archivo": "13_MODELO_CONCEPTUAL.md",
+      "bytes": 2844,
+      "sha256": "683b6f61dc2317fcb4b1aff34ea63c44133ec164e1d5e44ce69bc8211ef58469"
+    },
+    {
+      "archivo": "CLAUDE.md",
+      "bytes": 5204,
+      "sha256": "0d54f33d11579ebf346edf41f78d3b6a0af6ffbaa20c90acb8a2ace1f332c835"
+    }
+  ]
+}
