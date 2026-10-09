@@ -105,7 +105,7 @@ Defectos encontrados y corregidos durante la demostración:
 | Almacén | `npm.cmd test` (5 pruebas) | Migración versionada, `CHECK` contra negativos con reversión completa, `requestId` único, auditoría | OK |
 | Carga con recursos (umbral: 4 clientes, 15 min) | `npm.cmd run soak` | 173 comprobaciones de estado completo (posiciones, inventarios, nodos, comunidad), 0 divergencias; 23 302 movimientos, 310 recolecciones y 27 depósitos enviados; **auditoría: recolectado = en inventarios (madera 120, piedra 80, fibra 100)** | OK |
 | Demostración | Navegador integrado con servidor reiniciado bruscamente | Recolección, aviso de ritmo, depósito solo con teclado (el foco se conserva), vista desde otra pestaña, «Desconectado» con botón durante la caída y todo intacto al volver; auditoría 3 = 3 | OK |
-| Prueba del usuario | Persona responsable | — | PENDIENTE |
+| Prueba del usuario | Persona responsable, con dos jugadores en Edge | Recolección de madera y piedra, depósito en la comunidad y lista de jugadores correctos (captura del 2026-10-09) | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 51 de 51.
 

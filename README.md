@@ -62,6 +62,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1 y M2 cerradas; M3 hecha en la rama `m3-recursos`: recolección, inventarios individual y de comunidad, regeneración y persistencia en SQLite. Pendiente: tu prueba y la fusión. Después, el plan de M4 (comunidad, proyecto y tareas).
+M1, M2 y M3 cerradas: mundo compartido por 2–4 jugadores en red local, con recolección, inventarios individual y de comunidad, regeneración y persistencia en SQLite. Siguiente: aprobar el plan de M4 (comunidad, proyecto y tareas).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.
