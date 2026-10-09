@@ -3,6 +3,9 @@
 
 export const ROOM_NAME = "world";
 
+/** Jugadores simultáneos en el mundo del MVP (Q134). */
+export const MAX_PLAYERS = 4;
+
 export const MESSAGE = {
   move: "move",
   rejected: "rejected",
@@ -38,6 +41,14 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
 };
 
 export const NAME_PATTERN = /^[\p{L}\p{N}_-]{1,20}$/u;
+
+/** Motivos de rechazo al entrar, traducidos para la persona. */
+export function joinErrorText(message: string): string {
+  if (message.includes("nombre-en-uso")) return "Ese nombre ya está en uso en este mundo. Elige otro.";
+  if (message.includes("nombre-invalido")) return "Nombre no válido: usa de 1 a 20 letras, números, guion o guion bajo.";
+  if (message.includes("no rooms found")) return `El mundo está lleno (máximo ${MAX_PLAYERS} jugadores). Inténtalo más tarde.`;
+  return `No se pudo entrar en el mundo (${message}).`;
+}
 
 export function isValidName(name: unknown): name is string {
   return typeof name === "string" && NAME_PATTERN.test(name);

@@ -124,6 +124,23 @@ test("si el plazo de reconexión vence, el jugador desaparece", async () => {
   }
 });
 
+test("recuperar el personaje libera la plaza reservada de la sesión antigua", async () => {
+  const server = await startServer({ WORLD_CONFIG: fixture("small-world.json") });
+  try {
+    const a = await joinWorld(server.url, "a");
+    const b = await joinWorld(server.url, "b");
+    const c = await joinWorld(server.url, "c");
+    await a.room.leave(false);                       // corte: su plaza queda reservada
+    await waitFor(() => snapshot(b).includes("a@0,0(desc)"), 2000);
+    const a2 = await joinWorld(server.url, "a");     // recupera el personaje
+    const d = await joinWorld(server.url, "d");      // cuarta plaza: debe estar libre
+    await waitFor(() => snapshot(b) === "a@0,0 b@0,0 c@0,0 d@0,0", 1000);
+    for (const p of [a2, b, c, d]) await p.room.leave();
+  } finally {
+    await server.kill();
+  }
+});
+
 test("entrar con el mismo nombre durante el plazo (recarga de página) recupera el personaje", async () => {
   const server = await startServer({ WORLD_CONFIG: fixture("small-world.json") });
   try {
