@@ -2,10 +2,11 @@ import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   createWorldIndex, MESSAGE, REJECT_TEXT,
-  type CollectMessage, type MoveMessage, type Player, type RejectedMessage, type ResourceShape, type TransferMessage,
-  type WorldConfig, type WorldIndex, type WorldState,
+  type CollectMessage, type ContributeMessage, type ContributionSource, type MoveMessage, type NewsMessage, type Player,
+  type RejectedMessage, type ResourceShape, type TransferMessage, type WorldConfig, type WorldIndex, type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
+import { createProjectPanel, type ProjectPanel } from "./project-panel.ts";
 
 export type WorldRoom = Room<unknown, WorldState>;
 
@@ -54,6 +55,8 @@ function newRequestId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const isTextInput = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+
 const isFormControl = (target: EventTarget | null) =>
   target instanceof HTMLButtonElement || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
@@ -72,6 +75,9 @@ export class WorldScene extends Phaser.Scene {
   private nodeViews = new Map<string, NodeViewObjects>();
   /** Inventario propio anterior, para anunciar lo recogido y lo depositado. */
   private lastInventory = new Map<string, number>();
+  /** Última acción propia que reduce el inventario: decide cómo se anuncia la bajada. */
+  private lastOwnAction: "deposit" | "contribute" | undefined;
+  private projectPanel: ProjectPanel | undefined;
   private keys = new Map<Direction, Phaser.Input.Keyboard.Key[]>();
   private lastSentAt = -Infinity;
   /** Último toque recibido; se envía en cuanto el ritmo lo permite aunque la tecla ya se haya soltado. */
@@ -107,7 +113,16 @@ export class WorldScene extends Phaser.Scene {
       this.refreshPlayerList();
     });
 
-    // Nodos e inventarios se refrescan con cada lote de cambios del servidor.
+    // Panel del proyecto (el primero de la configuración en el MVP).
+    const project = this.config.projects[0];
+    if (project) {
+      this.projectPanel = createProjectPanel(this.config, project, (projectId, taskId, from, amount) => this.contribute(projectId, taskId, from, amount));
+      // Las novedades se piden ahora que el manejador está registrado (RF-013).
+      this.room.onMessage(MESSAGE.news, (news: NewsMessage) => this.projectPanel?.showNews(news));
+      this.room.send(MESSAGE.news, {});
+    }
+
+    // Nodos, inventarios y proyecto se refrescan con cada lote de cambios del servidor.
     this.room.onStateChange(() => this.refreshResources());
     this.refreshResources();
 
@@ -128,6 +143,17 @@ export class WorldScene extends Phaser.Scene {
       if ((event.code === "Space" || event.code === "KeyE") && !isFormControl(event.target)) {
         event.preventDefault();
         if (!event.repeat) this.sendCollect();
+      }
+      // Cambio de vista (RF-010): P al proyecto, M al mapa; el juego sigue y nada se pierde.
+      if (event.code === "KeyP" && !isTextInput(event.target)) {
+        event.preventDefault();
+        this.projectPanel?.focus();
+      }
+      if (event.code === "KeyM" && !isTextInput(event.target)) {
+        event.preventDefault();
+        const map = document.getElementById("game");
+        map?.scrollIntoView({ block: "nearest" });
+        map?.focus();
       }
     });
   }
@@ -158,8 +184,15 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private deposit(resource: string, amount: number) {
+    this.lastOwnAction = "deposit";
     const message: TransferMessage = { requestId: newRequestId(), resource, amount, to: "community" };
     this.room.send(MESSAGE.transfer, message);
+  }
+
+  private contribute(projectId: string, taskId: string, from: ContributionSource, amount: number) {
+    if (from === "player") this.lastOwnAction = "contribute";
+    const message: ContributeMessage = { requestId: newRequestId(), projectId, taskId, from, amount };
+    this.room.send(MESSAGE.contribute, message);
   }
 
   private refreshResources() {
@@ -177,16 +210,28 @@ export class WorldScene extends Phaser.Scene {
     for (const r of this.config.resources) {
       const now = me.inventory.get(r.id) ?? 0;
       const before = this.lastInventory.get(r.id);
-      if (before !== undefined && now !== before) {
-        this.hud.announceAction(now > before
-          ? `Has recogido ${now - before} de ${names.get(r.id)} (${now}/${this.config.inventoryMax}).`
-          : `Has depositado ${before - now} de ${names.get(r.id)} en la comunidad.`);
+      if (before !== undefined && now > before) {
+        this.hud.announceAction(`Has recogido ${now - before} de ${names.get(r.id)} (${now}/${this.config.inventoryMax}).`);
+      } else if (before !== undefined && now < before && this.lastOwnAction === "deposit") {
+        this.hud.announceAction(`Has depositado ${before - now} de ${names.get(r.id)} en la comunidad.`);
       }
+      // Los aportes al proyecto los anuncia el panel del proyecto.
       this.lastInventory.set(r.id, now);
     }
     const row = (amount: (id: string) => number) => this.config.resources.map((r) => ({ id: r.id, name: r.name, amount: amount(r.id) }));
     this.hud.setInventory(row((id) => me.inventory.get(id) ?? 0), this.config.inventoryMax, (resource, amount) => this.deposit(resource, amount));
-    this.hud.setCommunity(row((id) => state.community.get(id) ?? 0));
+    this.hud.setCommunity(row((id) => state.community.get(id) ?? 0), state.communityName);
+
+    const project = this.config.projects[0];
+    const projectState = project && state.projects.get(project.id);
+    if (this.projectPanel && projectState) {
+      this.projectPanel.render({
+        state: projectState,
+        held: (resource) => me.inventory.get(resource) ?? 0,
+        community: (resource) => state.community.get(resource) ?? 0,
+        ownName: me.name,
+      });
+    }
   }
 
   private refreshPlayerList() {

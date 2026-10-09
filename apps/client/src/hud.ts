@@ -31,6 +31,7 @@ export function createHud(maxPlayers: number) {
   const actions = byId("acciones");
   const inventory = byId<HTMLTableSectionElement>("inventario");
   const community = byId<HTMLTableSectionElement>("comunidad");
+  const communityTitle = byId("comunidad-titulo");
   let clearTimer: number | undefined;
 
   return {
@@ -104,7 +105,8 @@ export function createHud(maxPlayers: number) {
         for (const button of tr.querySelectorAll("button")) button.setAttribute("aria-disabled", String(row.amount === 0));
       }
     },
-    setCommunity(rows: ResourceRow[]) {
+    setCommunity(rows: ResourceRow[], communityName?: string) {
+      if (communityName) communityTitle.textContent = `Almacén: ${communityName}`;
       community.replaceChildren(...rows.map((row) => {
         const tr = document.createElement("tr");
         const name = document.createElement("th");
