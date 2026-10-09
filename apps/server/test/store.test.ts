@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { COMMUNITY, openStore, playerScope, SCHEMA_VERSION } from "../src/store.ts";
+import { existsSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { COMMUNITY, MIGRATIONS, openStore, playerScope, projectScope, SCHEMA_VERSION } from "../src/store.ts";
 
 const tempDb = () => join(mkdtempSync(join(tmpdir(), "juego-store-")), "test.db");
 
@@ -25,6 +27,47 @@ test("la migración crea el esquema y los datos sobreviven a reabrir la base", (
   assert.deepEqual(again.getInventory(COMMUNITY), { piedra: 1 });
   assert.deepEqual(again.getPlayer("ana"), { x: 4, y: 5 });
   again.close();
+});
+
+test("migración v1 → v2: conserva los datos y deja una copia de seguridad", () => {
+  const path = tempDb();
+  const v1 = new DatabaseSync(path);
+  v1.exec(MIGRATIONS[1]!);
+  v1.exec("PRAGMA user_version = 1");
+  v1.exec("INSERT INTO inventory VALUES ('player', 'ana', 'madera', 4)");
+  v1.exec("INSERT INTO player (name, x, y, updated_at) VALUES ('ana', 3, 2, 1)");
+  v1.close();
+
+  const store = openStore(path);
+  assert.equal(store.schemaVersion(), 2);
+  assert.deepEqual(store.getInventory(playerScope("ana")), { madera: 4 });
+  assert.deepEqual(store.getPlayer("ana"), { x: 3, y: 2 });
+  assert.equal(store.getLastSeen("ana"), null);
+  store.setLastSeen("ana", 1234);
+  assert.equal(store.getLastSeen("ana"), 1234);
+  store.close();
+
+  assert.ok(existsSync(`${path}.v1.bak`), "copia de seguridad previa a la migración");
+  const backup = new DatabaseSync(`${path}.v1.bak`, { readOnly: true });
+  assert.equal(Number((backup.prepare("PRAGMA user_version").get() as { user_version: number }).user_version), 1);
+  assert.equal(Number((backup.prepare("SELECT amount FROM inventory").get() as { amount: number }).amount), 4);
+  backup.close();
+});
+
+test("consultas de aportes: totales por jugador, recientes y novedades desde una fecha", () => {
+  const store = openStore(tempDb());
+  const contribute = (name: string, resource: string, amount: number) => store.transaction(() => {
+    store.addAmount(projectScope("taller"), resource, amount);
+    store.event("contribute", name, `${name}-${resource}-${amount}`, { project: "taller", task: resource, resource, amount, from: "player" });
+  });
+  contribute("ana", "madera", 3);
+  contribute("bea", "madera", 2);
+  contribute("ana", "piedra", 1);
+  assert.deepEqual(store.contributionTotals("taller"), { ana: { madera: 3, piedra: 1 }, bea: { madera: 2 } });
+  assert.deepEqual(store.recentContributions("taller", 2).map((r) => `${r.name}:${r.resource}:${r.amount}`), ["ana:piedra:1", "bea:madera:2"]);
+  assert.deepEqual(store.contributionsSince(0, "ana", 10).map((r) => `${r.name}:${r.resource}:${r.amount}`), ["bea:madera:2"]);
+  assert.deepEqual(store.getInventory(projectScope("taller")), { madera: 5, piedra: 1 });
+  store.close();
 });
 
 test("un saldo negativo es imposible y deshace toda la transacción", () => {
