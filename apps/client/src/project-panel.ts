@@ -1,4 +1,8 @@
-import type { ContributionSource, NewsMessage, ProjectDef, ProjectState, WorldConfig } from "@juego/shared";
+import {
+  isNextTo,
+  type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
+  type StructureState, type WorldConfig,
+} from "@juego/shared";
 
 // Panel del proyecto (RF-006, RF-010, RF-013), fuera del canvas y accesible: barras <progress>
 // con texto, botones que conservan el foco (aria-disabled) y avisos aria-live.
@@ -15,13 +19,48 @@ export type ContributeHandler = (projectId: string, taskId: string, from: Contri
 
 export interface PanelInput {
   state: ProjectState;
+  structure: StructureState | undefined;
+  mission: MissionState | undefined;
+  position: Position;
   /** Inventario propio y almacén de la comunidad, por recurso. */
   held: (resource: string) => number;
   community: (resource: string) => number;
   ownName: string;
 }
 
-export function createProjectPanel(config: WorldConfig, project: ProjectDef, onContribute: ContributeHandler) {
+export interface PanelActions {
+  contribute: ContributeHandler;
+  build: (structureId: string) => void;
+  craft: (recipeId: string) => void;
+}
+
+export function createProjectPanel(config: WorldConfig, project: ProjectDef, actions: PanelActions) {
+  const onContribute = actions.contribute;
+  const structureDef = config.structures.find((s) => s.projectId === project.id);
+  const recipeDef = structureDef && config.recipes.find((r) => r.structureId === structureDef.id);
+  const missionDef = config.missions[0];
+  const itemName = new Map(config.items.map((i) => [i.id, i.name.toLowerCase()]));
+  const buildBox = byId("construir");
+  const buildButton = byId<HTMLButtonElement>("construir-boton");
+  const buildHelp = byId("construir-ayuda");
+  const workshop = byId("taller");
+  const workshopBuilt = byId("taller-construido");
+  const recipeText = byId("taller-receta");
+  const craftButton = byId<HTMLButtonElement>("taller-fabricar");
+  const craftHelp = byId("taller-ayuda");
+  const missionText = byId("mision-estado");
+  if (structureDef) {
+    buildButton.textContent = `Construir: ${structureDef.name}`;
+    buildButton.onclick = () => { if (buildButton.getAttribute("aria-disabled") !== "true") actions.build(structureDef.id); };
+    byId("taller-titulo").textContent = structureDef.name;
+  }
+  if (recipeDef) {
+    craftButton.textContent = `Fabricar: ${recipeDef.name}`;
+    craftButton.onclick = () => { if (craftButton.getAttribute("aria-disabled") !== "true") actions.craft(recipeDef.id); };
+  }
+  let lastBuilt: boolean | undefined;
+  let lastMission: string | undefined;
+  let lastTools: number | undefined;
   const heading = byId("proyecto-titulo");
   const status = byId("proyecto-estado");
   const tasks = byId<HTMLUListElement>("proyecto-tareas");
@@ -85,7 +124,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, onC
       heading.focus();
     },
 
-    render({ state, held, community, ownName }: PanelInput) {
+    render({ state, held, community, ownName, structure, mission, position }: PanelInput) {
       for (const task of project.tasks) {
         const row = rows.get(task.id)!;
         const done = state.progress.get(task.resource) ?? 0;
@@ -106,11 +145,56 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, onC
       }
 
       const ready = state.status === "listo";
-      status.textContent = ready
-        ? "Listo para construir: todas las tareas están completas. La construcción llegará en la siguiente etapa."
-        : "En curso.";
+      const built = Boolean(structure?.built);
+      status.textContent = built
+        ? `Construido: ${structureDef?.name ?? ""} en pie.`
+        : ready ? "Listo para construir: todas las tareas están completas." : "En curso.";
       if (lastStatus && lastStatus !== state.status && ready) announcer.textContent = `¡Proyecto ${project.name} listo para construir!`;
       lastStatus = state.status;
+
+      // Construir (Q156): visible con el proyecto listo; el servidor decide.
+      if (structureDef) {
+        buildBox.hidden = !ready || built;
+        const near = isNextTo(position, structureDef);
+        buildButton.setAttribute("aria-disabled", String(!near));
+        buildHelp.textContent = near
+          ? "Estás junto al solar. Asegúrate de que no haya nadie dentro."
+          : `Acércate al solar (contorno discontinuo en la aldea, casillas ${structureDef.x}–${structureDef.x + structureDef.width - 1}, ${structureDef.y}–${structureDef.y + structureDef.height - 1}).`;
+      }
+      if (lastBuilt === false && built) {
+        announcer.textContent = `¡${structure!.builtBy} ha construido el ${structureDef?.name.toLowerCase() ?? "edificio"}!`;
+        // El botón de construir desaparece: si tenía el foco, pasa a la sección del taller.
+        if (document.activeElement === buildButton || document.activeElement === document.body) {
+          workshop.hidden = false;
+          byId("taller-titulo").focus();
+        }
+      }
+      lastBuilt = built;
+
+      // Taller y receta (Q157).
+      workshop.hidden = !built;
+      if (built && structureDef && recipeDef && structure) {
+        workshopBuilt.textContent = `Construido por ${structure.builtBy} a las ${time(structure.builtAt)}.`;
+        const parts = Object.entries(recipeDef.inputs).map(([r, n]) => `${n} de ${resourceName.get(r) ?? r} (hay ${community(r)})`);
+        recipeText.textContent = `Receta: ${parts.join(", ")} del almacén de la comunidad → ${recipeDef.output.amount} ${itemName.get(recipeDef.output.item) ?? recipeDef.output.item}.`;
+        const enough = Object.entries(recipeDef.inputs).every(([r, n]) => community(r) >= n);
+        const near = isNextTo(position, structureDef);
+        craftButton.setAttribute("aria-disabled", String(!enough || !near));
+        craftHelp.textContent = !near ? `Acércate al ${structureDef.name.toLowerCase()} para fabricar.`
+          : enough ? "Todo listo para fabricar." : "Faltan materiales en el almacén de la comunidad: depositad lo necesario.";
+        const tools = community(recipeDef.output.item);
+        if (lastTools !== undefined && tools > lastTools) announcer.textContent = `Se ha fabricado ${tools - lastTools} ${itemName.get(recipeDef.output.item) ?? ""}.`;
+        lastTools = tools;
+      }
+
+      // Misión (Q158).
+      if (missionDef && mission) {
+        missionText.textContent = mission.status === "completada"
+          ? `${missionDef.name}: completada por ${mission.completedBy} a las ${time(mission.completedAt)}. ¡Enhorabuena a toda la comunidad!`
+          : `${missionDef.name}: pendiente. ${missionDef.description}`;
+        if (lastMission === "pendiente" && mission.status === "completada") announcer.textContent = `¡Misión ${missionDef.name} completada por ${mission.completedBy}!`;
+        lastMission = mission.status;
+      }
 
       contributors.replaceChildren(...[...state.contributors.entries()]
         .sort(([a], [b]) => a.localeCompare(b))

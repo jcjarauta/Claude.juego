@@ -33,7 +33,7 @@ export const ContributorTotals = schema({
 export type ContributorTotals = SchemaType<typeof ContributorTotals>;
 
 export const ProjectState = schema({
-  /** "en-curso" | "listo" (todas las tareas completas; construir es M5). */
+  /** "en-curso" | "listo" (todas las tareas completas) | "construido" (M5). */
   status: t.string(),
   /** Aportado por recurso (= progreso de la tarea de ese recurso). */
   progress: t.map("uint16"),
@@ -44,6 +44,21 @@ export const ProjectState = schema({
 }, "ProjectState");
 export type ProjectState = SchemaType<typeof ProjectState>;
 
+export const StructureState = schema({
+  built: t.boolean(),
+  builtBy: t.string(),
+  builtAt: t.float64(),
+}, "StructureState");
+export type StructureState = SchemaType<typeof StructureState>;
+
+export const MissionState = schema({
+  /** "pendiente" | "completada" */
+  status: t.string(),
+  completedBy: t.string(),
+  completedAt: t.float64(),
+}, "MissionState");
+export type MissionState = SchemaType<typeof MissionState>;
+
 export const WorldState = schema({
   players: t.map(Player),
   /** Unidades disponibles por id de nodo. */
@@ -53,5 +68,7 @@ export const WorldState = schema({
   communityName: t.string(),
   /** Proyectos por id. */
   projects: t.map(ProjectState),
+  structures: t.map(StructureState),
+  missions: t.map(MissionState),
 }, "WorldState");
 export type WorldState = SchemaType<typeof WorldState>;

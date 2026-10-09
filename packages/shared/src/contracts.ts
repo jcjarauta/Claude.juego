@@ -12,6 +12,8 @@ export const MESSAGE = {
   transfer: "transfer",
   contribute: "contribute",
   news: "news",
+  build: "build",
+  craft: "craft",
   rejected: "rejected",
 } as const;
 
@@ -73,6 +75,16 @@ export interface NewsMessage {
   items: NewsItem[];
 }
 
+export interface BuildMessage {
+  requestId: string;
+  structureId: string;
+}
+
+export interface CraftMessage {
+  requestId: string;
+  recipeId: string;
+}
+
 export type RejectReason =
   | "movimiento-invalido"
   | "movimiento-demasiado-rapido"
@@ -88,7 +100,16 @@ export type RejectReason =
   | "destino-no-permitido"
   | "tarea-desconocida"
   | "tarea-completa"
-  | "origen-no-permitido";
+  | "origen-no-permitido"
+  | "estructura-desconocida"
+  | "receta-desconocida"
+  | "proyecto-sin-terminar"
+  | "ya-construido"
+  | "lejos-del-solar"
+  | "solar-ocupado"
+  | "taller-sin-construir"
+  | "lejos-del-taller"
+  | "faltan-materiales";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -110,6 +131,15 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "tarea-desconocida": "Esa tarea no existe.",
   "tarea-completa": "Esa tarea ya está completa.",
   "origen-no-permitido": "No se puede aportar desde ahí.",
+  "estructura-desconocida": "Esa construcción no existe.",
+  "receta-desconocida": "Esa receta no existe.",
+  "proyecto-sin-terminar": "Antes hay que completar todas las tareas del proyecto.",
+  "ya-construido": "Ya está construido.",
+  "lejos-del-solar": "Acércate al solar del taller para construir.",
+  "solar-ocupado": "Hay alguien dentro del solar; que salga antes de construir.",
+  "taller-sin-construir": "Primero hay que construir el taller.",
+  "lejos-del-taller": "Acércate al taller para fabricar.",
+  "faltan-materiales": "Faltan materiales en el almacén de la comunidad.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

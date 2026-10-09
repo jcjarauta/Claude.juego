@@ -62,6 +62,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M4 cerradas: mundo compartido por 2–4 jugadores en red local, con recolección, inventarios, persistencia en SQLite y el proyecto comunitario «Construir taller» con aportes y novedades asíncronas. Siguiente: aprobar el plan de M5 (taller, herramienta y misión).
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. Siguiente: M6 (endurecimiento), con una posible etapa previa de núcleo de proyectos.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

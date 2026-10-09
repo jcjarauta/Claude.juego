@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -58,6 +58,20 @@ export const MIGRATIONS: Record<number, string> = {
     ALTER TABLE player ADD COLUMN last_seen_at INTEGER;
     CREATE INDEX event_type_at ON event (type, at);
   `,
+  // M5: estructuras construidas y misiones completadas. La clave primaria impide construir
+  // o completar dos veces aunque lleguen dos órdenes a la vez.
+  3: `
+    CREATE TABLE structure (
+      id TEXT PRIMARY KEY,
+      built_at INTEGER NOT NULL,
+      built_by TEXT NOT NULL
+    );
+    CREATE TABLE mission (
+      id TEXT PRIMARY KEY,
+      completed_at INTEGER NOT NULL,
+      completed_by TEXT NOT NULL
+    );
+  `,
 };
 
 export function openStore(path: string) {
@@ -103,6 +117,16 @@ export function openStore(path: string) {
     inventoryTotals: db.prepare("SELECT resource, SUM(amount) AS total FROM inventory GROUP BY resource"),
     collectTotals: db.prepare(`SELECT json_extract(data, '$.resource') AS resource, COUNT(*) AS total
       FROM event WHERE type = 'collect' GROUP BY resource`),
+    consumedTotals: db.prepare(`SELECT j.key AS resource, SUM(j.value) AS total
+      FROM event, json_each(event.data, '$.consumed') AS j WHERE event.type IN ('build', 'craft') GROUP BY j.key`),
+    producedTotals: db.prepare(`SELECT j.key AS resource, SUM(j.value) AS total
+      FROM event, json_each(event.data, '$.produced') AS j WHERE event.type = 'craft' GROUP BY j.key`),
+    contributedAmount: db.prepare(`SELECT COALESCE(SUM(json_extract(data, '$.amount')), 0) AS total FROM event
+      WHERE type = 'contribute' AND json_extract(data, '$.project') = ? AND json_extract(data, '$.resource') = ?`),
+    getStructures: db.prepare("SELECT id, built_at AS builtAt, built_by AS builtBy FROM structure"),
+    addStructure: db.prepare("INSERT INTO structure (id, built_at, built_by) VALUES (?, ?, ?)"),
+    getMissions: db.prepare("SELECT id, completed_at AS completedAt, completed_by AS completedBy FROM mission"),
+    completeMission: db.prepare("INSERT INTO mission (id, completed_at, completed_by) VALUES (?, ?, ?)"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
     getLastSeen: db.prepare("SELECT last_seen_at AS lastSeenAt FROM player WHERE name = ?"),
     contributionTotals: db.prepare(`SELECT actor AS name, json_extract(data, '$.resource') AS resource, SUM(json_extract(data, '$.amount')) AS total
@@ -165,10 +189,35 @@ export function openStore(path: string) {
     event(type: string, actor: string | null, requestId: string | null, data: unknown) {
       q.addEvent.run(Date.now(), type, actor, requestId, JSON.stringify(data ?? null));
     },
-    /** Auditoría de conservación: lo recolectado según eventos frente a lo que hay en inventarios. */
+    /**
+     * Auditoría de conservación. Para cada recurso u objeto debe cumplirse:
+     * recolectado + fabricado = en inventarios + consumido (al construir y fabricar).
+     */
     audit() {
       const toMap = (rows: unknown[]) => Object.fromEntries((rows as { resource: string; total: number }[]).map((r) => [r.resource, Number(r.total)]));
-      return { inInventories: toMap(q.inventoryTotals.all()), collected: toMap(q.collectTotals.all()) };
+      const inInventories = toMap(q.inventoryTotals.all());
+      const collected = toMap(q.collectTotals.all());
+      const consumed = toMap(q.consumedTotals.all());
+      const produced = toMap(q.producedTotals.all());
+      const keys = new Set([...Object.keys(inInventories), ...Object.keys(collected), ...Object.keys(consumed), ...Object.keys(produced)]);
+      const balanced = [...keys].every((k) => (collected[k] ?? 0) + (produced[k] ?? 0) === (inInventories[k] ?? 0) + (consumed[k] ?? 0));
+      return { inInventories, collected, consumed, produced, balanced };
+    },
+    /** Total aportado a un proyecto en un recurso según el registro (no se consume al construir). */
+    contributedAmount(projectId: string, resource: string): number {
+      return Number((q.contributedAmount.get(projectId, resource) as { total: number }).total);
+    },
+    getStructures(): { id: string; builtAt: number; builtBy: string }[] {
+      return (q.getStructures.all() as { id: string; builtAt: number; builtBy: string }[]).map((r) => ({ id: r.id, builtAt: Number(r.builtAt), builtBy: r.builtBy }));
+    },
+    addStructure(id: string, by: string, at: number) {
+      q.addStructure.run(id, at, by);
+    },
+    getMissions(): { id: string; completedAt: number; completedBy: string }[] {
+      return (q.getMissions.all() as { id: string; completedAt: number; completedBy: string }[]).map((r) => ({ id: r.id, completedAt: Number(r.completedAt), completedBy: r.completedBy }));
+    },
+    completeMission(id: string, by: string, at: number) {
+      q.completeMission.run(id, at, by);
     },
     /** Última salida del jugador (ms), o null si nunca ha salido. */
     getLastSeen(name: string): number | null {

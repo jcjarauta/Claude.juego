@@ -42,6 +42,51 @@
       ]
     }
   ],
+  "structures": [
+    {
+      "id": "taller",
+      "name": "Taller",
+      "projectId": "construir-taller",
+      "x": 2,
+      "y": 1,
+      "width": 1,
+      "height": 1,
+      "color": "#a0522d"
+    }
+  ],
+  "items": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta",
+      "structureId": "taller",
+      "inputs": {
+        "madera": 1,
+        "piedra": 1
+      },
+      "output": {
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
+  "missions": [
+    {
+      "id": "primera-herramienta",
+      "name": "Primera herramienta",
+      "description": "Prueba.",
+      "objective": {
+        "kind": "item-in-community",
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
   "resources": [
     {
       "id": "madera",

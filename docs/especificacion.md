@@ -71,8 +71,9 @@ Valores iniciales para implementar y equilibrar; se ajustan con pruebas de juego
 | Inventario individual | Máximo 10 unidades por recurso (obliga a aportar y coordinarse) |
 | Transferencias | Individual → comunidad; individual o comunidad → proyecto; nunca de vuelta. Implementado: individual → comunidad (M3) e individual o comunidad → proyecto (M4), con recorte a lo que falta (Q153) |
 | Proyecto «Construir taller» | Tareas: aportar 20 madera, 15 piedra y 5 fibra; al completarlas, cualquier miembro puede ordenar la construcción |
-| Herramienta | Receta en el taller: 3 madera + 2 piedra + 2 fibra del inventario de la comunidad |
-| Misión «Primera herramienta» | Se completa al fabricar la herramienta y depositarla en el inventario de la comunidad |
+| Taller | Solar 3×2 en (17,7)–(19,8) de la aldea; se construye junto al solar y libre de jugadores (Q156), consume los materiales del proyecto y bloquea el paso |
+| Herramienta | Receta en el taller: 3 madera + 2 piedra + 2 fibra del inventario de la comunidad (Q157) |
+| Misión «Primera herramienta» | Se completa al fabricar la herramienta, que queda en el inventario de la comunidad; persiste con autor y hora (Q158) |
 | Umbrales técnicos | Ver `docs/pruebas.md` §3 |
 
 ## 4. Modelo conceptual
@@ -93,8 +94,10 @@ Valores iniciales para implementar y equilibrar; se ajustan con pruebas de juego
 | Reloj del mundo | `world_id` | Tiempo de mundo del servidor; dirige la regeneración (RF-014) |
 | Inventario | `inventory_id` | Saldo por recurso; ámbito individual, comunidad o proyecto |
 | Receta | `recipe_id` | Entradas, inventario de origen y producto (en MVP: la herramienta) |
-| Construcción | `structure_id` | Taller construido y sus condiciones |
-| Misión | `mission_id` | Objetivo, estado y resultado. Futuro: proyecto configurable (Q144) |
+| Construcción | `structure_id` | Taller construido y sus condiciones (implementado en M5: tabla `structure`) |
+| Objeto | `item_id` | Producto fabricado (herramienta); distinto de los recursos recolectables |
+| Receta | `recipe_id` | Entradas del almacén común y producto (implementado en M5) |
+| Misión | `mission_id` | Objetivo (configurable, Q144), estado y resultado; implementado en M5 (tabla `mission`) |
 | Evento | `event_id` | Tipo, actor, ámbito, hora de servidor, correlación y resultado |
 
 Todos los nombres son **PROPUESTA**. No existen en código verificado.

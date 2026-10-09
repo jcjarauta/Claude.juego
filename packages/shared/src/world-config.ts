@@ -46,6 +46,41 @@ export interface ProjectDef {
   tasks: TaskDef[];
 }
 
+/** Estructura que se levanta al completar un proyecto (M5). */
+export interface StructureDef {
+  id: string;
+  name: string;
+  projectId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+
+/** Objeto fabricado (Q157): no se recolecta; vive en el almacén de la comunidad. */
+export interface ItemDef {
+  id: string;
+  name: string;
+}
+
+/** Receta: consume recursos del almacén común y deja el producto en él. */
+export interface RecipeDef {
+  id: string;
+  name: string;
+  structureId: string;
+  inputs: Record<string, number>;
+  output: { item: string; amount: number };
+}
+
+export interface MissionDef {
+  id: string;
+  name: string;
+  description: string;
+  /** Único tipo del MVP; otros llegarán como configuración (Q144). */
+  objective: { kind: "item-in-community"; item: string; amount: number };
+}
+
 export interface WorldConfig {
   map: { width: number; height: number; tileSize: number; defaultZoneName: string; defaultColor: string };
   spawn: { x: number; y: number };
@@ -60,6 +95,10 @@ export interface WorldConfig {
   session: { reconnectSeconds: number };
   community: { id: string; name: string };
   projects: ProjectDef[];
+  structures: StructureDef[];
+  items: ItemDef[];
+  recipes: RecipeDef[];
+  missions: MissionDef[];
   resources: ResourceDef[];
   zones: ZoneDef[];
   nodes: NodeDef[];
@@ -81,7 +120,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, projects, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -165,6 +204,67 @@ export function validateWorldConfig(input: unknown): ValidationResult {
       else taskResources.add(t.resource);
       if (!isInt(t.required, 1, 10000)) fail(`${where}: required debe ser un entero 1–10000`);
     });
+  });
+
+  const structureIds = new Set<string>();
+  if (!Array.isArray(structures)) fail("structures debe ser una lista");
+  else structures.forEach((st, i) => {
+    if (!isObject(st) || typeof st.id !== "string" || !ID.test(st.id)) return fail(`structures[${i}]: id inválido`);
+    if (structureIds.has(st.id)) fail(`structures: id duplicado "${st.id}"`);
+    structureIds.add(st.id);
+    if (typeof st.name !== "string" || !st.name) fail(`structures[${i}] "${st.id}": name obligatorio`);
+    if (typeof st.projectId !== "string" || !projectIds.has(st.projectId)) fail(`structures[${i}] "${st.id}": proyecto desconocido "${String(st.projectId)}"`);
+    if (typeof st.color !== "string" || !COLOR.test(st.color)) fail(`structures[${i}] "${st.id}": color debe ser #rrggbb`);
+    if (!isInt(st.width, 1, 20) || !isInt(st.height, 1, 20) || !inside(st.x, st.y)
+      || (st.x as number) + st.width > width || (st.y as number) + st.height > height) {
+      return fail(`structures[${i}] "${st.id}": fuera del mapa`);
+    }
+    for (let x = st.x as number; x < (st.x as number) + st.width; x++) {
+      for (let y = st.y as number; y < (st.y as number) + st.height; y++) {
+        if (nodeCells.has(`${x},${y}`)) fail(`structures[${i}] "${st.id}": la casilla ${x},${y} la ocupa un nodo`);
+        if (isObject(spawn) && spawn.x === x && spawn.y === y) fail(`structures[${i}] "${st.id}": cubre el punto de aparición`);
+      }
+    }
+  });
+
+  const itemIds = new Set<string>();
+  if (!Array.isArray(items)) fail("items debe ser una lista");
+  else items.forEach((it, i) => {
+    if (!isObject(it) || typeof it.id !== "string" || !ID.test(it.id)) return fail(`items[${i}]: id inválido`);
+    if (itemIds.has(it.id) || resourceIds.has(it.id)) fail(`items: id duplicado o igual a un recurso "${it.id}"`);
+    itemIds.add(it.id);
+    if (typeof it.name !== "string" || !it.name) fail(`items[${i}] "${it.id}": name obligatorio`);
+  });
+
+  const recipeIds = new Set<string>();
+  if (!Array.isArray(recipes)) fail("recipes debe ser una lista");
+  else recipes.forEach((r, i) => {
+    if (!isObject(r) || typeof r.id !== "string" || !ID.test(r.id)) return fail(`recipes[${i}]: id inválido`);
+    if (recipeIds.has(r.id)) fail(`recipes: id duplicado "${r.id}"`);
+    recipeIds.add(r.id);
+    if (typeof r.name !== "string" || !r.name) fail(`recipes[${i}] "${r.id}": name obligatorio`);
+    if (typeof r.structureId !== "string" || !structureIds.has(r.structureId)) fail(`recipes[${i}] "${r.id}": estructura desconocida "${String(r.structureId)}"`);
+    if (!isObject(r.inputs) || Object.keys(r.inputs).length === 0) fail(`recipes[${i}] "${r.id}": inputs obligatorio`);
+    else for (const [res, amount] of Object.entries(r.inputs)) {
+      if (!resourceIds.has(res)) fail(`recipes[${i}] "${r.id}": recurso desconocido "${res}"`);
+      if (!isInt(amount, 1, 1000)) fail(`recipes[${i}] "${r.id}": cantidad de "${res}" debe ser un entero 1–1000`);
+    }
+    if (!isObject(r.output) || typeof r.output.item !== "string" || !itemIds.has(r.output.item)) fail(`recipes[${i}] "${r.id}": objeto de salida desconocido`);
+    else if (!isInt(r.output.amount, 1, 100)) fail(`recipes[${i}] "${r.id}": output.amount debe ser un entero 1–100`);
+  });
+
+  const missionIds = new Set<string>();
+  if (!Array.isArray(missions)) fail("missions debe ser una lista");
+  else missions.forEach((m, i) => {
+    if (!isObject(m) || typeof m.id !== "string" || !ID.test(m.id)) return fail(`missions[${i}]: id inválido`);
+    if (missionIds.has(m.id)) fail(`missions: id duplicado "${m.id}"`);
+    missionIds.add(m.id);
+    if (typeof m.name !== "string" || !m.name) fail(`missions[${i}] "${m.id}": name obligatorio`);
+    if (typeof m.description !== "string") fail(`missions[${i}] "${m.id}": description debe ser texto`);
+    const o = m.objective;
+    if (!isObject(o) || o.kind !== "item-in-community" || typeof o.item !== "string" || !itemIds.has(o.item) || !isInt(o.amount, 1, 1000)) {
+      fail(`missions[${i}] "${m.id}": objective debe ser { kind: "item-in-community", item conocido, amount 1–1000 }`);
+    }
   });
 
   if (!isObject(spawn) || !inside(spawn.x, spawn.y)) fail("spawn: fuera del mapa");
