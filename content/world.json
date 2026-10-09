@@ -17,6 +17,37 @@
   "session": {
     "reconnectSeconds": 10
   },
+  "community": {
+    "id": "aldea",
+    "name": "Comunidad de la aldea"
+  },
+  "projects": [
+    {
+      "id": "construir-taller",
+      "name": "Construir taller",
+      "description": "Reunid los materiales para levantar el taller de la aldea.",
+      "tasks": [
+        {
+          "id": "madera",
+          "title": "Aportar madera",
+          "resource": "madera",
+          "required": 20
+        },
+        {
+          "id": "piedra",
+          "title": "Aportar piedra",
+          "resource": "piedra",
+          "required": 15
+        },
+        {
+          "id": "fibra",
+          "title": "Aportar fibra",
+          "resource": "fibra",
+          "required": 5
+        }
+      ]
+    }
+  ],
   "resources": [
     {
       "id": "madera",

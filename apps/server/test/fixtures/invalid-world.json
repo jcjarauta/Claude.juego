@@ -17,6 +17,11 @@
   "session": {
     "reconnectSeconds": 2
   },
+  "community": {
+    "id": "aldea",
+    "name": "Comunidad de la aldea"
+  },
+  "projects": [],
   "resources": [
     {
       "id": "madera",

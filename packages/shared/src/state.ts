@@ -15,11 +15,43 @@ export const Player = schema({
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 
+/** Un aporte reciente, para la actividad del proyecto. */
+export const Contribution = schema({
+  name: t.string(),
+  taskId: t.string(),
+  resource: t.string(),
+  amount: t.uint16(),
+  /** Hora del servidor (ms desde 1970). */
+  at: t.float64(),
+}, "Contribution");
+export type Contribution = SchemaType<typeof Contribution>;
+
+/** Totales aportados por un jugador: recurso → cantidad. */
+export const ContributorTotals = schema({
+  totals: t.map("uint16"),
+}, "ContributorTotals");
+export type ContributorTotals = SchemaType<typeof ContributorTotals>;
+
+export const ProjectState = schema({
+  /** "en-curso" | "listo" (todas las tareas completas; construir es M5). */
+  status: t.string(),
+  /** Aportado por recurso (= progreso de la tarea de ese recurso). */
+  progress: t.map("uint16"),
+  /** Quién aportó qué: nombre → totales. */
+  contributors: t.map(ContributorTotals),
+  /** Últimos aportes, del más reciente al más antiguo (máximo 10). */
+  recent: t.array(Contribution),
+}, "ProjectState");
+export type ProjectState = SchemaType<typeof ProjectState>;
+
 export const WorldState = schema({
   players: t.map(Player),
   /** Unidades disponibles por id de nodo. */
   nodes: t.map("uint16"),
   /** Inventario de la comunidad: recurso → cantidad. */
   community: t.map("uint16"),
+  communityName: t.string(),
+  /** Proyectos por id. */
+  projects: t.map(ProjectState),
 }, "WorldState");
 export type WorldState = SchemaType<typeof WorldState>;

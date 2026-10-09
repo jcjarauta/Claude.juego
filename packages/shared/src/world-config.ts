@@ -30,6 +30,22 @@ export interface NodeDef {
   max: number;
 }
 
+export interface TaskDef {
+  id: string;
+  title: string;
+  resource: string;
+  required: number;
+}
+
+/** Proyecto comunitario (Q144: los proyectos, y en el futuro las misiones, son configuración). */
+export interface ProjectDef {
+  id: string;
+  name: string;
+  description: string;
+  /** Una tarea por recurso dentro del proyecto: el progreso de la tarea es el inventario del proyecto. */
+  tasks: TaskDef[];
+}
+
 export interface WorldConfig {
   map: { width: number; height: number; tileSize: number; defaultZoneName: string; defaultColor: string };
   spawn: { x: number; y: number };
@@ -42,6 +58,8 @@ export interface WorldConfig {
   regenIntervalMs: number;
   /** Segundos que se conserva a un jugador tras un corte inesperado antes de retirarlo. */
   session: { reconnectSeconds: number };
+  community: { id: string; name: string };
+  projects: ProjectDef[];
   resources: ResourceDef[];
   zones: ZoneDef[];
   nodes: NodeDef[];
@@ -63,7 +81,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, projects, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -119,6 +137,34 @@ export function validateWorldConfig(input: unknown): ValidationResult {
     const cell = `${n.x},${n.y}`;
     if (nodeCells.has(cell)) fail(`nodes[${i}] "${n.id}": casilla ${cell} ocupada por otro nodo`);
     nodeCells.add(cell);
+  });
+
+  if (!isObject(community) || typeof community.id !== "string" || !ID.test(community.id) || typeof community.name !== "string" || !community.name) {
+    fail("community: id y name obligatorios");
+  }
+
+  const projectIds = new Set<string>();
+  if (!Array.isArray(projects)) fail("projects debe ser una lista");
+  else projects.forEach((p, i) => {
+    if (!isObject(p) || typeof p.id !== "string" || !ID.test(p.id)) return fail(`projects[${i}]: id inválido`);
+    if (projectIds.has(p.id)) fail(`projects: id duplicado "${p.id}"`);
+    projectIds.add(p.id);
+    if (typeof p.name !== "string" || !p.name) fail(`projects[${i}] "${p.id}": name obligatorio`);
+    if (typeof p.description !== "string") fail(`projects[${i}] "${p.id}": description debe ser texto`);
+    if (!Array.isArray(p.tasks) || p.tasks.length === 0) return fail(`projects[${i}] "${p.id}": tasks debe ser una lista no vacía`);
+    const taskIds = new Set<string>();
+    const taskResources = new Set<string>();
+    p.tasks.forEach((t, j) => {
+      const where = `projects[${i}].tasks[${j}]`;
+      if (!isObject(t) || typeof t.id !== "string" || !ID.test(t.id)) return fail(`${where}: id inválido`);
+      if (taskIds.has(t.id)) fail(`${where}: id duplicado "${t.id}"`);
+      taskIds.add(t.id);
+      if (typeof t.title !== "string" || !t.title) fail(`${where}: title obligatorio`);
+      if (typeof t.resource !== "string" || !resourceIds.has(t.resource)) fail(`${where}: recurso desconocido "${String(t.resource)}"`);
+      else if (taskResources.has(t.resource)) fail(`${where}: el recurso "${t.resource}" ya lo usa otra tarea del proyecto`);
+      else taskResources.add(t.resource);
+      if (!isInt(t.required, 1, 10000)) fail(`${where}: required debe ser un entero 1–10000`);
+    });
   });
 
   if (!isObject(spawn) || !inside(spawn.x, spawn.y)) fail("spawn: fuera del mapa");

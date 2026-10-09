@@ -11,6 +11,11 @@ const base = (): WorldConfig => ({
   inventoryMax: 10,
   regenIntervalMs: 120000,
   session: { reconnectSeconds: 10 },
+  community: { id: "aldea", name: "Aldea" },
+  projects: [{
+    id: "construir-taller", name: "Construir taller", description: "",
+    tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20 }],
+  }],
   resources: [{ id: "madera", name: "Madera", color: "#8d5a2b", shape: "triangle" }],
   zones: [{ id: "bosque", name: "Bosque", x: 0, y: 0, width: 5, height: 5, color: "#1f4d2b" }],
   nodes: [{ id: "arbol-1", resource: "madera", x: 3, y: 3, max: 3 }],
@@ -88,6 +93,21 @@ test("rechaza parámetros de recursos fuera de rango", () => {
   const errors = String(errorsOf(cfg));
   assert.match(errors, /inventoryMax/);
   assert.match(errors, /regenIntervalMs/);
+});
+
+test("rechaza proyectos mal definidos y una comunidad sin nombre", () => {
+  const cfg = base();
+  cfg.community.name = "";
+  cfg.projects[0]!.tasks.push({ id: "madera", title: "", resource: "madera", required: 0 });
+  cfg.projects[0]!.tasks.push({ id: "oro", title: "Oro", resource: "oro", required: 1 });
+  cfg.projects.push({ ...cfg.projects[0]!, tasks: [] });
+  const errors = String(errorsOf(cfg));
+  assert.match(errors, /community: id y name obligatorios/);
+  assert.match(errors, /id duplicado "madera"/);
+  assert.match(errors, /el recurso "madera" ya lo usa otra tarea/);
+  assert.match(errors, /required debe ser un entero/);
+  assert.match(errors, /recurso desconocido "oro"/);
+  assert.match(errors, /projects: id duplicado "construir-taller"/);
 });
 
 test("rechaza un recurso sin forma válida", () => {
