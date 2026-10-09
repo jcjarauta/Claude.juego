@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q143 (BORRADOR)
+# Registro de decisiones — Q001 a Q144 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -147,6 +147,7 @@
 | Q141 | Obsidian | Abrir `docs/` del repositorio como vault, sin sincronización (PEND-04) | VERIFICADO (decisión); MVP |
 | Q142 | Respuesta | Bloque ENGREMIAT en auditorías y cierres de tarea o fase (PEND-05) | VERIFICADO (decisión); MVP |
 | Q143 | Accesibilidad | Chrome, Edge y Firefox recientes de escritorio; todas las acciones esenciales con teclado; contraste y textos legibles | VERIFICADO (decisión); MVP |
+| Q144 | Misiones | Las misiones futuras serán **proyectos configurables** (objetivos, tareas, recursos y resultado definidos como configuración, no programados uno a uno). Relacionada con Q011 y Q025 | VERIFICADO (decisión); FUTURO (configuración por jugadores); principio en el MVP |
 
 ## Interpretaciones conservadoras
 

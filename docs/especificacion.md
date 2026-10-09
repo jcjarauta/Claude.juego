@@ -94,7 +94,7 @@ Valores iniciales para implementar y equilibrar; se ajustan con pruebas de juego
 | Inventario | `inventory_id` | Saldo por recurso; ámbito individual, comunidad o proyecto |
 | Receta | `recipe_id` | Entradas, inventario de origen y producto (en MVP: la herramienta) |
 | Construcción | `structure_id` | Taller construido y sus condiciones |
-| Misión | `mission_id` | Objetivo, estado y resultado |
+| Misión | `mission_id` | Objetivo, estado y resultado. Futuro: proyecto configurable (Q144) |
 | Evento | `event_id` | Tipo, actor, ámbito, hora de servidor, correlación y resultado |
 
 Todos los nombres son **PROPUESTA**. No existen en código verificado.
@@ -115,6 +115,8 @@ Todos los nombres son **PROPUESTA**. No existen en código verificado.
 **Taller:** comprobar condición de construcción → consumir recursos previstos → crear estructura → persistir → notificar.  
 **Misión:** constatar productos/objetivo → registrar logro → persistir → mostrar resultado.
 
+**Principio para el MVP (Q144, PROPUESTA):** el proyecto «Construir taller», la receta de la herramienta y la misión «Primera herramienta» se definen como **datos de configuración** que el servidor carga y valida, no como lógica programada para ese caso. Así, las misiones futuras se añaden con nueva configuración. El editor de configuración para jugadores queda fuera del MVP (FUT-05).
+
 Contratos, formatos y semántica de reintentos: ver `docs/arquitectura.md` §3.
 
 ## 5. Visión futura — no asumir MVP
@@ -122,6 +124,7 @@ Contratos, formatos y semántica de reintentos: ver `docs/arquitectura.md` §3.
 | ID | Ámbito | Decisiones | Evidencia exigida cuando llegue su fase |
 |---|---|---|---|
 | — | Múltiples comunidades, gobernanza configurable, progresión por competencias y economías complejas | Q4–12,Q31 | — |
+| FUT-05 | Misiones como **proyectos configurables**: crear nuevas misiones definiendo objetivos, tareas, recursos y resultado sin programar | Q11,Q25,Q144 | Esquema de configuración validado, permisos de quién configura y pruebas de misiones creadas por configuración |
 | — | Ecosistemas sistémicos, generaciones regionales, territorios protegidos, tecnología, ingeniería y cadenas de producción | Q42–47 | — |
 | FUT-01 | Procesamiento documental y RAG; distinguir `DOCUMENTAL`, `INFERENCIA`, `SIMULACIÓN` | Q48–57 | Fuentes, permisos, citas y evaluación |
 | FUT-02 | Agentes de IA, memoria y recursos | Q21–24,Q84–91 | Evaluaciones, cuotas y autorizaciones |
