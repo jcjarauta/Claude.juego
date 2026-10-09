@@ -26,6 +26,12 @@
     #aviso { color: #ffd166; min-height: 1.4em; }
     #conexion { color: #9fd8ff; }
     #jugadores { margin: 0; padding-left: 20px; }
+    .recursos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .recursos table { border-collapse: collapse; width: 100%; }
+    .recursos th, .recursos td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #2f3842; }
+    .recursos td button { padding: 2px 8px; margin-right: 4px; }
+    .recursos td button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+    .lleno { color: #ffd166; font-weight: 600; }
     .desconectado { color: #9aa4ad; font-style: italic; }
     kbd { background: #2a323b; border: 1px solid #5b6b7a; border-radius: 4px; padding: 0 5px; }
   </style>
@@ -44,7 +50,8 @@
 
     <section id="partida" hidden>
       <p>Moverse: <kbd>flechas</kbd> o <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (mantener pulsado para seguir andando).
-        Tu personaje es el círculo amarillo; los demás, azules. Árboles ▲, rocas ■ y matas de fibra ◆ bloquean el paso.</p>
+        Recolectar junto a un árbol ▲, roca ■ o mata de fibra ◆: <kbd>Espacio</kbd> o <kbd>E</kbd> (se usa el que tienes delante).
+        Tu personaje es el círculo amarillo; los demás, azules. El número sobre cada recurso son sus unidades.</p>
       <div id="game"></div>
       <div class="hud">
         <p>Zona: <span id="zona" role="status" aria-live="polite">—</span></p>
@@ -52,6 +59,23 @@
         <p id="conexion" role="status" aria-live="polite"></p>
       </div>
       <p id="aviso" role="alert"></p>
+      <p id="acciones" class="ayuda" role="status" aria-live="polite"></p>
+      <div class="recursos">
+        <section aria-labelledby="inventario-titulo">
+          <h2 id="inventario-titulo">Tu inventario</h2>
+          <table>
+            <thead><tr><th scope="col">Recurso</th><th scope="col">Cantidad</th><th scope="col">Depositar en la comunidad</th></tr></thead>
+            <tbody id="inventario"></tbody>
+          </table>
+        </section>
+        <section aria-labelledby="comunidad-titulo">
+          <h2 id="comunidad-titulo">Almacén de la comunidad</h2>
+          <table>
+            <thead><tr><th scope="col">Recurso</th><th scope="col">Cantidad</th></tr></thead>
+            <tbody id="comunidad"></tbody>
+          </table>
+        </section>
+      </div>
       <button id="volver" type="button" hidden>Volver a entrar</button>
       <h2 id="jugadores-titulo">Jugadores</h2>
       <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
