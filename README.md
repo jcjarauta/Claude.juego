@@ -34,7 +34,9 @@ Abre `http://127.0.0.1:2567`, escribe tu nombre y entra (también vale `?name=an
 
 **Red local (2–4 jugadores):** en PowerShell, `$env:HOST="0.0.0.0"; npm.cmd start`. Windows pedirá permiso de firewall para Node: concédelo solo para redes privadas. Los demás abren `http://<IP-del-PC>:2567` (la IP aparece con `ipconfig`, en «Dirección IPv4» del adaptador conectado a la red local).
 
-Comprobaciones: `npm.cmd run typecheck` y `npm.cmd test`. El contenido del mundo está en `content/world.json`.
+Comprobaciones: `npm.cmd run typecheck` y `npm.cmd test` (las pruebas usan bases de datos temporales). Prueba de carga de 15 min: `npm.cmd run soak`. El contenido del mundo está en `content/world.json`.
+
+**Datos:** el estado del mundo (nodos, inventarios, posiciones y registro de eventos) se guarda en `data/world.db`, que no está bajo control de versiones. Para empezar un mundo nuevo, detén el servidor y borra ese archivo.
 
 | Carpeta | Contenido |
 |---|---|
@@ -60,6 +62,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1 y M2 cerradas: mundo 2D compartido por 2–4 jugadores en red local, con reconexión y presencia accesible. Siguiente: aprobar el plan de M3 (recolección, inventarios y persistencia).
+M1 y M2 cerradas; M3 hecha en la rama `m3-recursos`: recolección, inventarios individual y de comunidad, regeneración y persistencia en SQLite. Pendiente: tu prueba y la fusión. Después, el plan de M4 (comunidad, proyecto y tareas).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

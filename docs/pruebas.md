@@ -90,3 +90,26 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 29 de 29.
 Defectos encontrados y corregidos durante la demostración:
 - Los avisos de presencia se activaban antes de llegar el estado inicial, y no se activaban en pestañas en segundo plano (el bucle de Phaser se detiene).
 - Recuperar un personaje dejaba ocupada la plaza de la sesión antigua, y varias recargas podían llenar el mundo.
+
+### M3 — 2026-10-09 (rama `m3-recursos`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| TP-04 | `npm.cmd test` | Recolectar suma al inventario y resta al nodo; los demás clientes lo ven | OK |
+| Rechazos de recolección | `npm.cmd test` | Demasiado rápido, inventario lleno, nodo agotado y nodo lejos, con motivo legible | OK |
+| TP-05 (última unidad) | `npm.cmd test`: dos jugadores a por la última piedra | Solo uno la obtiene; el otro recibe «nodo agotado»; nodo a 0 | OK |
+| TP-05 (doble gasto) | `npm.cmd test`: 3 transferencias simultáneas de 2 con saldo 3 | Pasa una; dos rechazadas por saldo insuficiente; nunca negativos | OK |
+| TP-12 (duplicados e inválidos) | `npm.cmd test` | El mismo `requestId` en recolectar o transferir cuenta una vez; cantidad negativa, recurso o destino desconocido y falta de `requestId` se rechazan sin cambios | OK |
+| TP-09 (caída) | `npm.cmd test`: SIGKILL tras recolectar y depositar | Inventarios, comunidad y nodos intactos tras reiniciar; posición restaurada (guardado cada 5 s); auditoría 3 = 3 | OK |
+| TP-14 (reloj del mundo) | `npm.cmd test` con regeneración de 1 s | Regenera en vivo, sin jugadores y con el servidor parado, sin superar el máximo | OK |
+| Almacén | `npm.cmd test` (5 pruebas) | Migración versionada, `CHECK` contra negativos con reversión completa, `requestId` único, auditoría | OK |
+| Carga con recursos (umbral: 4 clientes, 15 min) | `npm.cmd run soak` | 173 comprobaciones de estado completo (posiciones, inventarios, nodos, comunidad), 0 divergencias; 23 302 movimientos, 310 recolecciones y 27 depósitos enviados; **auditoría: recolectado = en inventarios (madera 120, piedra 80, fibra 100)** | OK |
+| Demostración | Navegador integrado con servidor reiniciado bruscamente | Recolección, aviso de ritmo, depósito solo con teclado (el foco se conserva), vista desde otra pestaña, «Desconectado» con botón durante la caída y todo intacto al volver; auditoría 3 = 3 | OK |
+| Prueba del usuario | Persona responsable | — | PENDIENTE |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 51 de 51.
+
+Defectos encontrados y corregidos:
+- Con `INSERT … ON CONFLICT`, SQLite validaba el `CHECK` en la fila candidata, de modo que restar de un inventario fallaba siempre. Lo detectó la prueba de auditoría del almacén.
+- `crypto.randomUUID` no existe en contextos no seguros (la IP de la red local): se usa `getRandomValues`.
+- Con la pestaña oculta, los movimientos dependían del bucle de fotogramas: ahora un toque se envía al pulsar.
