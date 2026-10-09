@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q130 (BORRADOR)
+# Registro de decisiones — Q001 a Q143 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -134,6 +134,19 @@
 | Q128 | Continuidad | Continuar secuencia aprobada hasta gate o bloqueo real | VERIFICADO (decisión); MVP |
 | Q129 | Cierre | Auditoría completa y gate para cierre de especificaciones | VERIFICADO (decisión); AHORA |
 | Q130 | Autorización | Autorizada la secuencia: inventario, auditoría, fases, bloqueos, documentos provisionales y gate | VERIFICADO (decisión); AHORA |
+| Q131 | Consolidación | Reducir el paquete a 7 documentos, llevar los permisos a `.claude/settings.json`, crear repositorio git y publicarlo en GitHub | VERIFICADO (decisión); HECHO 2026-10-09 |
+| Q132 | Interfaz | Perspectiva 2D **cenital** (BL-01) | VERIFICADO (decisión); MVP |
+| Q133 | Multijugador | Ritmo **mixto**: movimiento y recolección en tiempo real; aportes y tareas del proyecto también de forma asíncrona | VERIFICADO (decisión); MVP |
+| Q134 | Escala | MVP para **2–4 jugadores en local/LAN** (BL-04) | VERIFICADO (decisión); MVP |
+| Q135 | Tecnologías | Elegir stack mediante **spike corto y ADR** (BL-02) | VERIFICADO (decisión); AHORA |
+| Q136 | Recursos | Tres recursos: **madera, piedra y fibra** | VERIFICADO (decisión); MVP |
+| Q137 | Misión | Cadena **taller → herramienta → misión completada** al fabricarla y entregarla | VERIFICADO (decisión); MVP |
+| Q138 | Tiempo | Los recursos **se regeneran con el reloj del mundo**, que avanza aunque no haya jugadores conectados | VERIFICADO (decisión); MVP |
+| Q139 | Inventario | Tres niveles: **individual, comunidad y proyecto** (Q010) | VERIFICADO (decisión); MVP |
+| Q140 | Requisitos | Aprobados PEND-01 (RF-012 cita Q59), PEND-02 (reclasificar las decisiones MVP) y PEND-03 (añadir RF-013 y RF-014) | VERIFICADO (decisión); AHORA |
+| Q141 | Obsidian | Abrir `docs/` del repositorio como vault, sin sincronización (PEND-04) | VERIFICADO (decisión); MVP |
+| Q142 | Respuesta | Bloque ENGREMIAT en auditorías y cierres de tarea o fase (PEND-05) | VERIFICADO (decisión); MVP |
+| Q143 | Accesibilidad | Chrome, Edge y Firefox recientes de escritorio; todas las acciones esenciales con teclado; contraste y textos legibles | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
 
@@ -142,3 +155,68 @@
 - En Q107 prevalece B; en Q111 prevalece C, no la opción recomendada por el asistente.
 - Q130 constituye autorización para **auditar y redactar**, no para ejecutar código ni desplegar.
 - Las fases `MVP`/`FUTURO`/`AHORA` son **clasificación propuesta**, no reescriben la visión completa.
+
+## Reclasificación de las decisiones marcadas MVP (Q140, PEND-02) — PROPUESTA para revisión
+
+Las 52 filas marcadas «MVP» en Q001–Q130 se reparten en tres clases. La tabla principal no se modifica; esta sección prevalece para planificar.
+
+- **MVP funcional:** se construye en el MVP, con el alcance indicado.
+- **Principio:** se respeta desde el inicio (diseño o proceso) con la aplicación mínima indicada; no es una funcionalidad a entregar.
+- **Post-MVP:** se aplaza.
+
+| ID | Clase | Alcance en el MVP |
+|---|---|---|
+| Q003 | MVP funcional | Un mundo persistente, una comunidad, una misión |
+| Q010 | MVP funcional | Inventarios individual, comunidad y proyecto (Q139). Intercambio entre jugadores: post-MVP |
+| Q012 | MVP funcional | Lista de tareas con estado y avance. Gantt, Kanban e indicadores: post-MVP |
+| Q013 | MVP funcional | Registro de eventos verificable de cada acción (RF-012) |
+| Q014 | MVP funcional | Tiempo real + colaboración asíncrona (RF-013). Comunicación entre jugadores (chat): post-MVP |
+| Q015 | MVP funcional | Mapa cenital + panel de proyecto (RF-010) |
+| Q016 | MVP funcional | 2D cenital (Q132). Aptitud para otras representaciones: principio |
+| Q017 | MVP funcional | Web de escritorio (Q143). Móvil y tableta: post-MVP |
+| Q018 | MVP funcional | Local/LAN autoalojado (Q134) |
+| Q027 | MVP funcional | Bucle explorar → recolectar → aportar → construir → misión |
+| Q030 | MVP funcional | La misión tiene cierre propio; el mundo continúa |
+| Q032 | MVP funcional | Base de accesibilidad de Q143. Personalización avanzada: post-MVP |
+| Q034 | Principio | Datos mínimos (nombre de usuario y contraseña local); sin datos personales adicionales |
+| Q035 | MVP funcional | Guardado y recuperación tras reinicio (RF-009). Historial, versiones, backups y recuperación selectiva: post-MVP |
+| Q036 | MVP funcional | Definición del MVP |
+| Q037 | MVP funcional | Definición del bucle del MVP |
+| Q040 | MVP funcional | Reloj del mundo continuo con regeneración (RF-014, Q138). Ritmos y pausas por campaña, misión o proyecto: post-MVP |
+| Q045 | MVP funcional | Una construcción: el taller |
+| Q046 | MVP funcional | Una receta de producción: la herramienta |
+| Q058 | Principio | Módulos lógicamente separados en un proceso (ADR-001) |
+| Q059 | MVP funcional | API + eventos internos + WebSocket |
+| Q060 | Principio | Criterio de selección del spike (BL-02) |
+| Q061 | Principio | Perspectivas especializadas de `CLAUDE.md` §8; sin subagentes salvo gate |
+| Q062 | Principio | Permisos de `.claude/settings.json` |
+| Q063 | Principio | Pruebas por etapa con evidencia y gate |
+| Q064 | Principio | Monorepositorio |
+| Q065 | Principio | Entorno local aislado. Contenedores y entornos de integración/preproducción/producción: post-MVP |
+| Q066 | Principio | Logs estructurados. Métricas, trazas y alertas: post-MVP |
+| Q067 | Principio | Reintentos idempotentes y errores explícitos. Degradación y escalado: post-MVP |
+| Q068 | Principio | Autenticación local, permisos por acción y secretos fuera del código. Cifrado y Zero Trust completo: post-MVP |
+| Q069 | MVP funcional | Cuenta local con ID estable (RF-003). Federación: post-MVP |
+| Q075 | Principio | Licencia del núcleo y de los contenidos por decidir antes de publicar (BL-07) |
+| Q077 | MVP funcional | Solo adultos: declaración en el registro de cuenta |
+| Q079 | MVP funcional | Mundo + panel de proyecto (RF-010) |
+| Q098 | Principio | Documentación manual en `docs/`, revisada en cada cierre |
+| Q099 | Principio | Trazabilidad en `docs/especificacion.md` §2 y ADR |
+| Q100 | Principio | Orden de etapas en `docs/hoja-ruta.md` |
+| Q101 | Principio | Gate M6 de aceptación del MVP |
+| Q102 | Principio | Documentación en Markdown (hecho) |
+| Q104 | Principio | `CLAUDE.md` + plan por tarea |
+| Q105 | Principio | Leer solo los documentos necesarios por tarea |
+| Q106 | Principio | Markdown en el repositorio; Obsidian como vault de `docs/` (Q141); Graphify post-MVP |
+| Q115 | Principio | Ciclo por tarea de `CLAUDE.md` §4 |
+| Q117 | Principio | Ramas, revisión de diff y aprobación para fusionar. CI automatizado: desde M1 si el spike lo hace viable |
+| Q118 | Principio | CI básico (tests). Paquetes y despliegue: post-MVP |
+| Q119 | Principio | Versiones de dependencias fijadas con lockfile. SBOM: post-MVP |
+| Q120 | Post-MVP | Una sola versión del monolito durante el MVP; SemVer por componente cuando haya componentes desplegables por separado |
+| Q124 | Principio | Rol de la sesión principal de Claude |
+| Q125 | Principio | Informes OK/WARN/ERR/NO_GO (Q142) |
+| Q126 | Principio | Autorizaciones por operación (`CLAUDE.md` §3) |
+| Q127 | Principio | Protocolo de incidentes (`CLAUDE.md` §6) |
+| Q128 | Principio | Regla de continuación (`CLAUDE.md` §4) |
+
+Resultado: 22 MVP funcional, 29 principio, 1 post-MVP (más los aplazamientos parciales indicados en cada fila).

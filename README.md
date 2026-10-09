@@ -14,7 +14,7 @@ Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. 
 | `docs/arquitectura.md` | Módulos, comunicación, persistencia, seguridad, herramientas, ADR |
 | `docs/hoja-ruta.md` | Etapas, bloqueos, tensiones y pendientes de decisión |
 | `docs/pruebas.md` | Estrategia y catálogo de pruebas (no ejecutadas) |
-| `docs/decisiones.md` | Registro histórico de las 130 decisiones (Q001–Q130) |
+| `docs/decisiones.md` | Registro de las 143 decisiones (Q001–Q143) y reclasificación de las marcadas MVP |
 
 ## Cómo se trabaja
 
@@ -32,4 +32,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-Decisión humana sobre BL-01 (perspectiva 2D) y los pendientes PEND-01–05 de `docs/hoja-ruta.md`.
+Autorizar el spike de tecnología (BL-02, `docs/arquitectura.md` §8). En paralelo, revisar las cifras PROPUESTA del bucle, los umbrales y la reclasificación de decisiones (`docs/hoja-ruta.md` §5).
+
+Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

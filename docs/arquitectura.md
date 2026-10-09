@@ -47,7 +47,9 @@ Requisito aspiracional: funcionamiento autónomo offline y federación voluntari
 
 ## 7. Obsidian y Graphify (futuro o acompañamiento no bloqueante)
 
-Repositorio fuente; sincronización unidireccional y filtrada hacia bóveda/grafo, primero DRY_RUN. El MVP no debe depender de esa integración para arrancar. Modo de uso pendiente: `docs/hoja-ruta.md`, PEND-04.
+Repositorio fuente; sincronización unidireccional y filtrada hacia bóveda/grafo, primero DRY_RUN. El MVP no debe depender de esa integración para arrancar.
+
+**Decisión (Q141):** Obsidian abre `docs/` del repositorio como vault; no hay sincronización. Su configuración (`docs/.obsidian/`) está excluida de git. Las ediciones hechas en Obsidian son cambios normales del repositorio y se revisan con `git diff`. Graphify queda para después del MVP.
 
 Investigación del 2026-10-09 (fuentes públicas; **no probado en este entorno**):
 
@@ -68,6 +70,14 @@ Candidatos para el spike de BL-02 (**PROPUESTA**, ninguno elegido):
 
 El bucle del MVP (recolectar, aportar, construir) no exige reflejos; no se prevé netcode avanzado (predicción, rollback).
 
+**Definición del spike (Q135) — PROPUESTA, requiere autorización:**
+
+- **Alcance:** código desechable en `spike/<opción>/`, que nunca se reutiliza en el MVP. Mapa cenital pequeño; 2–4 clientes en el navegador mueven un personaje con teclado; un nodo de recurso compartido que cualquiera puede recolectar; el estado persiste tras reiniciar el servidor; el reloj del servidor regenera el nodo.
+- **Orden:** primero Phaser + Colyseus + SQLite. Godot solo si la primera opción incumple algún criterio eliminatorio.
+- **Criterios eliminatorios:** servidor autoritativo (el cliente no puede alterar el nodo); convergencia ≤ 500 ms en LAN con 4 clientes; persistencia sin pérdida de lo confirmado tras reiniciar; funciona en Chrome, Edge y Firefox.
+- **Criterios comparativos:** simplicidad del código, madurez y licencias (Q060), calidad de la documentación, facilidad de pruebas automáticas, tamaño de las dependencias.
+- **Evidencia:** salida de pruebas, registro de una sesión con 4 clientes, versiones exactas de las dependencias. Resultado en ADR-002.
+
 ## 9. Criterios no funcionales pendientes
 
 Concurrencia esperada, latencia tolerable, límites de memoria/CPU/GPU, plataforma de pruebas, RPO/RTO, duración de sesión, tasa de sincronización, seguridad aplicable y política de datos. Deben concretarse antes del correspondiente gate técnico, sin bloquear la redacción del borrador.
@@ -79,4 +89,4 @@ Los ADR se guardan en `docs/adr/NNN-titulo.md` (contexto, opciones, decisión, c
 | ADR | Título | Estado |
 |---|---|---|
 | ADR-001 | Monolito modular para el MVP: servicios lógicamente separados en un único proceso, satisfaciendo Q58 sin operar servicios distribuidos (AUD-01) | PROPUESTA |
-| ADR-002 | Stack 2D web, tiempo real y persistencia (BL-02), tras spike comparativo | PENDIENTE de spike |
+| ADR-002 | Stack 2D web, tiempo real y persistencia (BL-02), tras el spike definido en §8 | PENDIENTE de spike |
