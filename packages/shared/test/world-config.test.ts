@@ -16,6 +16,10 @@ const base = (): WorldConfig => ({
     id: "construir-taller", name: "Construir taller", description: "",
     tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20 }],
   }],
+  structures: [{ id: "taller", name: "Taller", projectId: "construir-taller", x: 5, y: 5, width: 2, height: 2, color: "#a0522d" }],
+  items: [{ id: "herramienta", name: "Herramienta" }],
+  recipes: [{ id: "herramienta", name: "Herramienta", structureId: "taller", inputs: { madera: 3 }, output: { item: "herramienta", amount: 1 } }],
+  missions: [{ id: "m1", name: "Primera herramienta", description: "", objective: { kind: "item-in-community", item: "herramienta", amount: 1 } }],
   resources: [{ id: "madera", name: "Madera", color: "#8d5a2b", shape: "triangle" }],
   zones: [{ id: "bosque", name: "Bosque", x: 0, y: 0, width: 5, height: 5, color: "#1f4d2b" }],
   nodes: [{ id: "arbol-1", resource: "madera", x: 3, y: 3, max: 3 }],
@@ -108,6 +112,33 @@ test("rechaza proyectos mal definidos y una comunidad sin nombre", () => {
   assert.match(errors, /required debe ser un entero/);
   assert.match(errors, /recurso desconocido "oro"/);
   assert.match(errors, /projects: id duplicado "construir-taller"/);
+});
+
+test("rechaza estructuras, objetos, recetas y misiones mal definidos", () => {
+  const cfg = base();
+  cfg.structures[0]!.x = 2; // la huella (2..3, 5..6) no pisa el árbol (3,3)…
+  cfg.structures[0]!.y = 3; // …ahora sí: (2..3, 3..4) contiene (3,3)
+  cfg.structures.push({ ...cfg.structures[0]!, id: "fuera", x: 9, y: 7 });
+  cfg.items.push({ id: "madera", name: "Madera" });
+  cfg.recipes[0]!.inputs = { oro: 1 };
+  cfg.recipes[0]!.output.item = "espada";
+  cfg.missions[0]!.objective.item = "espada";
+  const errors = String(errorsOf(cfg));
+  assert.match(errors, /la casilla 3,3 la ocupa un nodo/);
+  assert.match(errors, /"fuera": fuera del mapa/);
+  assert.match(errors, /igual a un recurso "madera"/);
+  assert.match(errors, /recurso desconocido "oro"/);
+  assert.match(errors, /objeto de salida desconocido/);
+  assert.match(errors, /objective debe ser/);
+});
+
+test("rechaza una estructura que cubre el punto de aparición", () => {
+  const cfg = base();
+  cfg.structures[0]!.x = 1;
+  cfg.structures[0]!.y = 1;
+  cfg.structures[0]!.width = 1;
+  cfg.structures[0]!.height = 1;
+  assert.match(String(errorsOf(cfg)), /cubre el punto de aparición/);
 });
 
 test("rechaza un recurso sin forma válida", () => {

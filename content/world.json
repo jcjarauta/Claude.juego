@@ -48,6 +48,52 @@
       ]
     }
   ],
+  "structures": [
+    {
+      "id": "taller",
+      "name": "Taller",
+      "projectId": "construir-taller",
+      "x": 17,
+      "y": 7,
+      "width": 3,
+      "height": 2,
+      "color": "#a0522d"
+    }
+  ],
+  "items": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta",
+      "structureId": "taller",
+      "inputs": {
+        "madera": 3,
+        "piedra": 2,
+        "fibra": 2
+      },
+      "output": {
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
+  "missions": [
+    {
+      "id": "primera-herramienta",
+      "name": "Primera herramienta",
+      "description": "Fabricad la primera herramienta en el taller y guardadla en el almacén de la comunidad.",
+      "objective": {
+        "kind": "item-in-community",
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
   "resources": [
     {
       "id": "madera",
