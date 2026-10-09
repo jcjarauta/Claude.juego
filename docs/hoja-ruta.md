@@ -33,7 +33,7 @@ BL-01–BL-05 forman el **Gate 0**: no bloquean inventariar requisitos ni prepar
 | ID | Dato pendiente | Cuándo bloquea | Estado |
 |---|---|---|---|
 | BL-01 | Perspectiva 2D y estilo de interacción | Antes de elegir/implementar presentación | **CERRADO** — cenital (Q132) |
-| BL-02 | Stack de motor, backend, base de datos y despliegue, comparado y elegido con ADR tras spike aislado | Antes de crear estructura o instalar dependencias | ABIERTO — método decidido (Q135); spike definido en `docs/arquitectura.md` §8; requiere autorización para instalar dependencias |
+| BL-02 | Stack de motor, backend, base de datos y despliegue, comparado y elegido con ADR tras spike aislado | Antes de crear estructura o instalar dependencias | **CERRADO** — Phaser + Colyseus + SQLite con TypeScript (ADR-002, Q146–Q147), tras spike y prueba manual (Q145) |
 | BL-03 | Bucle concreto: mapa, recursos, costes del taller, receta, condición de misión | Antes de implementar mecánicas y tests E2E | **DECIDIDO** el diseño (Q133, Q136–Q139); cifras PROPUESTA en `docs/especificacion.md` §3.1 pendientes de revisión |
 | BL-04 | Umbrales: clientes/concurrencia, latencia, reconexión, accesibilidad, recuperación | Antes del gate de aceptación | **DECIDIDO** escala y navegadores (Q134, Q143); umbrales numéricos PROPUESTA en `docs/pruebas.md` §3 pendientes de revisión |
 | BL-05 | Estado físico: repositorio, rutas, permisos, entorno y herramientas | Antes de cualquier comando o cambio en sistema | PARCIAL — ver nota |
@@ -89,4 +89,6 @@ Estos grupos son una **propuesta de orden**, no aprobaciones de entregas ni una 
 
 Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el siguiente gate humano o `NO_GO` real; nunca interpretar este documento como autorización para ejecutar acciones.
 
-**NEXT:** autorizar el spike de BL-02 (`docs/arquitectura.md` §8), que implica crear código desechable en `spike/` e instalar dependencias de npm.
+**Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
+
+**NEXT:** plan de M1 (mundo 2D visible y exploración básica) en modo plan, para aprobación humana.

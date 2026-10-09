@@ -32,6 +32,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-Autorizar el spike de tecnología (BL-02, `docs/arquitectura.md` §8). En paralelo, revisar las cifras PROPUESTA del bucle, los umbrales y la reclasificación de decisiones (`docs/hoja-ruta.md` §5).
+Gate 0 cerrado: stack aprobado en `docs/adr/002-stack-mvp.md` (Phaser + Colyseus + SQLite, TypeScript). Siguiente: aprobar el plan de M1. El prototipo de `spike/` es desechable y solo sirve de evidencia del ADR.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

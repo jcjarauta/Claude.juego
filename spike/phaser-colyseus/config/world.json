@@ -1,0 +1,10 @@
+{
+  "map": { "width": 20, "height": 15, "tileSize": 32 },
+  "spawn": { "x": 2, "y": 2 },
+  "moveCooldownMs": 100,
+  "inventoryMax": 10,
+  "regenIntervalMs": 120000,
+  "nodes": [
+    { "id": "arbol-1", "resource": "madera", "x": 10, "y": 7, "max": 3 }
+  ]
+}

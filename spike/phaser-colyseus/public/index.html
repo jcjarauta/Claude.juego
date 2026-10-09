@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spike BL-02 — Phaser + Colyseus</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 16px; background: #1b1f24; color: #f2f2f2; }
+    main { max-width: 680px; margin: 0 auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    #game { border: 2px solid #5b6b7a; width: fit-content; }
+    #game:focus-within { outline: 3px solid #ffd166; outline-offset: 2px; }
+    #status { min-height: 1.5em; font-size: 1rem; }
+    kbd { background: #333a42; border: 1px solid #5b6b7a; border-radius: 4px; padding: 0 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Spike BL-02: mundo cenital compartido</h1>
+    <p>Mover: <kbd>flechas</kbd> o <kbd>W A S D</kbd>. Recolectar junto al árbol: <kbd>Espacio</kbd> o <kbd>E</kbd>. Nombre: parámetro <code>?name=</code> en la URL.</p>
+    <div id="game"></div>
+    <p id="status" role="status" aria-live="polite">Conectando…</p>
+  </main>
+  <script type="module" src="bundle.js"></script>
+</body>
+</html>
