@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** MVP en construcción por etapas (M1–M5 cerradas; M5b hecha en rama). El contenido de producto sigue como `PROPUESTA` revisable.
+**Estado:** MVP en construcción por etapas (M1–M5 y M5b cerradas; falta M6). El contenido de producto sigue como `PROPUESTA` revisable.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -65,6 +65,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b hecha en la rama `m5b-nucleo-proyectos`: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. Pendiente: tu prueba y la fusión. Después, M6 (endurecimiento).
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. Siguiente: M6 (cuentas, endurecimiento y aceptación del MVP).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

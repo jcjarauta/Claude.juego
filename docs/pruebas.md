@@ -148,3 +148,21 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 63 de 63.
 | Prueba del usuario | Persona responsable | «ya está probado» (2026-10-09); fusión autorizada | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 74 de 74.
+
+### M5b — 2026-10-09 (rama `m5b-nucleo-proyectos`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | `authorize`, `taskStatus` (todas las transiciones), `checkReview` (permiso, decisión, nota 1–500, tarea incompleta), `checkBuild` con `tareas-sin-aprobar`; validación de `reality` (rechaza `REAL` y `SIMULACION`), `coordinators`, `buildRequiresApproval`, `acceptance` y valores por defecto | OK |
+| Regresión tras extraer el núcleo | `npm.cmd test` antes de añadir funciones | 80 de 80 (74 anteriores + 6 unitarias nuevas) sin cambiar ninguna prueba existente | OK |
+| TP-16 | `npm.cmd test` | No coordinador → `sin-permiso`; tarea incompleta → `tarea-sin-completar`; nota vacía → `nota-invalida`; rechazar y volver a aprobar; `requestId` repetido sin efecto; evento `task-review` con evidencia `{contributions: 2, lastEventId}` igual al último aporte; tras SIGKILL y reinicio la revisión persiste (TP-09) | OK |
+| Aprobación obligatoria (Q162) | `npm.cmd test` con `approval-world.json` | Construir sin aprobaciones o con una tarea rechazada → `tareas-sin-aprobar`; con todas aprobadas, construye | OK |
+| TP-15 | `npm.cmd test` | El panel no crea personaje; `move`, `collect`, `transfer`, `build` y `craft` desde el panel → `sin-personaje`; aportes del panel visibles en el mundo y viceversa; un panel con el nombre de un jugador aporta desde su inventario y su personaje lo ve; con 4 jugadores el 5.º recibe `mundo-lleno` y los paneles siguen entrando hasta 4 | OK |
+| Migración v3 → v4 | `npm.cmd test` | Datos conservados, copia `*.v3.bak`, una revisión por tarea, decisión inválida rechazada por `CHECK` | OK |
+| Navegador | Navegador integrado: mundo (ana) + panel (luis) + panel (ana) | Aporte desde el panel visible en el mundo; aprobación con teclado desde el panel de la coordinadora visible en el mundo y en el otro panel; tras reiniciar el servidor la aprobación sigue | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | 173 comprobaciones del estado completo en los 5 clientes (incluidos estados y revisiones de tareas), 0 divergencias, convergencia máx. 1 ms; 6 revisiones del panel (todas las tareas aprobadas por `coordinacion`); proyecto construido, misión completada, 28 herramientas; auditoría cuadrada (madera 120 = 16 + 104; piedra 79 = 8 + 71; fibra 100 = 39 + 61; herramienta 28 = 28) | OK |
+| Aportes del panel en carga | `npm.cmd run soak` | 0 aportes del panel: el proyecto se completa en menos de un minuto y el almacén común está vacío en esa fase. Los aportes desde el panel están cubiertos por TP-15 y la demostración en el navegador | WARN |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 85 de 85 | OK |
+| Prueba del usuario | Persona responsable | «ya está probado» (2026-10-09); fusión autorizada | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 85 de 85.
