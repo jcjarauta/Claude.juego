@@ -1,8 +1,8 @@
 import {
-  authorize, checkContribution, isValidRequestId, projectStatus,
-  type ContributionSource, type ProjectDef, type RejectReason, type WorldConfig,
+  authorize, checkContribution, checkReview, isValidRequestId, projectStatus,
+  type ContributionSource, type ProjectDef, type RejectReason, type ReviewDecision, type WorldConfig,
 } from "@juego/shared";
-import { COMMUNITY, playerScope, projectScope, type ContributionRow, type Store } from "../store.ts";
+import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
 
 // Núcleo de proyectos (M5b, ADR-001): fuente de verdad de proyectos y tareas.
 // No conoce Colyseus ni el mapa: recibe el actor y el mensaje, valida con las reglas
@@ -26,6 +26,15 @@ export interface ContributionDone {
   projectAmount: number;
 }
 
+export interface ReviewDone {
+  project: ProjectDef;
+  taskId: string;
+  decision: ReviewDecision;
+  note: string;
+  reviewedBy: string;
+  reviewedAt: number;
+}
+
 export interface ProjectSnapshot {
   /** Aportado por recurso. */
   progress: Record<string, number>;
@@ -33,6 +42,8 @@ export interface ProjectSnapshot {
   contributors: Record<string, Record<string, number>>;
   /** Últimos aportes, del más antiguo al más reciente. */
   recent: ContributionRow[];
+  /** Última revisión de cada tarea revisada, por id de tarea. */
+  reviews: Record<string, ReviewRow>;
 }
 
 export const RECENT_CONTRIBUTIONS = 10;
@@ -78,6 +89,38 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       });
     },
 
+    /**
+     * Revisar una tarea completada (M5b): solo coordinadores, con nota. Registra la decisión
+     * y la evidencia en la que se basa (aportes y último evento de la tarea), sin mover recursos.
+     */
+    review(actor: string, payload: unknown): Outcome<ReviewDone> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      return store.transaction(() => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" as const };
+        const check = checkReview({
+          projects: config.projects, actor,
+          projectId: message.projectId, taskId: message.taskId, decision: message.decision, note: message.note,
+          contributed,
+        });
+        if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
+        const { project, task, decision, note } = check;
+        const evidence = store.taskEvidence(project.id, task.id);
+        store.putReview(project.id, task.id, decision, actor, at, note);
+        store.event("task-review", actor, requestId, { project: project.id, task: task.id, decision, note, evidence });
+        return { kind: "done" as const, value: { project, taskId: task.id, decision, note, reviewedBy: actor, reviewedAt: at } };
+      });
+    },
+
+    /** Con buildRequiresApproval (Q162), alguna tarea no está aprobada. */
+    approvalMissing(project: ProjectDef): boolean {
+      if (!project.buildRequiresApproval) return false;
+      const decisions = new Map(store.getReviews(project.id).map((r) => [r.taskId, r.decision]));
+      return project.tasks.some((t) => decisions.get(t.id) !== "aprobada");
+    },
+
     /** Todas las tareas tienen lo requerido. */
     isComplete(project: ProjectDef): boolean {
       return project.tasks.every((t) => contributed(project.id, t.resource) >= t.required);
@@ -108,7 +151,11 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       for (const byResource of Object.values(contributors)) {
         for (const [resource, amount] of Object.entries(byResource)) progress[resource] = (progress[resource] ?? 0) + amount;
       }
-      return { progress, contributors, recent: store.recentContributions(project.id, RECENT_CONTRIBUTIONS).reverse() };
+      return {
+        progress, contributors,
+        recent: store.recentContributions(project.id, RECENT_CONTRIBUTIONS).reverse(),
+        reviews: Object.fromEntries(store.getReviews(project.id).map((r) => [r.taskId, r])),
+      };
     },
   };
 }

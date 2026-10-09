@@ -80,6 +80,20 @@ export async function joinWorld(url: string, name: string): Promise<TestPlayer> 
   return { room, rejections, me: () => room.state.players.get(room.sessionId)! };
 }
 
+export interface TestPanel {
+  room: Room<unknown, WorldState>;
+  rejections: RejectReason[];
+}
+
+/** Entra como panel profesional (M5b): observador sin personaje. */
+export async function joinPanel(url: string, name: string): Promise<TestPanel> {
+  const room = await new Client(url).join(ROOM_NAME, { name, view: "panel" }, WorldState);
+  const rejections: RejectReason[] = [];
+  room.onMessage(MESSAGE.rejected, (msg: RejectedMessage) => rejections.push(msg.reason));
+  await waitFor(() => Boolean(room.state?.projects?.size));
+  return { room, rejections };
+}
+
 /** Vuelve a la sala con el token de una sesión cortada (como hace el SDK al reconectar). */
 export async function reconnectWorld(url: string, reconnectionToken: string): Promise<TestPlayer> {
   const room = await new Client(url).reconnect(reconnectionToken, WorldState);

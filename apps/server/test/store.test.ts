@@ -39,7 +39,7 @@ test("migración v2 → v3, construir y completar solo una vez, y auditoría con
   v2.close();
 
   const store = openStore(path);
-  assert.equal(store.schemaVersion(), 3);
+  assert.equal(store.schemaVersion(), SCHEMA_VERSION);
   assert.ok(existsSync(`${path}.v2.bak`));
   assert.deepEqual(store.getInventory(COMMUNITY), { madera: 7 });
 
@@ -62,6 +62,33 @@ test("migración v2 → v3, construir y completar solo una vez, y auditoría con
     inInventories: { madera: 1, herramienta: 1 }, collected: { madera: 4 }, consumed: { madera: 3 }, produced: { herramienta: 1 }, balanced: true,
   });
   fresh.close();
+  store.close();
+});
+
+test("migración v3 → v4: conserva los datos, copia previa y una revisión por tarea con historial en eventos", () => {
+  const path = tempDb();
+  const v3 = new DatabaseSync(path);
+  for (const v of [1, 2, 3]) v3.exec(MIGRATIONS[v]!);
+  v3.exec("PRAGMA user_version = 3");
+  v3.exec("INSERT INTO structure VALUES ('taller', 10, 'ana')");
+  v3.exec(`INSERT INTO event (at, type, actor, request_id, data) VALUES
+    (1, 'contribute', 'ana', 'a1', '{"project":"p","task":"madera","resource":"madera","amount":3}'),
+    (2, 'contribute', 'bea', 'b1', '{"project":"p","task":"madera","resource":"madera","amount":1}'),
+    (3, 'contribute', 'bea', 'b2', '{"project":"p","task":"piedra","resource":"piedra","amount":1}')`);
+  v3.close();
+
+  const store = openStore(path);
+  assert.equal(store.schemaVersion(), 4);
+  assert.ok(existsSync(`${path}.v3.bak`));
+  assert.deepEqual(store.getStructures(), [{ id: "taller", builtAt: 10, builtBy: "ana" }]);
+  assert.deepEqual(store.taskEvidence("p", "madera"), { contributions: 2, lastEventId: 2 });
+  assert.deepEqual(store.taskEvidence("p", "fibra"), { contributions: 0, lastEventId: 0 });
+
+  assert.deepEqual(store.getReviews("p"), []);
+  store.transaction(() => store.putReview("p", "madera", "rechazada", "ana", 20, "Revisar"));
+  store.transaction(() => store.putReview("p", "madera", "aprobada", "ana", 30, "Correcto"));
+  assert.deepEqual(store.getReviews("p"), [{ taskId: "madera", decision: "aprobada", reviewedBy: "ana", reviewedAt: 30, note: "Correcto" }]);
+  assert.throws(() => store.transaction(() => store.putReview("p", "piedra", "quizá", "ana", 40, "x")), "decisión no válida");
   store.close();
 });
 
