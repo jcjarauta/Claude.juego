@@ -1,5 +1,7 @@
 # Arquitectura técnica — BORRADOR
 
+Antiguo `04_ARQUITECTURA_TECNICA`, ampliado con los contratos del antiguo `13_MODELO_CONCEPTUAL` y el registro de ADR. Entidades, invariantes y flujos: `docs/especificacion.md` §4.
+
 ## 1. Decisiones respaldadas
 
 Arquitectura objetivo de **microservicios y ejecución distribuida** (Q58), protocolos **API + eventos + WebSocket** (Q59), despliegue inicial **local autoalojado** (Q18), **monorepositorio modular** (Q64), configuración por entornos y contenedores futuros (Q65). Preferencia por tecnologías maduras, preferentemente libres y autoalojables (Q60). Stack **NO VERIFICADO**; no se han seleccionado frameworks, bases de datos, brokers ni proveedores.
@@ -29,6 +31,7 @@ Arquitectura objetivo de **microservicios y ejecución distribuida** (Q58), prot
 - Estado del mundo e inventarios: una autoridad de escritura por entidad; validación del lado servidor.
 - Cada comando requiere: identidad de emisor, alcance/permiso, identificador, versión esperada cuando aplique y resultado.
 - Eventos propuestos: `ResourceCollected`, `ResourceContributed`, `TaskCompleted`, `WorkshopBuilt`, `MissionCompleted`. Nombres **de diseño**, no código existente.
+- Formatos, endpoints, mensajes, autenticación, versiones y semántica de reintentos: **NO VERIFICADOS**. Cada servicio debe documentar una autoridad de escritura por entidad y sus políticas de consistencia. Para el MVP, diseñar contratos mínimos antes de programar.
 
 ## 4. Persistencia y consistencia
 
@@ -44,12 +47,36 @@ Requisito aspiracional: funcionamiento autónomo offline y federación voluntari
 
 ## 7. Obsidian y Graphify (futuro o acompañamiento no bloqueante)
 
-Repositorio fuente; sincronización unidireccional y filtrada hacia bóveda/grafo, primero DRY_RUN. No existen aquí pruebas de disponibilidad de Obsidian, Graphify, APIs, plugins ni rutas. El MVP no debe depender de esa integración para arrancar.
+Repositorio fuente; sincronización unidireccional y filtrada hacia bóveda/grafo, primero DRY_RUN. El MVP no debe depender de esa integración para arrancar. Modo de uso pendiente: `docs/hoja-ruta.md`, PEND-04.
+
+Investigación del 2026-10-09 (fuentes públicas; **no probado en este entorno**):
+
+- **Obsidian:** un vault es una carpeta de archivos Markdown con configuración en `.obsidian/`; puede abrir directamente `docs/` del repositorio sin sincronizar nada. El CLI oficial (1.12+) controla una instancia de escritorio en ejecución; la sincronización con git solo existe mediante plugins de la comunidad. VERIFICADO localmente: Obsidian de escritorio instalado.
+- **Graphify** (`github.com/Graphify-Labs/graphify`, paquete PyPI `graphifyy`): analiza código en local con tree-sitter, sin llamadas a IA; documentos, PDF e imágenes requieren una pasada semántica con el modelo del asistente (consume tokens). Genera `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`); actualización incremental; hooks de git y de Claude Code; `--obsidian-dir` escribe en un vault sin tocar notas manuales. No aporta valor sin código. VERIFICADO localmente: no instalado.
 
 ## 8. Alternativas tecnológicas todavía sin decisión
 
 Motor 2D web, protocolo de tiempo real, almacenamiento relacional/documental, contenedorización, sistema de colas, observabilidad, automatización y tests: establecer un *spike* comparativo y decisión ADR antes de programar. No atribuir elecciones al usuario ni comprometer versiones no evaluadas.
 
+Candidatos para el spike de BL-02 (**PROPUESTA**, ninguno elegido):
+
+| Opción | Encaje | Riesgos |
+|---|---|---|
+| Phaser (cliente) + Colyseus (servidor) + SQLite | TypeScript en ambos extremos; salas con estado autoritativo sincronizado por WebSocket; un solo proceso local; licencias MIT | Escalado más allá de pocos jugadores no probado aquí |
+| Godot con exportación web | Editor completo, 2D maduro | Tamaño de exportación web y red multijugador en navegador a evaluar |
+| Nakama + cliente web | Cuentas, almacenamiento y tiempo real incluidos | Más pesado de operar para un MVP local |
+
+El bucle del MVP (recolectar, aportar, construir) no exige reflejos; no se prevé netcode avanzado (predicción, rollback).
+
 ## 9. Criterios no funcionales pendientes
 
 Concurrencia esperada, latencia tolerable, límites de memoria/CPU/GPU, plataforma de pruebas, RPO/RTO, duración de sesión, tasa de sincronización, seguridad aplicable y política de datos. Deben concretarse antes del correspondiente gate técnico, sin bloquear la redacción del borrador.
+
+## 10. Registro de ADR
+
+Los ADR se guardan en `docs/adr/NNN-titulo.md` (contexto, opciones, decisión, consecuencias, requisitos afectados) y solo se marcan como aprobados con gate humano. La carpeta se crea con el primer ADR.
+
+| ADR | Título | Estado |
+|---|---|---|
+| ADR-001 | Monolito modular para el MVP: servicios lógicamente separados en un único proceso, satisfaciendo Q58 sin operar servicios distribuidos (AUD-01) | PROPUESTA |
+| ADR-002 | Stack 2D web, tiempo real y persistencia (BL-02), tras spike comparativo | PENDIENTE de spike |

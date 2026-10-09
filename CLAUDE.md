@@ -1,54 +1,85 @@
-# CLAUDE.md — Reglas permanentes del proyecto (BORRADOR)
+# CLAUDE.md — Reglas del proyecto
 
-> Estado `PROPUESTA / PENDIENTE_GATE_HUMANO`. Este archivo define reglas propuestas, no prueba que existan agentes, repositorios, permisos o integraciones operativas.
+> Dinámica de trabajo aprobada el 2026-10-09 (reducción a 7 documentos y permisos en `.claude/settings.json`). El **contenido de producto** sigue `PROPUESTA / PENDIENTE_GATE_HUMANO`. Absorbe el antiguo prompt maestro (02), protocolo multiagente (08), prompts especializados (11) y plantilla de tarea (12); los originales están en el commit `b203e92`.
 
-## 1. Propósito y límites
+## 1. Proyecto y alcance
 
-Proyecto: juego cooperativo multijugador con mundo persistente, gestión de comunidades, misiones, proyectos, recursos, aprendizaje y futura integración documental/IA. Primer MVP: pequeño mundo web 2D, varios jugadores, una comunidad, un proyecto, recolección, taller, misión y persistencia.
+Juego cooperativo multijugador con mundo persistente, comunidades, misiones, proyectos, recursos y aprendizaje. **MVP:** prototipo vertical web 2D, varios jugadores, una comunidad, exploración, recolección, taller, un proyecto, una misión y persistencia.
 
-No confundir **visión de producto** con **alcance del MVP**. La federación, IA compleja, economía federada, RAG, editores de nodos, automatizaciones amplias, integraciones reales y escalado horizontal pertenecen a fases futuras salvo autorización documentada.
+No confundir **visión** con **alcance del MVP**. Federación, IA compleja, economía federada, RAG, editores de nodos, automatizaciones amplias, integraciones reales y escalado horizontal son fases futuras salvo autorización documentada. No implementar funciones futuras por el mero hecho de estar en la visión.
 
-## 2. Jerarquía y autoridad
+## 2. Documentos — leer solo lo necesario para la tarea
 
-1. Instrucciones legítimas y aprobaciones explícitas de la persona responsable.
-2. Reglas permanentes `CLAUDE.md` (cuando este borrador sea aprobado).
-3. Requisitos/decisiones aprobados y ADR versionados.
-4. Prompt de especialidad y contrato de tarea, con ámbito autorizado.
-5. Propuestas de IA, que no son autorizaciones.
+| Documento | Contenido |
+|---|---|
+| `docs/especificacion.md` | Requisitos RF/NFR con decisiones, evidencia y prueba; casos de uso; modelo conceptual; visión futura |
+| `docs/arquitectura.md` | Módulos, comunicación, persistencia, seguridad, alternativas y registro de ADR (`docs/adr/`) |
+| `docs/hoja-ruta.md` | Etapas G0–M6, bloqueos BL, tensiones AUD, pendientes de consolidación, fases futuras |
+| `docs/pruebas.md` | Catálogo TP/TA, umbrales pendientes y formato de evidencia |
+| `docs/decisiones.md` | Registro histórico Q001–Q130. **Solo lectura**: cambiarlo requiere gate humano |
 
-Las autorizaciones son **específicas para una operación y un alcance**. Una orden para crear código no autoriza ejecutarlo, instalar paquetes, llamar APIs, editar datos reales ni desplegar. El silencio no autoriza. Si falta permiso: `NO_GO` para esa operación.
+## 3. Autoridad y permisos
 
-## 3. Disciplina verificable
+Jerarquía: (1) instrucciones y aprobaciones explícitas de la persona responsable; (2) este archivo; (3) requisitos, decisiones y ADR aprobados; (4) el plan aprobado de la tarea; (5) propuestas de IA, que no son autorizaciones.
 
-Usar las categorías `VERIFICADO`, `NO VERIFICADO`, `INFERENCIA`, `PROPUESTA`, `SIMULACIÓN`. No inventar archivos, rutas, funciones, resultados, logs, pruebas, ejecuciones, permisos, hashes ni aprobaciones.
+- Las autorizaciones son **por operación y alcance**. Crear código no autoriza ejecutarlo, instalar paquetes, llamar APIs, tocar datos reales ni desplegar. El silencio no autoriza.
+- Los permisos técnicos están en `.claude/settings.json` (permitir / preguntar / denegar). No intentar rodearlos por otra vía; si se deniega una operación, es `NO_GO` para esa operación.
+- **Gates humanos obligatorios:** aprobar el plan de una tarea; añadir o actualizar dependencias; fusionar en `main`; cambiar requisitos, decisiones o este archivo; cualquier acción de red o sobre sistemas externos (incluidos Obsidian y Graphify).
+- Claude puede detectar y señalar conflictos en requisitos; los cambios en ellos los decide una persona (Q122).
 
-Antes de modificar, identificar: objetivo, alcance de archivos, requisitos/ADR, impacto, dependencias, riesgos, plan de pruebas, método de reversión y gate. Mantener cambios mínimos y reversibles. No sobreescribir trabajo ajeno.
+## 4. Ciclo de trabajo por tarea
 
-## 4. Protocolo de errores y gates
+1. La persona pide una tarea citando requisito o etapa (RF-xxx, M1…).
+2. Claude, en **modo plan**, lee solo lo necesario y propone: objetivo y requisito fuente; estado inicial verificado y fuentes leídas; archivos afectados (rutas comprobadas); acciones permitidas y prohibidas; dependencias, hipótesis e impacto; cambio mínimo; pruebas; reversión; evidencia esperada; gate.
+3. **La persona aprueba el plan** (gate).
+4. Claude implementa en una rama propia, ejecuta las pruebas autorizadas y hace commits pequeños.
+5. Cierre: resumen con `OK/WARN/ERR/NO_GO` y un único `NEXT`; actualizar especificación, ADR o hoja de ruta si algo cambió.
+6. **La persona revisa el diff y fusiona** (gate).
 
-Estados operativos: `OK`, `WARN`, `ERR`, `NO_GO`. Ante `ERR` o `NO_GO` detener la operación afectada, preservar evidencia, diagnosticar, proponer/ejecutar únicamente la reparación autorizada y repetir la verificación. No declarar cierre ni éxito sin pruebas. Continuar otras tareas independientes solo si no tienen dependencia insegura.
+Con una secuencia aprobada, avanzar hasta el próximo gate o bloqueo real sin pedir de nuevo permisos ya cubiertos (Q128). Paralelizar solo con alcances de escritura independientes y coordinación autorizada.
 
-Si existe una secuencia aprobada: avanzar hasta el próximo gate humano o bloqueo real, sin solicitar autorizaciones repetidas para pasos ya cubiertos.
+## 5. Disciplina de evidencia
 
-## 5. Repositorio, Obsidian y Graphify
+Categorías: `VERIFICADO` (con evidencia citable: archivo, salida de comando, prueba), `NO VERIFICADO`, `INFERENCIA`, `PROPUESTA`, `SIMULACIÓN` (resultado hipotético, nunca operación real). «VERIFICADO» en `docs/decisiones.md` significa *decidido*, no *implementado*.
 
-**Decisión:** monorepositorio modular inicial, servicios lógicamente separados; Git como historia de código. Obsidian sirve de red de conocimiento basada en relaciones; Graphify es apoyo de análisis del código. Flujo previsto `repositorio → Obsidian / Graphify`, unidireccional, incremental y selectivo; primero `DRY_RUN` y sin modificación de notas manuales. **NO VERIFICADO**: existencia, configuración, rutas y conectores en el entorno real.
+No inventar archivos, rutas, funciones, resultados, logs, pruebas, permisos, hashes, commits ni aprobaciones. Ninguna prueba se declara superada sin ejecución real. Mantener cambios mínimos y reversibles; no sobrescribir trabajo ajeno.
 
-No ejecutar sincronización ni escribir en Obsidian/Graphify sin prueba técnica y autorización específica. No declarar que Graphify dispone de API o integración hasta verificarlo.
+## 6. Errores e incidentes
 
-## 6. Arquitectura y calidad
+Estados: `OK`, `WARN`, `ERR`, `NO_GO`. Ante `ERR` o `NO_GO`: detener la operación afectada y sus dependientes inseguros, preservar evidencia, diagnosticar, reparar solo dentro del permiso, repetir la verificación y actualizar trazas. Otras tareas independientes pueden continuar. No declarar cierre sin pruebas.
 
-Diseño objetivo: microservicios / componentes distribuidos, APIs para operaciones, eventos para procesos desacoplados y WebSocket para sesión multijugador. Para MVP se permite coexistencia en un solo host; no introducir infraestructura distribuida remota innecesaria. Servidor autoritativo propuesto; integridad de inventarios y transacciones prioritaria.
+## 7. Arquitectura y calidad (resumen; detalle en `docs/arquitectura.md`)
 
-Aislar secretos, datos personales y entornos. Establecer identidades y permisos por ámbito. Pruebas unitarias/integración/funcionales/seguridad/accesibilidad antes de integrar. Rama principal protegida y gate humano para integraciones críticas. Fijar versiones y registrar dependencias. Ninguna prueba se declara superada sin evidencia.
+- Servicios **lógicamente** separados en un monorepositorio; en el MVP pueden convivir en un solo proceso y host. Sin infraestructura distribuida innecesaria.
+- Servidor autoritativo: el cliente no modifica saldos ni estado del mundo; validación en servidor; una autoridad de escritura por entidad; operaciones idempotentes; sin doble gasto.
+- Secretos fuera del código; datos personales mínimos; logs sin datos sensibles; versiones de dependencias fijadas y registradas.
+- Ninguna elección de stack sin spike comparativo y ADR aprobado.
 
-## 7. IA y contenidos documentales
+## 8. Perspectivas especializadas
 
-Separar datos verificables, inferencias y contenido ficcional/simulado. Procesamiento documental y acciones externas: solo lectura primero; escrituras y cambios reales con aprobación explícita, registro y, si procede, reversión. Los agentes no se conceden permisos, presupuestos ni memoria compartida por sí mismos.
+No son agentes instanciados: son enfoques que Claude adopta según la tarea. Solo se crean subagentes en `.claude/agents/` con gate.
 
-## 8. Formato de salida
+| Perspectiva | Foco | Prohibición principal |
+|---|---|---|
+| Arquitectura | Contratos, ADR, límites de datos | Imponer tecnologías no probadas o distribución innecesaria |
+| Gameplay / UX | Bucle recolección→taller→misión, accesibilidad | Añadir funciones futuras o fijar la perspectiva 2D no decidida |
+| Backend / multijugador | Sesiones, permisos, persistencia, concurrencia | Confiar en el cliente; inventar límites de latencia o concurrencia |
+| Calidad | Pruebas RF/TP; usar `/code-review` | Declarar `OK` sin pruebas ejecutadas |
+| Seguridad | Permisos, secretos, privacidad; usar `/security-review` | Afirmar vulnerabilidades sin reproducirlas en entorno autorizado |
+| Documentación / trazabilidad | Requisitos, ADR, pruebas, contradicciones | Reescribir decisiones humanas o documentar funciones inexistentes |
+| IA y agentes del juego (futuro) | Proveedores, memoria, presupuestos, revocación | Crear agentes reales, contratar servicios o enviar datos fuera |
 
-Para auditorías y paquetes operativos, usar:
+## 9. Datos, IA y herramientas auxiliares
+
+- El repositorio es la única fuente de verdad. Obsidian y Graphify son apoyo **no bloqueante** y su integración está pendiente de decisión (ver `docs/hoja-ruta.md`, PEND-04). No sincronizar ni escribir en ellos sin prueba técnica y autorización específica.
+- Separar datos verificables, inferencias y contenido ficticio o simulado; separar proyectos VIRTUAL / SIMULACIÓN / REAL.
+- No enviar secretos, datos personales ni documentos privados a proveedores externos de IA sin aprobación. No mezclar economía del juego con pagos reales.
+
+## 10. Formato de salida
+
+Markdown técnico y conciso; recomendaciones justificadas con requisito, alternativas, riesgos, impacto en el MVP y pruebas. Si falta un dato, dejar la decisión abierta sin presentarla como aprobada.
+
+Para auditorías y paquetes operativos:
 
 ```text
 ENGREMIAT_PACKAGE_BEGIN
@@ -60,8 +91,4 @@ NEXT | <única acción siguiente o gate>
 ENGREMIAT_PACKAGE_END
 ```
 
-No emitir etiquetas `OK` simulando pruebas no ejecutadas. Incluir referencia a fuente/versión cuando exista. Los scripts PowerShell solicitados deben ser autocontenidos, físicamente de una sola línea, con log completo, copia por `Set-Clipboard` y marcadores del protocolo; revisar sintaxis/escapes/efectos laterales antes de entregarlos. El código propuesto **no se ejecuta** salvo orden expresa.
-
-## 9. Índices de referencia
-
-Ver `10_REGISTRO_DECISIONES.md` para decisiones; `09_AUDITORIA_CONSOLIDACION.md` para conflictos; `06_MATRIZ_TRAZABILIDAD.md` para aceptación; `08_PROTOCOLO_MULTIAGENTE.md` para autorización; `02_PROMPT_MAESTRO.md` para orquestación por tarea.
+El formato asunto / preencabezado / cuerpo de `prompt.base.txt` se usa solo al redactar mensajes, no en documentación técnica. Si la persona pide un script PowerShell para ejecutarlo ella misma: autocontenido, de una sola línea física, con log completo, copia por `Set-Clipboard` y marcadores ENGREMIAT, revisado en sintaxis, escapes y efectos laterales.

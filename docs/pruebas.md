@@ -1,5 +1,7 @@
 # Plan de pruebas — BORRADOR / NO EJECUTADO
 
+Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba está en `docs/especificacion.md` §2.
+
 ## 1. Clasificación
 
 - **Unitarias:** validación de reglas de acción, costes y permisos.
