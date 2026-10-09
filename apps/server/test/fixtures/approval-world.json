@@ -42,7 +42,8 @@
       ],
       "coordinators": [
         "ana"
-      ]
+      ],
+      "buildRequiresApproval": true
     }
   ],
   "structures": [

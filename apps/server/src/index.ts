@@ -44,6 +44,10 @@ const STATIC_FILES: Record<string, { file: string; type: string }> = {
   "/": { file: "index.html", type: "text/html; charset=utf-8" },
   "/bundle.js": { file: "bundle.js", type: "text/javascript; charset=utf-8" },
   "/bundle.js.map": { file: "bundle.js.map", type: "application/json" },
+  // Panel profesional (M5b).
+  "/panel": { file: "panel.html", type: "text/html; charset=utf-8" },
+  "/panel.js": { file: "panel.js", type: "text/javascript; charset=utf-8" },
+  "/panel.js.map": { file: "panel.js.map", type: "application/json" },
 };
 
 const server = defineServer({

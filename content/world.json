@@ -26,24 +26,32 @@
       "id": "construir-taller",
       "name": "Construir taller",
       "description": "Reunid los materiales para levantar el taller de la aldea.",
+      "reality": "VIRTUAL",
+      "coordinators": [
+        "coordinacion"
+      ],
+      "buildRequiresApproval": false,
       "tasks": [
         {
           "id": "madera",
           "title": "Aportar madera",
           "resource": "madera",
-          "required": 20
+          "required": 20,
+          "acceptance": "Se han aportado 20 de madera al proyecto"
         },
         {
           "id": "piedra",
           "title": "Aportar piedra",
           "resource": "piedra",
-          "required": 15
+          "required": 15,
+          "acceptance": "Se han aportado 15 de piedra al proyecto"
         },
         {
           "id": "fibra",
           "title": "Aportar fibra",
           "resource": "fibra",
-          "required": 5
+          "required": 5,
+          "acceptance": "Se han aportado 5 de fibra al proyecto"
         }
       ]
     }

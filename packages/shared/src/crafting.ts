@@ -22,6 +22,8 @@ export const isNextTo = (p: Position, f: Footprint) =>
 export interface BuildInput {
   structure: StructureDef | undefined;
   projectReady: boolean;
+  /** Con buildRequiresApproval: falta alguna tarea por aprobar (Q162). */
+  approvalMissing?: boolean;
   built: boolean;
   position: Position;
   /** Posiciones de los demás jugadores (para no construir encima de nadie). */
@@ -31,10 +33,11 @@ export interface BuildInput {
 export type BuildResult = { ok: true; structure: StructureDef } | { ok: false; reason: RejectReason };
 
 /** Q156: proyecto listo, sin construir, junto al solar y con el solar libre. */
-export function checkBuild({ structure, projectReady, built, position, others }: BuildInput): BuildResult {
+export function checkBuild({ structure, projectReady, approvalMissing, built, position, others }: BuildInput): BuildResult {
   if (!structure) return { ok: false, reason: "estructura-desconocida" };
   if (built) return { ok: false, reason: "ya-construido" };
   if (!projectReady) return { ok: false, reason: "proyecto-sin-terminar" };
+  if (approvalMissing) return { ok: false, reason: "tareas-sin-aprobar" };
   if (!isNextTo(position, structure)) return { ok: false, reason: "lejos-del-solar" };
   if (others.some((o) => inFootprint(o, structure))) return { ok: false, reason: "solar-ocupado" };
   return { ok: true, structure };

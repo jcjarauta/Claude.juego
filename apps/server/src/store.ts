@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -21,6 +21,14 @@ export interface ContributionRow {
   resource: string;
   amount: number;
   at: number;
+}
+
+export interface ReviewRow {
+  taskId: string;
+  decision: string;
+  reviewedBy: string;
+  reviewedAt: number;
+  note: string;
 }
 
 export const MIGRATIONS: Record<number, string> = {
@@ -70,6 +78,18 @@ export const MIGRATIONS: Record<number, string> = {
       id TEXT PRIMARY KEY,
       completed_at INTEGER NOT NULL,
       completed_by TEXT NOT NULL
+    );
+  `,
+  // M5b: última revisión de cada tarea. El historial completo queda en los eventos «task-review».
+  4: `
+    CREATE TABLE task_review (
+      project_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      decision TEXT NOT NULL CHECK (decision IN ('aprobada', 'rechazada')),
+      reviewed_by TEXT NOT NULL,
+      reviewed_at INTEGER NOT NULL,
+      note TEXT NOT NULL,
+      PRIMARY KEY (project_id, task_id)
     );
   `,
 };
@@ -127,6 +147,13 @@ export function openStore(path: string) {
     addStructure: db.prepare("INSERT INTO structure (id, built_at, built_by) VALUES (?, ?, ?)"),
     getMissions: db.prepare("SELECT id, completed_at AS completedAt, completed_by AS completedBy FROM mission"),
     completeMission: db.prepare("INSERT INTO mission (id, completed_at, completed_by) VALUES (?, ?, ?)"),
+    getReviews: db.prepare(`SELECT task_id AS taskId, decision, reviewed_by AS reviewedBy, reviewed_at AS reviewedAt, note
+      FROM task_review WHERE project_id = ?`),
+    putReview: db.prepare(`INSERT INTO task_review (project_id, task_id, decision, reviewed_by, reviewed_at, note) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (project_id, task_id) DO UPDATE SET decision = excluded.decision, reviewed_by = excluded.reviewed_by,
+      reviewed_at = excluded.reviewed_at, note = excluded.note`),
+    taskEvidence: db.prepare(`SELECT COUNT(*) AS contributions, COALESCE(MAX(id), 0) AS lastEventId FROM event
+      WHERE type = 'contribute' AND json_extract(data, '$.project') = ? AND json_extract(data, '$.task') = ?`),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
     getLastSeen: db.prepare("SELECT last_seen_at AS lastSeenAt FROM player WHERE name = ?"),
     contributionTotals: db.prepare(`SELECT actor AS name, json_extract(data, '$.resource') AS resource, SUM(json_extract(data, '$.amount')) AS total
@@ -218,6 +245,20 @@ export function openStore(path: string) {
     },
     completeMission(id: string, by: string, at: number) {
       q.completeMission.run(id, at, by);
+    },
+    /** Última revisión de cada tarea de un proyecto. */
+    getReviews(projectId: string): ReviewRow[] {
+      return (q.getReviews.all(projectId) as unknown as ReviewRow[]).map((r) => ({
+        taskId: r.taskId, decision: r.decision, reviewedBy: r.reviewedBy, reviewedAt: Number(r.reviewedAt), note: r.note,
+      }));
+    },
+    putReview(projectId: string, taskId: string, decision: string, by: string, at: number, note: string) {
+      q.putReview.run(projectId, taskId, decision, by, at, note);
+    },
+    /** Evidencia de una tarea: cuántos aportes la sostienen y el último evento que la respalda. */
+    taskEvidence(projectId: string, taskId: string): { contributions: number; lastEventId: number } {
+      const row = q.taskEvidence.get(projectId, taskId) as { contributions: number; lastEventId: number };
+      return { contributions: Number(row.contributions), lastEventId: Number(row.lastEventId) };
     },
     /** Última salida del jugador (ms), o null si nunca ha salido. */
     getLastSeen(name: string): number | null {

@@ -1,6 +1,6 @@
-# Juego cooperativo multijugador
+# ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** diseño `PROPUESTA / PENDIENTE_GATE_HUMANO`. Sin código del juego. No es `GO_IMPLEMENTACIÓN`.
+**Estado:** MVP en construcción por etapas (M1–M5 y M5b cerradas; falta M6). El contenido de producto sigue como `PROPUESTA` revisable.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -13,8 +13,9 @@ Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. 
 | `docs/especificacion.md` | Requisitos con trazabilidad, casos de uso, modelo conceptual, visión futura |
 | `docs/arquitectura.md` | Módulos, comunicación, persistencia, seguridad, herramientas, ADR |
 | `docs/hoja-ruta.md` | Etapas, bloqueos, tensiones y pendientes de decisión |
-| `docs/pruebas.md` | Estrategia y catálogo de pruebas (no ejecutadas) |
-| `docs/decisiones.md` | Registro de las 143 decisiones (Q001–Q143) y reclasificación de las marcadas MVP |
+| `docs/pruebas.md` | Catálogo de pruebas y evidencias de cada etapa |
+| `docs/decisiones.md` | Registro de decisiones (Q001–Q164) y reclasificación de las marcadas MVP |
+| `docs/auditoria-engremiat-2026-10-09.md` | Auditoría de solo lectura que dio origen a M5b |
 
 ## Arranque (Windows)
 
@@ -31,6 +32,8 @@ npm.cmd start
 ```
 
 Abre `http://127.0.0.1:2567`, escribe tu nombre y entra (también vale `?name=ana` en la URL).
+
+**Panel de proyectos:** `http://127.0.0.1:2567/panel` (o el enlace del panel del proyecto). Muestra tareas, criterios, evidencias y revisiones del mismo estado que el mundo, sin crear personaje. Para aprobar o rechazar tareas hay que entrar con un nombre de `coordinators` en `content/world.json` (por defecto `coordinacion`; cámbialo por el tuyo).
 
 **Red local (2–4 jugadores):** en PowerShell, `$env:HOST="0.0.0.0"; npm.cmd start`. Windows pedirá permiso de firewall para Node: concédelo solo para redes privadas. Los demás abren `http://<IP-del-PC>:2567` (la IP aparece con `ipconfig`, en «Dirección IPv4» del adaptador conectado a la red local).
 
@@ -62,6 +65,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. Siguiente: M6 (endurecimiento), con una posible etapa previa de núcleo de proyectos.
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. Siguiente: M6 (cuentas, endurecimiento y aceptación del MVP).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

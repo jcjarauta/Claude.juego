@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Juego cooperativo</title>
+  <title>ENGREMIAT — Mundo cooperativo</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; padding: 16px; background: #15191e; color: #f2f2f2; }
@@ -51,12 +51,14 @@
     .recursos td button { padding: 2px 8px; margin-right: 4px; }
     .lleno { color: #ffd166; font-weight: 600; }
     .desconectado { color: #9aa4ad; font-style: italic; }
+    a { color: #9fd8ff; }
+    a:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
     kbd { background: #2a323b; border: 1px solid #5b6b7a; border-radius: 4px; padding: 0 5px; }
   </style>
 </head>
 <body>
   <main>
-    <h1>Mundo cooperativo</h1>
+    <h1>ENGREMIAT · Mundo cooperativo</h1>
 
     <form id="entrada" hidden novalidate>
       <label for="nombre">Tu nombre en el mundo</label>
@@ -88,6 +90,7 @@
           <h2 id="proyecto-titulo" tabindex="-1">Proyecto</h2>
           <p class="ayuda">Comunidad: <span id="proyecto-comunidad"></span></p>
           <p id="proyecto-descripcion"></p>
+          <p class="ayuda"><a href="/panel" target="_blank" rel="noopener">Abrir el panel de proyectos</a> (lista de tareas, criterios, evidencias y revisión; en otra pestaña).</p>
           <p>Estado: <span id="proyecto-estado"></span></p>
           <ul id="proyecto-tareas" class="tareas"></ul>
           <div id="construir" hidden>

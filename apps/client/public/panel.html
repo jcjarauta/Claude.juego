@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENGREMIAT — Panel de proyectos</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 16px; background: #15191e; color: #f2f2f2; }
+    main { max-width: 1280px; margin: 0 auto; }
+    h1 { font-size: 1.3rem; margin: 0 0 8px; }
+    h2 { font-size: 1.1rem; margin: 16px 0 4px; }
+    h3 { font-size: 1rem; margin: 14px 0 4px; }
+    p { margin: 6px 0; line-height: 1.4; }
+    a { color: #9fd8ff; }
+    [hidden] { display: none !important; }
+    form { display: grid; gap: 6px; max-width: 420px; margin: 12px 0; }
+    label, legend { font-weight: 600; }
+    input, select, textarea { font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; }
+    textarea { min-height: 4.5em; resize: vertical; }
+    fieldset { border: 1px solid #3a4652; border-radius: 4px; padding: 6px 10px; }
+    fieldset label { font-weight: 400; margin-right: 14px; }
+    button { font: inherit; padding: 4px 12px; border-radius: 4px; border: 1px solid #ffd166; background: #2a323b; color: #f2f2f2; cursor: pointer; width: fit-content; }
+    button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+    .ayuda { color: #c4ccd4; font-size: 0.9rem; }
+    .error { color: #ff9b85; min-height: 1.4em; }
+    .aviso { color: #ffd166; min-height: 1.4em; }
+    .etiqueta { display: inline-block; border: 1px solid #9fd8ff; color: #9fd8ff; border-radius: 4px; padding: 0 6px; font-size: 0.85rem; font-weight: 600; }
+    .tabla { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; min-width: 760px; }
+    caption { text-align: left; font-weight: 600; padding: 4px 0; }
+    th, td { text-align: left; vertical-align: top; padding: 6px; border-bottom: 1px solid #2f3842; }
+    td progress { width: 100%; min-width: 90px; accent-color: #ffd166; }
+    td button { padding: 2px 8px; margin: 0 4px 4px 0; }
+    .estado-aprobada { color: #8fe3a1; font-weight: 600; }
+    .estado-rechazada { color: #ff9b85; font-weight: 600; }
+    .estado-completada { color: #ffd166; font-weight: 600; }
+    code { color: #c4ccd4; }
+    #actividad { margin: 0; padding-left: 20px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ENGREMIAT · Panel de proyectos</h1>
+    <p class="ayuda">Vista profesional del mismo estado que el mundo: lo que hagas aquí se ve en el mapa y al revés.
+      <a href="/">Ir al mundo</a></p>
+
+    <form id="entrada" hidden novalidate>
+      <label for="nombre">Tu nombre</label>
+      <input id="nombre" name="nombre" maxlength="20" autocomplete="nickname" required aria-describedby="nombre-ayuda nombre-error">
+      <p id="nombre-ayuda" class="ayuda">El mismo nombre que usas en el mundo. El panel no crea personaje.</p>
+      <p id="nombre-error" class="error" role="alert"></p>
+      <button type="submit">Abrir el panel</button>
+    </form>
+
+    <section id="panel" hidden>
+      <p><span id="quien"></span> <span id="conexion" role="status" aria-live="polite"></span></p>
+      <p id="aviso" class="aviso" role="status" aria-live="polite"></p>
+      <p id="rechazo" class="error" role="alert"></p>
+      <div id="proyectos"></div>
+    </section>
+  </main>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

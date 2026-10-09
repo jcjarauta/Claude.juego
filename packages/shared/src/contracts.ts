@@ -5,6 +5,8 @@ export const ROOM_NAME = "world";
 
 /** Jugadores simultáneos en el mundo del MVP (Q134). */
 export const MAX_PLAYERS = 4;
+/** Paneles profesionales conectados a la vez (observadores sin personaje, M5b). */
+export const MAX_PANELS = 4;
 
 export const MESSAGE = {
   move: "move",
@@ -14,11 +16,18 @@ export const MESSAGE = {
   news: "news",
   build: "build",
   craft: "craft",
+  review: "review",
   rejected: "rejected",
 } as const;
 
+/** Vistas desde las que se entra: el mundo (con personaje) o el panel profesional (sin personaje). */
+export const VIEWS = ["mundo", "panel"] as const;
+export type View = (typeof VIEWS)[number];
+
 export interface JoinOptions {
   name: string;
+  /** Por defecto "mundo". */
+  view?: View;
 }
 
 /** Un paso ortogonal de una casilla: exactamente uno de dx, dy vale -1 o 1. */
@@ -85,6 +94,20 @@ export interface CraftMessage {
   recipeId: string;
 }
 
+/** Revisión de una tarea completada por un coordinador (M5b, Q161). */
+export const REVIEW_DECISIONS = ["aprobada", "rechazada"] as const;
+export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
+export const NOTE_MAX = 500;
+
+export interface ReviewMessage {
+  requestId: string;
+  projectId: string;
+  taskId: string;
+  decision: ReviewDecision;
+  /** Motivo o comentario: 1–500 caracteres. */
+  note: string;
+}
+
 export type RejectReason =
   | "movimiento-invalido"
   | "movimiento-demasiado-rapido"
@@ -109,7 +132,12 @@ export type RejectReason =
   | "solar-ocupado"
   | "taller-sin-construir"
   | "lejos-del-taller"
-  | "faltan-materiales";
+  | "faltan-materiales"
+  | "sin-permiso"
+  | "tarea-sin-completar"
+  | "nota-invalida"
+  | "sin-personaje"
+  | "tareas-sin-aprobar";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -140,6 +168,11 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "taller-sin-construir": "Primero hay que construir el taller.",
   "lejos-del-taller": "Acércate al taller para fabricar.",
   "faltan-materiales": "Faltan materiales en el almacén de la comunidad.",
+  "sin-permiso": "No tienes permiso para esa acción en este proyecto.",
+  "tarea-sin-completar": "Solo se puede revisar una tarea completada.",
+  "nota-invalida": "Escribe una nota de 1 a 500 caracteres.",
+  "sin-personaje": "Desde el panel no se puede actuar en el mundo; entra con tu personaje.",
+  "tareas-sin-aprobar": "Un coordinador debe aprobar todas las tareas antes de construir.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;
@@ -154,7 +187,7 @@ export const NAME_PATTERN = /^[\p{L}\p{N}_-]{1,20}$/u;
 export function joinErrorText(message: string): string {
   if (message.includes("nombre-en-uso")) return "Ese nombre ya está en uso en este mundo. Elige otro.";
   if (message.includes("nombre-invalido")) return "Nombre no válido: usa de 1 a 20 letras, números, guion o guion bajo.";
-  if (message.includes("no rooms found")) return `El mundo está lleno (máximo ${MAX_PLAYERS} jugadores). Inténtalo más tarde.`;
+  if (message.includes("mundo-lleno") || message.includes("no rooms found")) return `El mundo está lleno (máximo ${MAX_PLAYERS} jugadores). Inténtalo más tarde.`;
   return `No se pudo entrar en el mundo (${message}).`;
 }
 

@@ -14,7 +14,8 @@ const base = (): WorldConfig => ({
   community: { id: "aldea", name: "Aldea" },
   projects: [{
     id: "construir-taller", name: "Construir taller", description: "",
-    tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20 }],
+    tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20, acceptance: "Aportar 20 de madera" }],
+    reality: "VIRTUAL", coordinators: ["ana"], buildRequiresApproval: false,
   }],
   structures: [{ id: "taller", name: "Taller", projectId: "construir-taller", x: 5, y: 5, width: 2, height: 2, color: "#a0522d" }],
   items: [{ id: "herramienta", name: "Herramienta" }],
@@ -102,8 +103,8 @@ test("rechaza parámetros de recursos fuera de rango", () => {
 test("rechaza proyectos mal definidos y una comunidad sin nombre", () => {
   const cfg = base();
   cfg.community.name = "";
-  cfg.projects[0]!.tasks.push({ id: "madera", title: "", resource: "madera", required: 0 });
-  cfg.projects[0]!.tasks.push({ id: "oro", title: "Oro", resource: "oro", required: 1 });
+  cfg.projects[0]!.tasks.push({ id: "madera", title: "", resource: "madera", required: 0, acceptance: "x" });
+  cfg.projects[0]!.tasks.push({ id: "oro", title: "Oro", resource: "oro", required: 1, acceptance: "x" });
   cfg.projects.push({ ...cfg.projects[0]!, tasks: [] });
   const errors = String(errorsOf(cfg));
   assert.match(errors, /community: id y name obligatorios/);
@@ -153,4 +154,39 @@ test("el índice del mundo responde zona y bloqueo", () => {
   assert.equal(index.zoneNameAt(8, 7), "Camino");
   assert.equal(index.isBlocked(3, 3), true);
   assert.equal(index.isBlocked(4, 3), false);
+});
+
+test("proyectos: valores por defecto de realidad, coordinadores, aprobación y criterio (M5b)", () => {
+  const raw = base() as unknown as { projects: Record<string, unknown>[] };
+  const project = raw.projects[0]!;
+  delete project.reality;
+  delete project.coordinators;
+  delete project.buildRequiresApproval;
+  delete (project.tasks as Record<string, unknown>[])[0]!.acceptance;
+  const r = validateWorldConfig(raw);
+  assert.ok(r.ok, r.ok ? "" : r.errors.join("\n"));
+  const p = r.config.projects[0]!;
+  assert.equal(p.reality, "VIRTUAL");
+  assert.deepEqual(p.coordinators, []);
+  assert.equal(p.buildRequiresApproval, false);
+  assert.equal(p.tasks[0]!.acceptance, "Aportar 20 de madera");
+  assert.equal(project.reality, undefined, "no modifica la entrada");
+});
+
+test("proyectos: solo VIRTUAL en el MVP; coordinadores y aprobación con formato válido", () => {
+  for (const reality of ["REAL", "SIMULACION"]) {
+    const cfg = base() as unknown as { projects: Record<string, unknown>[] };
+    cfg.projects[0]!.reality = reality;
+    assert.match(String(errorsOf(cfg)), /solo se admiten proyectos VIRTUAL/);
+  }
+  const cfg = base() as unknown as { projects: Record<string, unknown>[] };
+  cfg.projects[0]!.reality = "FICCION";
+  cfg.projects[0]!.coordinators = ["ana", "no válido!"];
+  cfg.projects[0]!.buildRequiresApproval = "sí";
+  (cfg.projects[0]!.tasks as Record<string, unknown>[])[0]!.acceptance = " ";
+  const errors = String(errorsOf(cfg));
+  assert.match(errors, /reality debe ser VIRTUAL, SIMULACION, REAL/);
+  assert.match(errors, /coordinators debe ser una lista de nombres válidos/);
+  assert.match(errors, /buildRequiresApproval debe ser true o false/);
+  assert.match(errors, /acceptance debe ser un texto/);
 });

@@ -32,9 +32,27 @@ export const ContributorTotals = schema({
 }, "ContributorTotals");
 export type ContributorTotals = SchemaType<typeof ContributorTotals>;
 
+/** Estado de una tarea (M5b): avance automático y última revisión humana. */
+export const TaskState = schema({
+  /** "pendiente" | "en-curso" | "completada" | "aprobada" | "rechazada" */
+  status: t.string(),
+  /** Última revisión: "" (ninguna), "aprobada" o "rechazada". */
+  decision: t.string(),
+  reviewedBy: t.string(),
+  reviewedAt: t.float64(),
+  note: t.string(),
+}, "TaskState");
+export type TaskState = SchemaType<typeof TaskState>;
+
 export const ProjectState = schema({
   /** "en-curso" | "listo" (todas las tareas completas) | "construido" (M5). */
   status: t.string(),
+  /** Clasificación de realidad (Q163): en el MVP siempre "VIRTUAL". */
+  reality: t.string(),
+  /** Quién puede revisar tareas (Q161). */
+  coordinators: t.array("string"),
+  /** Estado de cada tarea por id. */
+  tasks: t.map(TaskState),
   /** Aportado por recurso (= progreso de la tarea de ese recurso). */
   progress: t.map("uint16"),
   /** Quién aportó qué: nombre → totales. */

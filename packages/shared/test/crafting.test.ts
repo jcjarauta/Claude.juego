@@ -19,6 +19,8 @@ test("construir: requisitos y motivos (Q156)", () => {
   assert.deepEqual(checkBuild({ ...ok, structure: undefined }), { ok: false, reason: "estructura-desconocida" });
   assert.deepEqual(checkBuild({ ...ok, built: true }), { ok: false, reason: "ya-construido" });
   assert.deepEqual(checkBuild({ ...ok, projectReady: false }), { ok: false, reason: "proyecto-sin-terminar" });
+  assert.deepEqual(checkBuild({ ...ok, approvalMissing: true }), { ok: false, reason: "tareas-sin-aprobar" });
+  assert.deepEqual(checkBuild({ ...ok, projectReady: false, approvalMissing: true }), { ok: false, reason: "proyecto-sin-terminar" });
   assert.deepEqual(checkBuild({ ...ok, position: { x: 0, y: 0 } }), { ok: false, reason: "lejos-del-solar" });
   assert.deepEqual(checkBuild({ ...ok, others: [{ x: 6, y: 6 }] }), { ok: false, reason: "solar-ocupado" });
 });

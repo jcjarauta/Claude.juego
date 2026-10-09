@@ -19,6 +19,8 @@ dist/
 # Artefactos de compilación del cliente
 apps/client/public/bundle.js
 apps/client/public/bundle.js.map
+apps/client/public/panel.js
+apps/client/public/panel.js.map
 
 # Datos locales del servidor
 data/
