@@ -1,0 +1,24 @@
+{
+  "name": "spike-phaser-colyseus",
+  "private": true,
+  "description": "Spike desechable BL-02: Phaser + Colyseus + SQLite. No se reutiliza en el MVP.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild client/main.js --bundle --format=esm --outfile=public/bundle.js --minify --sourcemap",
+    "start": "node server/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@colyseus/core": "0.18.18",
+    "@colyseus/schema": "5.0.36",
+    "@colyseus/sdk": "0.18.5",
+    "@colyseus/ws-transport": "0.18.4",
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
