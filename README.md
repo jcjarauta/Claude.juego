@@ -62,6 +62,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M4 cerradas; M5 hecha en la rama `m5-taller-mision`: el bucle completo del MVP (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada). Pendiente: tu prueba y la fusión. Después, M6 (endurecimiento).
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. Siguiente: M6 (endurecimiento), con una posible etapa previa de núcleo de proyectos.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

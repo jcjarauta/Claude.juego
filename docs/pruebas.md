@@ -130,3 +130,19 @@ Defectos encontrados y corregidos:
 | Prueba del usuario | — | Fusión autorizada por la persona responsable el 2026-10-09 sin prueba manual registrada | NO VERIFICADO |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 63 de 63.
+
+### M5 — 2026-10-09 (rama `m5-taller-mision`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | `isNextTo`, `checkBuild` (Q156), `checkCraft` (Q157), `missionSatisfied` (Q158) y validación de estructuras, objetos, recetas y misiones (huella sobre la aparición, referencias desconocidas) | OK |
+| TP-07 | `npm.cmd test` | Rechazos «proyecto sin terminar», «lejos del solar» y «solar ocupado»; dos órdenes simultáneas: una construye y la otra recibe «ya construido»; el inventario del proyecto queda a 0, el progreso se conserva, el taller bloquea el paso y ya no admite aportes; auditoría cuadrada | OK |
+| TP-08 | `npm.cmd test` | Rechazos «taller sin construir», «faltan materiales» y «lejos del taller»; al fabricar se consumen las entradas del almacén común, aparece 1 herramienta y la misión queda completada con autor y hora; el otro jugador lo ve | OK |
+| TP-12 | `npm.cmd test` | Estructura o receta desconocidas y `requestId` ausente o inválido rechazados sin cambios; `build` repetido con el mismo `requestId` sin efecto ni rechazo | OK |
+| Ciclo completo (gate) y TP-09 | `npm.cmd test` | Dos jugadores de cero a misión completada (recolectar → depositar → aportar → construir → fabricar); SIGKILL; tras reiniciar, un tercer jugador ve el taller (con su bloqueo), el proyecto «construido», la misión completada y la herramienta; auditoría `balanced`, fabricado `{herramienta: 1}` | OK |
+| Migración v2 → v3 | `npm.cmd test` | Datos conservados, copia `*.v2.bak`; no se construye ni se completa dos veces; auditoría con consumos y objetos | OK |
+| Navegador | Navegador integrado, dos pestañas | Ciclo completo con reinicio del servidor; auditoría de la base de demostración cuadrada (madera 7 = 2 + 5 consumidas; piedra 2 = 2 consumidas; herramienta 1 = 1) | OK |
+| Carga (4 clientes, 15 min) | `npm.cmd run soak` | 173 comprobaciones del estado completo (incluidos estructuras y misiones), 0 divergencias, convergencia máx. 1 ms; 317 recolecciones, 31 aportes, 76 depósitos, 1 construcción y 29 órdenes de fabricar; proyecto «construido» (20/15/5), misión completada, 28 herramientas; **auditoría: recolectado + fabricado = inventarios + consumido** (madera 120 = 16 + 104; piedra 79 = 8 + 71; fibra 100 = 39 + 61; herramienta 28 = 28) | OK |
+| Prueba del usuario | Persona responsable | «ya está probado» (2026-10-09); fusión autorizada | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 74 de 74.
