@@ -17,6 +17,31 @@
   "session": {
     "reconnectSeconds": 2
   },
+  "community": {
+    "id": "aldea",
+    "name": "Comunidad de la aldea"
+  },
+  "projects": [
+    {
+      "id": "construir-taller",
+      "name": "Construir taller",
+      "description": "Prueba.",
+      "tasks": [
+        {
+          "id": "madera",
+          "title": "Aportar madera",
+          "resource": "madera",
+          "required": 4
+        },
+        {
+          "id": "piedra",
+          "title": "Aportar piedra",
+          "resource": "piedra",
+          "required": 1
+        }
+      ]
+    }
+  ],
   "resources": [
     {
       "id": "madera",

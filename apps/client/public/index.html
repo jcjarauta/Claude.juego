@@ -7,18 +7,23 @@
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; padding: 16px; background: #15191e; color: #f2f2f2; }
-    main { max-width: 820px; margin: 0 auto; }
+    main { max-width: 1280px; margin: 0 auto; }
     h1 { font-size: 1.3rem; margin: 0 0 8px; }
     h2 { font-size: 1rem; margin: 12px 0 4px; }
+    h3 { font-size: 0.95rem; margin: 12px 0 4px; }
     p { margin: 6px 0; line-height: 1.4; }
     [hidden] { display: none !important; }
     form { display: grid; gap: 6px; max-width: 360px; margin: 16px 0; }
     label { font-weight: 600; }
     input { font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; }
     button { font: inherit; padding: 6px 14px; border-radius: 4px; border: 1px solid #ffd166; background: #2a323b; color: #f2f2f2; cursor: pointer; width: fit-content; }
-    input:focus-visible, button:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+    button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+    input:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
     .ayuda { color: #c4ccd4; font-size: 0.9rem; }
     .error { color: #ff9b85; min-height: 1.4em; }
+    /* Interfaz híbrida (RF-010): mapa y proyecto a la vez en pantallas anchas; uno debajo del otro en estrechas. */
+    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(280px, 1fr); gap: 20px; align-items: start; }
+    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; } }
     #game { border: 2px solid #5b6b7a; max-width: 800px; }
     #game canvas { display: block; }
     .hud { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
@@ -26,11 +31,21 @@
     #aviso { color: #ffd166; min-height: 1.4em; }
     #conexion { color: #9fd8ff; }
     #jugadores { margin: 0; padding-left: 20px; }
+    #proyecto { border: 1px solid #3a4652; border-radius: 6px; padding: 8px 14px 12px; background: #1b2128; }
+    #proyecto h2 { margin-top: 4px; font-size: 1.1rem; }
+    .tareas { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 12px; }
+    .tareas li { display: grid; gap: 4px; }
+    .tarea-titulo { font-weight: 600; }
+    .tareas progress { width: 100%; height: 14px; accent-color: #ffd166; }
+    .tarea-acciones { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tarea-acciones button { padding: 2px 8px; }
+    #proyecto-estado { font-weight: 600; }
+    #proyecto-aviso { color: #ffd166; min-height: 1.4em; }
+    #proyecto-aportes, #proyecto-actividad { margin: 0; padding-left: 20px; font-size: 0.92rem; }
     .recursos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
     .recursos table { border-collapse: collapse; width: 100%; }
     .recursos th, .recursos td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #2f3842; }
     .recursos td button { padding: 2px 8px; margin-right: 4px; }
-    .recursos td button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
     .lleno { color: #ffd166; font-weight: 600; }
     .desconectado { color: #9aa4ad; font-style: italic; }
     kbd { background: #2a323b; border: 1px solid #5b6b7a; border-radius: 4px; padding: 0 5px; }
@@ -51,15 +66,37 @@
     <section id="partida" hidden>
       <p>Moverse: <kbd>flechas</kbd> o <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (mantener pulsado para seguir andando).
         Recolectar junto a un árbol ▲, roca ■ o mata de fibra ◆: <kbd>Espacio</kbd> o <kbd>E</kbd> (se usa el que tienes delante).
+        <kbd>P</kbd> lleva al proyecto y <kbd>M</kbd> vuelve al mapa.
         Tu personaje es el círculo amarillo; los demás, azules. El número sobre cada recurso son sus unidades.</p>
-      <div id="game"></div>
-      <div class="hud">
-        <p>Zona: <span id="zona" role="status" aria-live="polite">—</span></p>
-        <p id="posicion"></p>
-        <p id="conexion" role="status" aria-live="polite"></p>
+      <div class="juego">
+        <div>
+          <div id="game" tabindex="0" aria-label="Mapa del mundo. Flechas o WASD para moverte, Espacio o E para recolectar, P para ir al proyecto."></div>
+          <div class="hud">
+            <p>Zona: <span id="zona" role="status" aria-live="polite">—</span></p>
+            <p id="posicion"></p>
+            <p id="conexion" role="status" aria-live="polite"></p>
+          </div>
+          <p id="aviso" role="alert"></p>
+          <p id="acciones" class="ayuda" role="status" aria-live="polite"></p>
+          <button id="volver" type="button" hidden>Volver a entrar</button>
+        </div>
+
+        <section id="proyecto" aria-labelledby="proyecto-titulo">
+          <h2 id="proyecto-titulo" tabindex="-1">Proyecto</h2>
+          <p class="ayuda">Comunidad: <span id="proyecto-comunidad"></span></p>
+          <p id="proyecto-descripcion"></p>
+          <p>Estado: <span id="proyecto-estado"></span></p>
+          <ul id="proyecto-tareas" class="tareas"></ul>
+          <p id="proyecto-aviso" role="status" aria-live="polite"></p>
+          <h3>Novedades</h3>
+          <p id="proyecto-novedades" class="ayuda" role="status" aria-live="polite"></p>
+          <h3>Quién ha aportado</h3>
+          <ul id="proyecto-aportes"></ul>
+          <h3>Actividad reciente</h3>
+          <ol id="proyecto-actividad"></ol>
+        </section>
       </div>
-      <p id="aviso" role="alert"></p>
-      <p id="acciones" class="ayuda" role="status" aria-live="polite"></p>
+
       <div class="recursos">
         <section aria-labelledby="inventario-titulo">
           <h2 id="inventario-titulo">Tu inventario</h2>
@@ -76,7 +113,6 @@
           </table>
         </section>
       </div>
-      <button id="volver" type="button" hidden>Volver a entrar</button>
       <h2 id="jugadores-titulo">Jugadores</h2>
       <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
       <p id="presencia" class="ayuda" role="status" aria-live="polite"></p>

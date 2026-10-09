@@ -1,16 +1,29 @@
+import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
 // Persistencia del mundo (ADR-002): SQLite con escritura previa a la confirmación.
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
-export type Scope = { type: "player"; id: string } | { type: "community"; id: "main" };
+export type Scope =
+  | { type: "player"; id: string }
+  | { type: "community"; id: "main" }
+  | { type: "project"; id: string };
 export const COMMUNITY: Scope = { type: "community", id: "main" };
 export const playerScope = (name: string): Scope => ({ type: "player", id: name });
+export const projectScope = (id: string): Scope => ({ type: "project", id });
 
-const MIGRATIONS: Record<number, string> = {
+export interface ContributionRow {
+  name: string;
+  taskId: string;
+  resource: string;
+  amount: number;
+  at: number;
+}
+
+export const MIGRATIONS: Record<number, string> = {
   1: `
     CREATE TABLE node_state (
       node_id TEXT PRIMARY KEY,
@@ -40,6 +53,11 @@ const MIGRATIONS: Record<number, string> = {
       UNIQUE (actor, request_id)
     );
   `,
+  // M4: última salida del jugador (novedades asíncronas) e índice para consultar eventos por tipo y fecha.
+  2: `
+    ALTER TABLE player ADD COLUMN last_seen_at INTEGER;
+    CREATE INDEX event_type_at ON event (type, at);
+  `,
 };
 
 export function openStore(path: string) {
@@ -47,6 +65,12 @@ export function openStore(path: string) {
   db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
 
   const version = Number((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);
+  // Antes de migrar una base con datos se guarda una copia coherente (VACUUM INTO incluye lo
+  // que esté en el registro WAL, a diferencia de copiar el archivo).
+  if (version >= 1 && version < SCHEMA_VERSION && path !== ":memory:") {
+    const backup = `${path}.v${version}.bak`;
+    if (!existsSync(backup)) db.prepare("VACUUM INTO ?").run(backup);
+  }
   for (let v = version + 1; v <= SCHEMA_VERSION; v++) {
     db.exec("BEGIN IMMEDIATE");
     try {
@@ -79,6 +103,16 @@ export function openStore(path: string) {
     inventoryTotals: db.prepare("SELECT resource, SUM(amount) AS total FROM inventory GROUP BY resource"),
     collectTotals: db.prepare(`SELECT json_extract(data, '$.resource') AS resource, COUNT(*) AS total
       FROM event WHERE type = 'collect' GROUP BY resource`),
+    setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
+    getLastSeen: db.prepare("SELECT last_seen_at AS lastSeenAt FROM player WHERE name = ?"),
+    contributionTotals: db.prepare(`SELECT actor AS name, json_extract(data, '$.resource') AS resource, SUM(json_extract(data, '$.amount')) AS total
+      FROM event WHERE type = 'contribute' AND json_extract(data, '$.project') = ? GROUP BY actor, resource`),
+    recentContributions: db.prepare(`SELECT actor AS name, json_extract(data, '$.task') AS taskId, json_extract(data, '$.resource') AS resource,
+      json_extract(data, '$.amount') AS amount, at FROM event
+      WHERE type = 'contribute' AND json_extract(data, '$.project') = ? ORDER BY id DESC LIMIT ?`),
+    contributionsSince: db.prepare(`SELECT actor AS name, json_extract(data, '$.project') AS projectId, json_extract(data, '$.task') AS taskId,
+      json_extract(data, '$.resource') AS resource, json_extract(data, '$.amount') AS amount, at FROM event
+      WHERE type = 'contribute' AND at > ? AND actor <> ? ORDER BY id LIMIT ?`),
   };
 
   return {
@@ -135,6 +169,32 @@ export function openStore(path: string) {
     audit() {
       const toMap = (rows: unknown[]) => Object.fromEntries((rows as { resource: string; total: number }[]).map((r) => [r.resource, Number(r.total)]));
       return { inInventories: toMap(q.inventoryTotals.all()), collected: toMap(q.collectTotals.all()) };
+    },
+    /** Última salida del jugador (ms), o null si nunca ha salido. */
+    getLastSeen(name: string): number | null {
+      const row = q.getLastSeen.get(name) as { lastSeenAt: number | null } | undefined;
+      return row?.lastSeenAt ?? null;
+    },
+    setLastSeen(name: string, at: number) {
+      q.setLastSeen.run(at, name);
+    },
+    /** Quién aportó qué a un proyecto: nombre → recurso → total. */
+    contributionTotals(projectId: string): Record<string, Record<string, number>> {
+      const result: Record<string, Record<string, number>> = {};
+      for (const r of q.contributionTotals.all(projectId) as { name: string; resource: string; total: number }[]) {
+        (result[r.name] ??= {})[r.resource] = Number(r.total);
+      }
+      return result;
+    },
+    /** Últimos aportes a un proyecto, del más reciente al más antiguo. */
+    recentContributions(projectId: string, limit: number): ContributionRow[] {
+      return (q.recentContributions.all(projectId, limit) as unknown as ContributionRow[])
+        .map((r) => ({ name: r.name, taskId: r.taskId, resource: r.resource, amount: Number(r.amount), at: Number(r.at) }));
+    },
+    /** Aportes de otros jugadores desde una fecha (novedades al volver). */
+    contributionsSince(since: number, excludeName: string, limit: number): (ContributionRow & { projectId: string })[] {
+      return (q.contributionsSince.all(since, excludeName, limit) as unknown as (ContributionRow & { projectId: string })[])
+        .map((r) => ({ name: r.name, projectId: r.projectId, taskId: r.taskId, resource: r.resource, amount: Number(r.amount), at: Number(r.at) }));
     },
     schemaVersion(): number {
       return Number((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);

@@ -10,6 +10,8 @@ export const MESSAGE = {
   move: "move",
   collect: "collect",
   transfer: "transfer",
+  contribute: "contribute",
+  news: "news",
   rejected: "rejected",
 } as const;
 
@@ -42,6 +44,35 @@ export interface TransferMessage {
   to: TransferTarget;
 }
 
+/** Orígenes desde los que se puede aportar a un proyecto (Q152). */
+export const CONTRIBUTION_SOURCES = ["player", "community"] as const;
+export type ContributionSource = (typeof CONTRIBUTION_SOURCES)[number];
+
+export interface ContributeMessage {
+  requestId: string;
+  projectId: string;
+  taskId: string;
+  from: ContributionSource;
+  amount: number;
+}
+
+/** Aporte de otro jugador desde la última visita (colaboración asíncrona, RF-013). */
+export interface NewsItem {
+  name: string;
+  projectId: string;
+  taskId: string;
+  resource: string;
+  amount: number;
+  at: number;
+}
+
+/** Mensaje privado al entrar: qué ha pasado mientras no estabas. */
+export interface NewsMessage {
+  /** Última salida del jugador; null si es su primera visita. */
+  since: number | null;
+  items: NewsItem[];
+}
+
 export type RejectReason =
   | "movimiento-invalido"
   | "movimiento-demasiado-rapido"
@@ -54,7 +85,10 @@ export type RejectReason =
   | "nodo-agotado"
   | "inventario-lleno"
   | "saldo-insuficiente"
-  | "destino-no-permitido";
+  | "destino-no-permitido"
+  | "tarea-desconocida"
+  | "tarea-completa"
+  | "origen-no-permitido";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -73,6 +107,9 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "inventario-lleno": "No puedes llevar más de este recurso. Deposítalo en la comunidad.",
   "saldo-insuficiente": "No tienes suficiente cantidad.",
   "destino-no-permitido": "No se puede transferir ahí.",
+  "tarea-desconocida": "Esa tarea no existe.",
+  "tarea-completa": "Esa tarea ya está completa.",
+  "origen-no-permitido": "No se puede aportar desde ahí.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

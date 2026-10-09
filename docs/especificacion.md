@@ -69,7 +69,7 @@ Valores iniciales para implementar y equilibrar; se ajustan con pruebas de juego
 | Recolección | Acción de 1 s junto al nodo; +1 unidad al inventario individual |
 | Reloj del mundo | Continuo en el servidor; cada nodo recupera 1 unidad cada 2 min reales hasta su máximo |
 | Inventario individual | Máximo 10 unidades por recurso (obliga a aportar y coordinarse) |
-| Transferencias | Individual → comunidad; individual o comunidad → proyecto; nunca de vuelta. M3 implementa individual → comunidad; los aportes al proyecto llegan con M4 |
+| Transferencias | Individual → comunidad; individual o comunidad → proyecto; nunca de vuelta. Implementado: individual → comunidad (M3) e individual o comunidad → proyecto (M4), con recorte a lo que falta (Q153) |
 | Proyecto «Construir taller» | Tareas: aportar 20 madera, 15 piedra y 5 fibra; al completarlas, cualquier miembro puede ordenar la construcción |
 | Herramienta | Receta en el taller: 3 madera + 2 piedra + 2 fibra del inventario de la comunidad |
 | Misión «Primera herramienta» | Se completa al fabricar la herramienta y depositarla en el inventario de la comunidad |

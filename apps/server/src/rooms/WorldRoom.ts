@@ -1,12 +1,15 @@
 import { Room, type Client } from "@colyseus/core";
 import {
-  applyMove, checkCollect, checkTransfer, isValidName, isValidRequestId, MAX_PLAYERS, MESSAGE, Player, regenerate, WorldState,
-  type JoinOptions, type NodeView, type RejectedMessage, type RejectReason,
+  applyMove, checkCollect, checkContribution, checkTransfer, Contribution, ContributorTotals, isValidName, isValidRequestId,
+  MAX_PLAYERS, MESSAGE, Player, ProjectState, projectStatus, regenerate, WorldState,
+  type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason,
 } from "@juego/shared";
-import { COMMUNITY, playerScope, type Store } from "../store.ts";
+import { COMMUNITY, playerScope, projectScope, type Store } from "../store.ts";
 import { getStore, getWorld, type World } from "../world.ts";
 
 const POSITION_SAVE_MS = 5000;
+const RECENT_CONTRIBUTIONS = 10;
+const NEWS_LIMIT = 50;
 
 /**
  * Sala única del mundo persistente (ADR-002): se crea al arrancar el servidor,
@@ -30,6 +33,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   /** Jugadores cuya posición ha cambiado desde el último guardado. */
   private moved = new Set<string>();
   private lastRegenAt = new Map<string, number>();
+  /** Sesiones que ya recibieron sus novedades (se envían una vez, cuando el cliente las pide). */
+  private newsSent = new Set<string>();
   /** Plazos de reconexión abiertos por sessionId, para poder cancelarlos. */
   private pendingReconnections = new Map<string, ReturnType<Room["allowReconnection"]>>();
 
@@ -52,6 +57,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const [resource, amount] of Object.entries(this.store.getInventory(COMMUNITY))) {
       this.state.community.set(resource, amount);
     }
+    this.state.communityName = config.community.name;
+    for (const project of config.projects) this.loadProject(project);
 
     const tickMs = Math.max(50, Math.min(1000, Math.floor(config.regenIntervalMs / 4)));
     this.clock.setInterval(() => this.regenTick(), tickMs);
@@ -111,8 +118,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const player = this.state.players.get(client.sessionId);
     if (player) {
       this.savePlayer(client.sessionId);
-      this.store.event("leave", player.name, null, null);
+      this.store.transaction(() => {
+        this.store.event("leave", player.name, null, null);
+        this.store.setLastSeen(player.name, Date.now());
+      });
     }
+    this.newsSent.delete(client.sessionId);
     this.pendingReconnections.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
     for (const map of [this.lastMoveAt, this.lastCollectAt, this.facing]) map.delete(client.sessionId);
@@ -215,8 +226,85 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.state.community.set(outcome.resource, outcome.community);
     },
 
+    [MESSAGE.contribute]: (client: Client, payload: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player?.connected) return;
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
+      const requestId = message.requestId;
+      const own = playerScope(player.name);
+
+      const outcome = this.safely(client, () => this.store.transaction(() => {
+        if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
+        const check = checkContribution({
+          projects: this.world.config.projects,
+          projectId: message.projectId, taskId: message.taskId, from: message.from, amount: message.amount,
+          contributed: (projectId, resource) => this.store.getAmount(projectScope(projectId), resource),
+          balance: (from, resource) => this.store.getAmount(from === "player" ? own : COMMUNITY, resource),
+        });
+        if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
+        const { project, task, from, amount, requested } = check;
+        const source = from === "player" ? own : COMMUNITY;
+        this.store.addAmount(source, task.resource, -amount);
+        this.store.addAmount(projectScope(project.id), task.resource, amount);
+        this.store.event("contribute", player.name, requestId, { project: project.id, task: task.id, resource: task.resource, amount, from, requested });
+        return {
+          kind: "done" as const, project, taskId: task.id, resource: task.resource, from, amount,
+          sourceAmount: this.store.getAmount(source, task.resource),
+          projectAmount: this.store.getAmount(projectScope(project.id), task.resource),
+        };
+      }));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+
+      // Confirmado: origen, progreso, quién aportó, actividad y estado del proyecto.
+      if (outcome.from === "player") player.inventory.set(outcome.resource, outcome.sourceAmount);
+      else this.state.community.set(outcome.resource, outcome.sourceAmount);
+      const projectState = this.state.projects.get(outcome.project.id)!;
+      projectState.progress.set(outcome.resource, outcome.projectAmount);
+      let totals = projectState.contributors.get(player.name);
+      if (!totals) {
+        totals = new ContributorTotals();
+        projectState.contributors.set(player.name, totals);
+      }
+      totals.totals.set(outcome.resource, (totals.totals.get(outcome.resource) ?? 0) + outcome.amount);
+      projectState.recent.push(new Contribution({
+        name: player.name, taskId: outcome.taskId, resource: outcome.resource, amount: outcome.amount, at: Date.now(),
+      }));
+      while (projectState.recent.length > RECENT_CONTRIBUTIONS) projectState.recent.shift();
+      projectState.status = projectStatus(outcome.project, (r) => projectState.progress.get(r) ?? 0);
+    },
+
+    /** El cliente pide sus novedades cuando está listo para mostrarlas (una vez por sesión). */
+    [MESSAGE.news]: (client: Client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || this.newsSent.has(client.sessionId)) return;
+      this.newsSent.add(client.sessionId);
+      const since = this.store.getLastSeen(player.name);
+      const news: NewsMessage = { since, items: since === null ? [] : this.store.contributionsSince(since, player.name, NEWS_LIMIT) };
+      client.send(MESSAGE.news, news);
+    },
+
     "*": (client: Client) => this.reject(client, "mensaje-desconocido"),
   };
+
+  /** Reconstruye el estado de un proyecto desde la base de datos (progreso, quién aportó, actividad). */
+  private loadProject(project: ProjectDef) {
+    const projectState = new ProjectState();
+    for (const [resource, amount] of Object.entries(this.store.getInventory(projectScope(project.id)))) {
+      projectState.progress.set(resource, amount);
+    }
+    for (const [name, byResource] of Object.entries(this.store.contributionTotals(project.id))) {
+      const totals = new ContributorTotals();
+      for (const [resource, amount] of Object.entries(byResource)) totals.totals.set(resource, amount);
+      projectState.contributors.set(name, totals);
+    }
+    for (const row of this.store.recentContributions(project.id, RECENT_CONTRIBUTIONS).reverse()) {
+      projectState.recent.push(new Contribution(row));
+    }
+    projectState.status = projectStatus(project, (r) => projectState.progress.get(r) ?? 0);
+    this.state.projects.set(project.id, projectState);
+  }
 
   private regenTick() {
     const { config } = this.world;
