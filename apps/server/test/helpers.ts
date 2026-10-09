@@ -64,6 +64,21 @@ export async function joinWorld(url: string, name: string): Promise<TestPlayer> 
   return { room, rejections, me: () => room.state.players.get(room.sessionId)! };
 }
 
+/** Vuelve a la sala con el token de una sesión cortada (como hace el SDK al reconectar). */
+export async function reconnectWorld(url: string, reconnectionToken: string): Promise<TestPlayer> {
+  const room = await new Client(url).reconnect(reconnectionToken, WorldState);
+  const rejections: RejectReason[] = [];
+  room.onMessage(MESSAGE.rejected, (msg: RejectedMessage) => rejections.push(msg.reason));
+  await waitFor(() => Boolean(room.state?.players?.get(room.sessionId)));
+  return { room, rejections, me: () => room.state.players.get(room.sessionId)! };
+}
+
+/** Vista de un cliente: nombre → posición y conexión, ordenada para comparar. */
+export function snapshot(player: TestPlayer): string {
+  const rows = [...player.room.state.players.values()].map((p) => `${p.name}@${p.x},${p.y}${p.connected ? "" : "(desc)"}`);
+  return rows.sort().join(" ");
+}
+
 export async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
