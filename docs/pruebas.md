@@ -63,7 +63,7 @@ Los fallos críticos deben reproducirse, diagnosticar causa, corregirse dentro d
 
 | ID | Versión | Entorno | Procedimiento | Resultado observado | Estado |
 |---|---|---|---|---|---|
-| TP-01 | `m1-mundo` (commit `1fc23d7`) | Windows 11, Node 24.18, navegador integrado (Chromium) | `npm.cmd run build`, `npm.cmd start`, abrir `http://127.0.0.1:2567/?name=ana` y recorrer el mundo con teclado | Mapa 40×30 cargado; recorrido Aldea → Bosque → Camino → Cantera → Pradera con flechas y WASD; cada pulsación da un paso; la cámara sigue; la zona se anuncia en el HUD; un árbol y el borde superior bloquean con aviso; sin errores de consola | OK (Chromium). Edge del usuario: pendiente |
+| TP-01 | `m1-mundo` (commit `1fc23d7`) | Windows 11, Node 24.18, navegador integrado (Chromium) | `npm.cmd run build`, `npm.cmd start`, abrir `http://127.0.0.1:2567/?name=ana` y recorrer el mundo con teclado | Mapa 40×30 cargado; recorrido Aldea → Bosque → Camino → Cantera → Pradera con flechas y WASD; cada pulsación da un paso; la cámara sigue; la zona se anuncia en el HUD; un árbol y el borde superior bloquean con aviso; sin errores de consola | OK en Chromium y en Edge (prueba del usuario, 2026-10-09) |
 | TP-01 (automática) | ídem | ídem | `npm.cmd test` — prueba de integración «el mundo del MVP se sirve…» | Configuración 40×30 servida y jugador en el punto de aparición | OK |
 | TP-12 (parcial: movimiento) | ídem | ídem | `npm.cmd test` — «movimiento autoritativo…» | Borde, nodo, diagonal, salto, tipo inválido, mensaje desconocido y exceso de ritmo rechazados sin cambiar el estado | OK |
 | Arranque con configuración inválida | ídem | ídem | `npm.cmd test` — «el servidor no arranca…» | Sale con código 1 y lista los motivos | OK |

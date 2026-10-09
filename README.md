@@ -58,6 +58,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1 hecha en la rama `m1-mundo`: mundo 2D visible y exploración con teclado. Pendiente: tu prueba en Edge y la fusión. Después, el plan de M2.
+M1 cerrada: mundo 2D visible y exploración con teclado. Siguiente: aprobar el plan de M2 (sincronización entre jugadores).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.
