@@ -1,6 +1,6 @@
 # ADR-002 — Stack del MVP: Phaser + Colyseus + SQLite
 
-**Estado:** PROPUESTA — pendiente de aprobación humana  
+**Estado:** APROBADO por decisión humana el 2026-10-09 (Q146)  
 **Fecha:** 2026-10-09  
 **Requisitos:** BL-02, RF-001, RF-002, RF-005, RF-009, RF-012, RF-014, NFR-01; decisiones Q058–Q060, Q132–Q135, Q143, Q144
 
@@ -14,16 +14,16 @@ El MVP necesita un mundo 2D cenital en navegador, 2–4 jugadores en local/LAN, 
 2. Godot con exportación web (no probada: solo era necesaria si la opción 1 fallaba).
 3. Nakama + cliente web (descartada sin probar por peso operativo para un MVP local).
 
-## Decisión propuesta
+## Decisión
 
-Adoptar para el MVP:
+Se adopta para el MVP:
 
 - **Cliente:** Phaser 4 empaquetado con esbuild.
 - **Servidor:** `@colyseus/core` + `@colyseus/ws-transport` + `@colyseus/schema` (sin el meta-paquete `colyseus`), en un único proceso Node 24 (monolito modular, ADR-001).
 - **Persistencia:** `node:sqlite` integrado, con escritura previa a la confirmación (write-through) y transacciones.
-- **Lenguaje:** a decidir en M1 entre JavaScript con JSDoc (como el spike) y TypeScript.
+- **Lenguaje:** TypeScript en cliente y servidor (Q147), con los contratos de mensajes y estado compartidos entre ambos.
 
-Reglas derivadas del spike:
+Reglas obligatorias derivadas del spike:
 
 - El mundo persistente es **una sola sala** creada al arrancar (`autoDispose = false`); los clientes usan `join`, nunca `joinOrCreate`.
 - Cada cambio de inventario o recursos se persiste en transacción **antes** de modificar el estado sincronizado.

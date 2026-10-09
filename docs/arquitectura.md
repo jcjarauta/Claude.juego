@@ -88,5 +88,5 @@ Los ADR se guardan en `docs/adr/NNN-titulo.md` (contexto, opciones, decisión, c
 
 | ADR | Título | Estado |
 |---|---|---|
-| ADR-001 | Monolito modular para el MVP: servicios lógicamente separados en un único proceso, satisfaciendo Q58 sin operar servicios distribuidos (AUD-01) | PROPUESTA |
-| ADR-002 | Stack del MVP: Phaser + Colyseus + SQLite ([`docs/adr/002-stack-mvp.md`](adr/002-stack-mvp.md)), tras el spike de §8 | PROPUESTA — spike y prueba manual superados (Q145) |
+| ADR-001 | Monolito modular para el MVP: servicios lógicamente separados en un único proceso, satisfaciendo Q58 sin operar servicios distribuidos (AUD-01) | APROBADO a través de ADR-002, que lo incluye (Q146); sin documento propio |
+| ADR-002 | Stack del MVP: Phaser + Colyseus + SQLite ([`docs/adr/002-stack-mvp.md`](adr/002-stack-mvp.md)), tras el spike de §8 | APROBADO (Q146), con TypeScript (Q147) |
