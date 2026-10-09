@@ -11,6 +11,9 @@
     "y": 0
   },
   "moveCooldownMs": 100,
+  "session": {
+    "reconnectSeconds": 2
+  },
   "resources": [
     {
       "id": "madera",

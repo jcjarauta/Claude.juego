@@ -7,6 +7,7 @@ const base = (): WorldConfig => ({
   map: { width: 10, height: 8, tileSize: 32, defaultZoneName: "Camino", defaultColor: "#333333" },
   spawn: { x: 1, y: 1 },
   moveCooldownMs: 100,
+  session: { reconnectSeconds: 10 },
   resources: [{ id: "madera", name: "Madera", color: "#8d5a2b", shape: "triangle" }],
   zones: [{ id: "bosque", name: "Bosque", x: 0, y: 0, width: 5, height: 5, color: "#1f4d2b" }],
   nodes: [{ id: "arbol-1", resource: "madera", x: 3, y: 3, max: 3 }],
@@ -66,6 +67,15 @@ test("rechaza un punto de aparición bloqueado o fuera del mapa", () => {
   const outside = base();
   outside.spawn = { x: -1, y: 0 };
   assert.match(String(errorsOf(outside)), /spawn: fuera del mapa/);
+});
+
+test("rechaza un plazo de reconexión ausente o fuera de rango", () => {
+  const missing = base() as unknown as Record<string, unknown>;
+  delete missing.session;
+  assert.match(String(errorsOf(missing)), /session.reconnectSeconds/);
+  const tooLong = base();
+  tooLong.session.reconnectSeconds = 3600;
+  assert.match(String(errorsOf(tooLong)), /session.reconnectSeconds/);
 });
 
 test("rechaza un recurso sin forma válida", () => {

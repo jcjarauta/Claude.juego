@@ -4,5 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/schema": "5.0.36"
   }
 }

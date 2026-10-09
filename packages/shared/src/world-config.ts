@@ -34,6 +34,8 @@ export interface WorldConfig {
   map: { width: number; height: number; tileSize: number; defaultZoneName: string; defaultColor: string };
   spawn: { x: number; y: number };
   moveCooldownMs: number;
+  /** Segundos que se conserva a un jugador tras un corte inesperado antes de retirarlo. */
+  session: { reconnectSeconds: number };
   resources: ResourceDef[];
   zones: ZoneDef[];
   nodes: NodeDef[];
@@ -55,7 +57,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, session, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -68,6 +70,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const inside = (x: unknown, y: unknown) => isInt(x, 0, width - 1) && isInt(y, 0, height - 1);
 
   if (!isInt(moveCooldownMs, 0, 10000)) fail("moveCooldownMs debe ser un entero 0–10000");
+  if (!isObject(session) || !isInt(session.reconnectSeconds, 0, 300)) fail("session.reconnectSeconds debe ser un entero 0–300");
 
   const resourceIds = new Set<string>();
   if (!Array.isArray(resources) || resources.length === 0) fail("resources debe ser una lista no vacía");

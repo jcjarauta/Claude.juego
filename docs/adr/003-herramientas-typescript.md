@@ -23,5 +23,5 @@ Q147 fija TypeScript en cliente y servidor. Hace falta decidir cómo se ejecuta 
 - Sin carpetas `dist/` ni mapas de código en el servidor; arranque inmediato (`node apps/server/src/index.ts`).
 - Algunas construcciones de TypeScript quedan prohibidas por la eliminación de tipos; `tsc` las detecta.
 - Express llega como dependencia de Colyseus sin tipos: se declara localmente la interfaz mínima que se usa, en lugar de añadir `@types/express`.
-- El SDK de Colyseus no conoce la forma del estado en el cliente (`unknown`). En M1 se usa una conversión explícita; en M2 conviene compartir el esquema del estado en `@juego/shared`.
+- El esquema del estado (`Player`, `WorldState`) vive en `@juego/shared` desde M2: cliente y pruebas entran con `client.join(ROOM_NAME, opciones, WorldState)` y reciben el estado tipado, sin conversiones. `@juego/shared` depende por ello de `@colyseus/schema`.
 - En Windows con la política de ejecución de PowerShell restringida, los comandos se lanzan con `npm.cmd`.

@@ -72,3 +72,21 @@ Los fallos críticos deben reproducirse, diagnosticar causa, corregirse dentro d
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` con 19 de 19 correctas.
 
 Durante la demostración se corrigieron dos defectos del cliente: los toques muy breves de tecla se perdían, y la etiqueta del nombre quedaba fuera del mapa en la fila superior.
+
+### M2 — 2026-10-09 (rama `m2-sincronizacion`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| TP-02 | `npm.cmd test`: 2 y 4 clientes caminando a la vez 25 pasos cada uno | Al detenerse, todos ven la misma posición y conexión de todos | OK |
+| Convergencia (umbral ≤ 500 ms) | `npm.cmd test`: 10 movimientos observados por 4 clientes | Máximo 58 ms sin latencia añadida; 109 ms con `COLYSEUS_LATENCY=20` | OK |
+| TP-09 (parcial: reconexión) | `npm.cmd test`: corte no consentido y `client.reconnect(token)` | Los demás lo ven desconectado; vuelve en 61 ms a su posición (umbral ≤ 5 s); si no vuelve, se retira al vencer el plazo; recuperar el personaje por nombre libera la plaza reservada | OK |
+| Presencia | `npm.cmd test` y navegador integrado con 2–3 pestañas | Llegadas, salidas, desconexiones y vueltas visibles y anunciadas (`aria-live`), también con la pestaña en segundo plano; recargar = salida voluntaria | OK |
+| Carga (umbral: 4 clientes, 15 min) | `npm.cmd run soak` (15 min, comprobación cada 5 s) | 180 comprobaciones, 0 divergencias, 22 977 movimientos, 1 235 rechazos esperados (nodos/bordes), convergencia máxima en comprobación 17 ms, los 4 conectados al final | OK |
+| Formulario de entrada | Navegador integrado | Nombre con espacio rechazado con mensaje, `aria-invalid` y foco; nombre en uso y mundo lleno con texto legible | OK |
+| Red local real (Q145) | Persona responsable: servidor con `HOST=0.0.0.0` y acceso por la IP local del PC | Probado y aceptado por la persona responsable (2026-10-09) | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 29 de 29.
+
+Defectos encontrados y corregidos durante la demostración:
+- Los avisos de presencia se activaban antes de llegar el estado inicial, y no se activaban en pestañas en segundo plano (el bucle de Phaser se detiene).
+- Recuperar un personaje dejaba ocupada la plaza de la sesión antigua, y varias recargas podían llenar el mundo.

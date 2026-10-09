@@ -2,20 +2,16 @@ import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   createWorldIndex, MESSAGE, REJECT_TEXT,
-  type MoveMessage, type RejectedMessage, type ResourceShape, type WorldConfig, type WorldIndex,
+  type MoveMessage, type Player, type RejectedMessage, type ResourceShape, type WorldConfig, type WorldIndex, type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
 
+export type WorldRoom = Room<unknown, WorldState>;
+
 export interface WorldSceneData {
-  room: Room;
+  room: WorldRoom;
   config: WorldConfig;
   hud: Hud;
-}
-
-interface PlayerState {
-  name: string;
-  x: number;
-  y: number;
 }
 
 interface PlayerView {
@@ -48,7 +44,7 @@ const SEND_MARGIN_MS = 15;
 const hex = (color: string) => Number.parseInt(color.slice(1), 16);
 
 export class WorldScene extends Phaser.Scene {
-  private room!: Room;
+  private room!: WorldRoom;
   private config!: WorldConfig;
   private hud!: Hud;
   private index!: WorldIndex;
@@ -58,6 +54,8 @@ export class WorldScene extends Phaser.Scene {
   private lastSentAt = -Infinity;
   /** Último toque recibido; se envía en cuanto el ritmo lo permite aunque la tecla ya se haya soltado. */
   private pending: Direction | undefined;
+  /** Falso mientras llegan los jugadores ya presentes al entrar: solo se anuncian los cambios posteriores. */
+  private announcing = false;
 
   constructor() {
     super("world");
@@ -77,14 +75,14 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, width * this.tile, height * this.tile);
 
     const callbacks = Callbacks.get(this.room);
-    // El SDK no conoce la forma del estado (unknown); PlayerState refleja apps/server/src/state.ts.
-    callbacks.onAdd("players", (player, sessionId) => this.addPlayer(callbacks, player as PlayerState, String(sessionId)));
-    callbacks.onRemove("players", (_player, key) => {
-      const sessionId = String(key);
+    callbacks.onAdd("players", (player, sessionId) => this.addPlayer(callbacks, player, sessionId));
+    callbacks.onRemove("players", (player, sessionId) => {
       const view = this.views.get(sessionId);
       view?.body.destroy();
       view?.label.destroy();
       this.views.delete(sessionId);
+      if (this.announcing && sessionId !== this.room.sessionId) this.hud.announcePresence(`${player.name} ha salido del mundo.`);
+      this.refreshPlayerList();
     });
 
     this.room.onMessage(MESSAGE.rejected, ({ reason }: RejectedMessage) => {
@@ -114,6 +112,12 @@ export class WorldScene extends Phaser.Scene {
     if (!dir) return;
     this.room.send(MESSAGE.move, STEPS[dir]);
     this.lastSentAt = time;
+  }
+
+  private refreshPlayerList() {
+    this.hud.setPlayers([...this.room.state.players.entries()].map(([sessionId, p]) => ({
+      name: p.name, connected: p.connected, own: sessionId === this.room.sessionId,
+    })));
   }
 
   private center(cell: number) {
@@ -155,7 +159,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private addPlayer(callbacks: ReturnType<typeof Callbacks.get>, player: PlayerState, sessionId: string) {
+  private addPlayer(callbacks: ReturnType<typeof Callbacks.get<WorldState>>, player: Player, sessionId: string) {
     const own = sessionId === this.room.sessionId;
     const body = this.add.circle(this.center(player.x), this.center(player.y), this.tile / 2 - 5, own ? 0xffd166 : 0x4fc3f7)
       .setStrokeStyle(2, 0x111111);
@@ -170,21 +174,36 @@ export class WorldScene extends Phaser.Scene {
     };
     label.setY(placeLabel(player.y));
     this.views.set(sessionId, { body, label });
+    if (this.announcing && !own) this.hud.announcePresence(`${player.name} se ha unido al mundo.`);
+    let wasConnected = player.connected;
 
     const render = () => {
       const x = this.center(player.x);
       const y = this.center(player.y);
       this.tweens.add({ targets: body, x, y, duration: 90 });
       this.tweens.add({ targets: label, x, y: placeLabel(player.y), duration: 90 });
+      // Un jugador en plazo de reconexión se ve semitransparente.
+      body.setAlpha(player.connected ? 1 : 0.4);
+      label.setAlpha(player.connected ? 1 : 0.6);
+      if (player.connected !== wasConnected) {
+        wasConnected = player.connected;
+        if (!own) this.hud.announcePresence(`${player.name} ${player.connected ? "ha vuelto" : "ha perdido la conexión"}.`);
+        this.refreshPlayerList();
+      }
       if (own) {
         this.hud.setZone(this.index.zoneNameAt(player.x, player.y));
         this.hud.setPosition(player.name, player.x, player.y);
       }
     };
     callbacks.onChange(player, render);
+    render();
+    this.refreshPlayerList();
     if (own) {
       this.cameras.main.startFollow(body, true, 0.2, 0.2);
-      render();
+      // El estado inicial trae a todos los presentes junto al jugador propio; después,
+      // cualquier llegada o salida es nueva y se anuncia. Temporizador del navegador y no
+      // de Phaser: el bucle de Phaser se detiene con la pestaña en segundo plano.
+      window.setTimeout(() => { this.announcing = true; }, 0);
     }
   }
 }

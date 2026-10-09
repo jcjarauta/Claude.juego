@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Client, type Room } from "@colyseus/sdk";
-import { MESSAGE, ROOM_NAME, type RejectReason, type RejectedMessage } from "@juego/shared";
+import { MESSAGE, ROOM_NAME, WorldState, type Player, type RejectReason, type RejectedMessage } from "@juego/shared";
 
 const serverEntry = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 export const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -50,18 +50,33 @@ export function startServerExpectingFailure(env: Record<string, string>): Promis
 }
 
 export interface TestPlayer {
-  room: Room;
+  room: Room<unknown, WorldState>;
   rejections: RejectReason[];
-  me: () => { x: number; y: number; name: string };
+  me: () => Player;
 }
 
 export async function joinWorld(url: string, name: string): Promise<TestPlayer> {
   const client = new Client(url);
-  const room = await client.join(ROOM_NAME, { name });
+  const room = await client.join(ROOM_NAME, { name }, WorldState);
   const rejections: RejectReason[] = [];
   room.onMessage(MESSAGE.rejected, (msg: RejectedMessage) => rejections.push(msg.reason));
   await waitFor(() => Boolean(room.state?.players?.get(room.sessionId)));
-  return { room, rejections, me: () => room.state.players.get(room.sessionId) };
+  return { room, rejections, me: () => room.state.players.get(room.sessionId)! };
+}
+
+/** Vuelve a la sala con el token de una sesión cortada (como hace el SDK al reconectar). */
+export async function reconnectWorld(url: string, reconnectionToken: string): Promise<TestPlayer> {
+  const room = await new Client(url).reconnect(reconnectionToken, WorldState);
+  const rejections: RejectReason[] = [];
+  room.onMessage(MESSAGE.rejected, (msg: RejectedMessage) => rejections.push(msg.reason));
+  await waitFor(() => Boolean(room.state?.players?.get(room.sessionId)));
+  return { room, rejections, me: () => room.state.players.get(room.sessionId)! };
+}
+
+/** Vista de un cliente: nombre → posición y conexión, ordenada para comparar. */
+export function snapshot(player: TestPlayer): string {
+  const rows = [...player.room.state.players.values()].map((p) => `${p.name}@${p.x},${p.y}${p.connected ? "" : "(desc)"}`);
+  return rows.sort().join(" ");
 }
 
 export async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
