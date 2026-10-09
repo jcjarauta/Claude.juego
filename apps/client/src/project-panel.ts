@@ -15,6 +15,15 @@ const byId = <T extends HTMLElement = HTMLElement>(id: string) => {
 
 const time = (at: number) => new Date(at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 
+/** Estado de tarea legible (M5b): el avance es automático; la revisión, de la coordinación. */
+const TASK_STATUS: Record<string, string> = {
+  pendiente: "pendiente",
+  "en-curso": "en curso",
+  completada: "completa, pendiente de revisión",
+  aprobada: "aprobada",
+  rechazada: "rechazada",
+};
+
 export type ContributeHandler = (projectId: string, taskId: string, from: ContributionSource, amount: number) => void;
 
 export interface PanelInput {
@@ -115,6 +124,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
 
   let lastStatus = "";
   const completed = new Set<string>();
+  /** Última revisión vista por tarea; undefined hasta el primer pintado. */
+  let seenReviews: Map<string, number> | undefined;
   /** Aportes ya mostrados; undefined hasta el primer pintado (lo que ya había no se anuncia). */
   let seenRecent: Set<string> | undefined;
 
@@ -131,7 +142,12 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         const remaining = Math.max(0, task.required - done);
         const name = resourceName.get(task.resource) ?? task.resource;
         row.progress.value = done;
-        row.text.textContent = remaining === 0 ? `${done}/${task.required} ${name} — completa` : `${done}/${task.required} ${name}`;
+        const taskState = state.tasks.get(task.id);
+        const review = taskState?.decision ? ` por ${taskState.reviewedBy}: «${taskState.note}»` : "";
+        row.text.textContent = `${done}/${task.required} ${name} — ${TASK_STATUS[taskState?.status ?? ""] ?? "pendiente"}${review}`;
+        if (seenReviews && taskState?.decision && seenReviews.get(task.id) !== taskState.reviewedAt) {
+          announcer.textContent = `${task.title}: ${taskState.decision} por ${taskState.reviewedBy}.`;
+        }
         for (const button of row.buttons) {
           const balance = button.dataset.from === "player" ? held(task.resource) : community(task.resource);
           const available = Math.min(balance, remaining);
@@ -143,6 +159,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
           completed.add(task.id);
         }
       }
+
+      seenReviews = new Map(project.tasks.map((t) => [t.id, state.tasks.get(t.id)?.reviewedAt ?? 0]));
 
       const ready = state.status === "listo";
       const built = Boolean(structure?.built);

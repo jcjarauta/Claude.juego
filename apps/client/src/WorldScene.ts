@@ -8,6 +8,7 @@ import {
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
 import { createProjectPanel, type ProjectPanel } from "./project-panel.ts";
+import { newRequestId } from "./request-id.ts";
 
 export type WorldRoom = Room<unknown, WorldState>;
 
@@ -45,16 +46,6 @@ const CODE_TO_DIRECTION: Record<string, Direction> = {
 const SEND_MARGIN_MS = 15;
 
 const hex = (color: string) => Number.parseInt(color.slice(1), 16);
-
-/**
- * Identificador de petición para que el servidor descarte duplicados. Se usa
- * getRandomValues porque crypto.randomUUID no existe en contextos no seguros
- * (por ejemplo http://192.168.x.x en red local).
- */
-function newRequestId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 const isTextInput = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
