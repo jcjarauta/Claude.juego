@@ -39,7 +39,7 @@ export const ProjectState = schema({
   progress: t.map("uint16"),
   /** Quién aportó qué: nombre → totales. */
   contributors: t.map(ContributorTotals),
-  /** Últimos aportes, del más reciente al más antiguo (máximo 10). */
+  /** Últimos aportes, del más antiguo al más reciente (máximo 10). */
   recent: t.array(Contribution),
 }, "ProjectState");
 export type ProjectState = SchemaType<typeof ProjectState>;
