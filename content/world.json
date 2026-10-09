@@ -15,17 +15,20 @@
     {
       "id": "madera",
       "name": "Madera",
-      "color": "#8d5a2b"
+      "color": "#8d5a2b",
+      "shape": "triangle"
     },
     {
       "id": "piedra",
       "name": "Piedra",
-      "color": "#b8bec6"
+      "color": "#b8bec6",
+      "shape": "square"
     },
     {
       "id": "fibra",
       "name": "Fibra",
-      "color": "#e3d26f"
+      "color": "#e3d26f",
+      "shape": "diamond"
     }
   ],
   "zones": [

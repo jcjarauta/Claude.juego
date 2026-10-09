@@ -1,8 +1,42 @@
 {
-  "map": { "width": 6, "height": 5, "tileSize": 32, "defaultZoneName": "Camino", "defaultColor": "#3a4a3f" },
-  "spawn": { "x": 0, "y": 0 },
+  "map": {
+    "width": 6,
+    "height": 5,
+    "tileSize": 32,
+    "defaultZoneName": "Camino",
+    "defaultColor": "#3a4a3f"
+  },
+  "spawn": {
+    "x": 0,
+    "y": 0
+  },
   "moveCooldownMs": 100,
-  "resources": [{ "id": "madera", "name": "Madera", "color": "#8d5a2b" }],
-  "zones": [{ "id": "bosque", "name": "Bosque", "x": 0, "y": 0, "width": 3, "height": 3, "color": "#1f4d2b" }],
-  "nodes": [{ "id": "arbol-1", "resource": "madera", "x": 1, "y": 0, "max": 3 }]
+  "resources": [
+    {
+      "id": "madera",
+      "name": "Madera",
+      "color": "#8d5a2b",
+      "shape": "triangle"
+    }
+  ],
+  "zones": [
+    {
+      "id": "bosque",
+      "name": "Bosque",
+      "x": 0,
+      "y": 0,
+      "width": 3,
+      "height": 3,
+      "color": "#1f4d2b"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "arbol-1",
+      "resource": "madera",
+      "x": 1,
+      "y": 0,
+      "max": 3
+    }
+  ]
 }

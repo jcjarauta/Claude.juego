@@ -1,10 +1,15 @@
 // Configuración del mundo (Q144: el contenido es datos, no código).
 // El servidor la valida al arrancar y el cliente la recibe ya validada.
 
+export const RESOURCE_SHAPES = ["triangle", "square", "diamond", "circle"] as const;
+export type ResourceShape = (typeof RESOURCE_SHAPES)[number];
+
 export interface ResourceDef {
   id: string;
   name: string;
   color: string;
+  /** Forma con la que se dibuja: el recurso no se distingue solo por el color (accesibilidad). */
+  shape: ResourceShape;
 }
 
 export interface ZoneDef {
@@ -72,6 +77,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
     resourceIds.add(r.id);
     if (typeof r.name !== "string" || !r.name) fail(`resources[${i}]: name obligatorio`);
     if (typeof r.color !== "string" || !COLOR.test(r.color)) fail(`resources[${i}]: color debe ser #rrggbb`);
+    if (!RESOURCE_SHAPES.includes(r.shape as ResourceShape)) fail(`resources[${i}]: shape debe ser ${RESOURCE_SHAPES.join(", ")}`);
   });
 
   const zoneIds = new Set<string>();
