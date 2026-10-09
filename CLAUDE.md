@@ -16,7 +16,9 @@ No confundir **visión** con **alcance del MVP**. Federación, IA compleja, econ
 | `docs/arquitectura.md` | Módulos, comunicación, persistencia, seguridad, alternativas y registro de ADR (`docs/adr/`) |
 | `docs/hoja-ruta.md` | Etapas G0–M6, bloqueos BL, tensiones AUD, pendientes de consolidación, fases futuras |
 | `docs/pruebas.md` | Catálogo TP/TA, umbrales pendientes y formato de evidencia |
-| `docs/decisiones.md` | Registro de decisiones Q001–Q143 y su reclasificación. **Solo lectura**: cambiarlo requiere gate humano |
+| `docs/decisiones.md` | Registro de decisiones Q001–Q147 y su reclasificación. **Solo lectura**: cambiarlo requiere gate humano |
+
+**Comandos** (raíz; en Windows `npm.cmd`): `install`, `run typecheck`, `test`, `run build`, `start`. Servidores en segundo plano con `exec node …` para poder pararlos de verdad.
 
 ## 3. Autoridad y permisos
 

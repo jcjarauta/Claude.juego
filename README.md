@@ -16,6 +16,32 @@ Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. 
 | `docs/pruebas.md` | Estrategia y catálogo de pruebas (no ejecutadas) |
 | `docs/decisiones.md` | Registro de las 143 decisiones (Q001–Q143) y reclasificación de las marcadas MVP |
 
+## Arranque (Windows)
+
+Requisitos: Node 24 o superior. En PowerShell usa `npm.cmd` (la política de ejecución puede bloquear `npm`).
+
+```bash
+npm.cmd install
+```
+```bash
+npm.cmd run build
+```
+```bash
+npm.cmd start
+```
+
+Abre `http://127.0.0.1:2567/?name=ana`. Para jugar en red local: `$env:HOST="0.0.0.0"; npm.cmd start` (Windows pedirá permiso de firewall).
+
+Comprobaciones: `npm.cmd run typecheck` y `npm.cmd test`. El contenido del mundo está en `content/world.json`.
+
+| Carpeta | Contenido |
+|---|---|
+| `packages/shared` | Contratos cliente↔servidor, validación de la configuración y reglas puras |
+| `apps/server` | Servidor Colyseus autoritativo |
+| `apps/client` | Cliente Phaser |
+| `content` | Datos del mundo (Q144) |
+| `spike/` | Prototipo desechable de BL-02 (solo evidencia) |
+
 ## Cómo se trabaja
 
 Cada tarea sigue el ciclo de `CLAUDE.md` §4: Claude propone un plan, una persona lo aprueba, Claude implementa en una rama con pruebas, y una persona revisa y fusiona. Ningún documento autoriza por sí mismo escribir código, instalar dependencias, sincronizar Obsidian/Graphify, contactar sistemas remotos ni desplegar.
@@ -32,6 +58,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-Gate 0 cerrado: stack aprobado en `docs/adr/002-stack-mvp.md` (Phaser + Colyseus + SQLite, TypeScript). Siguiente: aprobar el plan de M1. El prototipo de `spike/` es desechable y solo sirve de evidencia del ADR.
+M1 hecha en la rama `m1-mundo`: mundo 2D visible y exploración con teclado. Pendiente: tu prueba en Edge y la fusión. Después, el plan de M2.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

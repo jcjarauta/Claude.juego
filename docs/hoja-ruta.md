@@ -17,7 +17,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | Etapa | Entregable de diseño/implementación | Dependencias | Gate de salida |
 |---|---|---|---|
 | G0 | Resolución de bloqueos BL-01–BL-05, ADR stack 2D y datos | Consolidación aprobada | Autorización humana del alcance |
-| M1 | Mundo 2D visible web y locomoción/exploración básica | G0 | Demostración local con prueba reproducible |
+| M1 | Mundo 2D visible web y locomoción/exploración básica | G0 | Demostración local con prueba reproducible — **HECHA en `m1-mundo`** (evidencia en `docs/pruebas.md` §5); pendiente: prueba en Edge y fusión |
 | M2 | Segundo cliente y sincronización mínima | M1 | Dos clientes observan el mismo estado sin inconsistencias |
 | M3 | Recursos, inventario y persistencia transaccional | M2 | Recolección/reinicio no duplica ni pierde recursos confirmados |
 | M4 | Comunidad inicial, proyecto y tareas | M3 | Tareas visibles y actualizadas para varios jugadores |
@@ -91,4 +91,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** plan de M1 (mundo 2D visible y exploración básica) en modo plan, para aprobación humana.
+**NEXT:** prueba de M1 en Edge por la persona responsable y fusión de `m1-mundo`; después, plan de M2 (segundo cliente, sincronización y red local real).

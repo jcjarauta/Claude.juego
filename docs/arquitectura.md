@@ -90,3 +90,4 @@ Los ADR se guardan en `docs/adr/NNN-titulo.md` (contexto, opciones, decisión, c
 |---|---|---|
 | ADR-001 | Monolito modular para el MVP: servicios lógicamente separados en un único proceso, satisfaciendo Q58 sin operar servicios distribuidos (AUD-01) | APROBADO a través de ADR-002, que lo incluye (Q146); sin documento propio |
 | ADR-002 | Stack del MVP: Phaser + Colyseus + SQLite ([`docs/adr/002-stack-mvp.md`](adr/002-stack-mvp.md)), tras el spike de §8 | APROBADO (Q146), con TypeScript (Q147) |
+| ADR-003 | Herramientas TypeScript: npm workspaces, ejecución directa de `.ts` en Node 24, `tsc` solo para tipos, esbuild en el cliente ([`docs/adr/003-herramientas-typescript.md`](adr/003-herramientas-typescript.md)) | APROBADO con el plan de M1 |
