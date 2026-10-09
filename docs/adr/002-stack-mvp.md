@@ -45,4 +45,4 @@ Reglas obligatorias derivadas del spike:
 ## Limitaciones aceptadas (Q145)
 
 - Firefox no verificado: se comprobará en el endurecimiento (M6), ya que sigue siendo navegador objetivo (Q143).
-- LAN real con dos equipos no probada: se comprobará en M2 (segundo cliente y sincronización).
+- LAN real: comprobada en M2 por la persona responsable (2026-10-09).

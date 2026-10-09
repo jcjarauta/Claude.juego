@@ -60,6 +60,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1 cerrada: mundo 2D visible y exploración con teclado. Siguiente: aprobar el plan de M2 (sincronización entre jugadores).
+M1 y M2 cerradas: mundo 2D compartido por 2–4 jugadores en red local, con reconexión y presencia accesible. Siguiente: aprobar el plan de M3 (recolección, inventarios y persistencia).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

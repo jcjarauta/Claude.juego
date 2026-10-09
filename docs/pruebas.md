@@ -83,7 +83,7 @@ Durante la demostración se corrigieron dos defectos del cliente: los toques muy
 | Presencia | `npm.cmd test` y navegador integrado con 2–3 pestañas | Llegadas, salidas, desconexiones y vueltas visibles y anunciadas (`aria-live`), también con la pestaña en segundo plano; recargar = salida voluntaria | OK |
 | Carga (umbral: 4 clientes, 15 min) | `npm.cmd run soak` (15 min, comprobación cada 5 s) | 180 comprobaciones, 0 divergencias, 22 977 movimientos, 1 235 rechazos esperados (nodos/bordes), convergencia máxima en comprobación 17 ms, los 4 conectados al final | OK |
 | Formulario de entrada | Navegador integrado | Nombre con espacio rechazado con mensaje, `aria-invalid` y foco; nombre en uso y mundo lleno con texto legible | OK |
-| Red local real (Q145) | Persona responsable con dos dispositivos o navegadores | — | PENDIENTE |
+| Red local real (Q145) | Persona responsable: servidor con `HOST=0.0.0.0` y acceso por la IP local del PC | Probado y aceptado por la persona responsable (2026-10-09) | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 29 de 29.
 
