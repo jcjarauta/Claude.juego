@@ -24,6 +24,9 @@
     /* Interfaz híbrida (RF-010): mapa y proyecto a la vez en pantallas anchas; uno debajo del otro en estrechas. */
     .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(280px, 1fr); gap: 20px; align-items: start; }
     @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; } }
+    /* Sin min-width: 0 los hijos de la rejilla no encogen y el mapa fuerza desplazamiento horizontal. */
+    .juego > * { min-width: 0; }
+    #proyecto p { overflow-wrap: anywhere; }
     #game { border: 2px solid #5b6b7a; max-width: 800px; }
     #game canvas { display: block; }
     .hud { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
@@ -87,7 +90,22 @@
           <p id="proyecto-descripcion"></p>
           <p>Estado: <span id="proyecto-estado"></span></p>
           <ul id="proyecto-tareas" class="tareas"></ul>
+          <div id="construir" hidden>
+            <button id="construir-boton" type="button">Construir el taller</button>
+            <p id="construir-ayuda" class="ayuda"></p>
+          </div>
           <p id="proyecto-aviso" role="status" aria-live="polite"></p>
+          <section id="taller" aria-labelledby="taller-titulo" hidden>
+            <h3 id="taller-titulo" tabindex="-1">Taller</h3>
+            <p id="taller-construido" class="ayuda"></p>
+            <p id="taller-receta"></p>
+            <button id="taller-fabricar" type="button">Fabricar</button>
+            <p id="taller-ayuda" class="ayuda"></p>
+          </section>
+          <section aria-labelledby="mision-titulo">
+            <h3 id="mision-titulo">Misión</h3>
+            <p id="mision-estado"></p>
+          </section>
           <h3>Novedades</h3>
           <p id="proyecto-novedades" class="ayuda" role="status" aria-live="polite"></p>
           <h3>Quién ha aportado</h3>

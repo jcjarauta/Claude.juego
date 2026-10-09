@@ -2,8 +2,9 @@ import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   createWorldIndex, MESSAGE, REJECT_TEXT,
-  type CollectMessage, type ContributeMessage, type ContributionSource, type MoveMessage, type NewsMessage, type Player,
-  type RejectedMessage, type ResourceShape, type TransferMessage, type WorldConfig, type WorldIndex, type WorldState,
+  type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
+  type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TransferMessage, type WorldConfig, type WorldIndex,
+  type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
 import { createProjectPanel, type ProjectPanel } from "./project-panel.ts";
@@ -78,6 +79,8 @@ export class WorldScene extends Phaser.Scene {
   /** Última acción propia que reduce el inventario: decide cómo se anuncia la bajada. */
   private lastOwnAction: "deposit" | "contribute" | undefined;
   private projectPanel: ProjectPanel | undefined;
+  /** Dibujo de cada estructura: contorno del solar o edificio construido. */
+  private structureViews = new Map<string, { graphics: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; built: boolean | undefined }>();
   private keys = new Map<Direction, Phaser.Input.Keyboard.Key[]>();
   private lastSentAt = -Infinity;
   /** Último toque recibido; se envía en cuanto el ritmo lo permite aunque la tecla ya se haya soltado. */
@@ -116,7 +119,11 @@ export class WorldScene extends Phaser.Scene {
     // Panel del proyecto (el primero de la configuración en el MVP).
     const project = this.config.projects[0];
     if (project) {
-      this.projectPanel = createProjectPanel(this.config, project, (projectId, taskId, from, amount) => this.contribute(projectId, taskId, from, amount));
+      this.projectPanel = createProjectPanel(this.config, project, {
+        contribute: (projectId, taskId, from, amount) => this.contribute(projectId, taskId, from, amount),
+        build: (structureId) => this.room.send(MESSAGE.build, { requestId: newRequestId(), structureId } satisfies BuildMessage),
+        craft: (recipeId) => this.room.send(MESSAGE.craft, { requestId: newRequestId(), recipeId } satisfies CraftMessage),
+      });
       // Las novedades se piden ahora que el manejador está registrado (RF-013).
       this.room.onMessage(MESSAGE.news, (news: NewsMessage) => this.projectPanel?.showNews(news));
       this.room.send(MESSAGE.news, {});
@@ -135,7 +142,10 @@ export class WorldScene extends Phaser.Scene {
     for (const [dir, codes] of Object.entries(KEY_CODES) as [Direction, string[]][]) {
       this.keys.set(dir, codes.map((code) => keyboard.addKey(code)));
     }
-    keyboard.on("keydown", (event: KeyboardEvent) => {
+    // Pulsaciones escuchadas directamente en la ventana: Phaser las agrupa por fotograma y, si
+    // los fotogramas se ralentizan (pestaña o panel en segundo plano), se reordenarían o perderían.
+    // Phaser se mantiene solo para la tecla mantenida (isDown en update).
+    const onKeyDown = (event: KeyboardEvent) => {
       const dir = CODE_TO_DIRECTION[event.code];
       // Un toque se envía al momento si el ritmo lo permite; si no, queda pendiente para el bucle.
       if (dir && !this.trySendMove(dir, performance.now())) this.pending = dir;
@@ -155,7 +165,9 @@ export class WorldScene extends Phaser.Scene {
         map?.scrollIntoView({ block: "nearest" });
         map?.focus();
       }
-    });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    this.events.once("shutdown", () => window.removeEventListener("keydown", onKeyDown));
   }
 
   update() {
@@ -195,8 +207,46 @@ export class WorldScene extends Phaser.Scene {
     this.room.send(MESSAGE.contribute, message);
   }
 
+  private refreshStructures() {
+    const t = this.tile;
+    for (const def of this.config.structures) {
+      let view = this.structureViews.get(def.id);
+      if (!view) {
+        view = { graphics: this.add.graphics(), label: this.add.text(0, 0, "", { fontSize: "12px", color: "#ffffff", backgroundColor: "#00000099", padding: { x: 3, y: 1 } }).setOrigin(0.5), built: undefined };
+        this.structureViews.set(def.id, view);
+      }
+      const built = Boolean(this.room.state.structures.get(def.id)?.built);
+      if (view.built === built) continue;
+      view.built = built;
+      const { graphics, label } = view;
+      const [x, y, w, h] = [def.x * t, def.y * t, def.width * t, def.height * t];
+      graphics.clear();
+      if (built) {
+        graphics.fillStyle(Number.parseInt(def.color.slice(1), 16)).fillRect(x + 2, y + 2, w - 4, h - 4);
+        graphics.lineStyle(3, 0x111111, 1).strokeRect(x + 2, y + 2, w - 4, h - 4);
+        graphics.fillStyle(0x3b2414).fillTriangle(x, y + 4, x + w / 2, y - t / 2, x + w, y + 4); // tejado
+        label.setText(def.name);
+      } else {
+        // Solar: contorno discontinuo.
+        graphics.lineStyle(2, 0xffd166, 0.9);
+        const dash = 6;
+        for (let i = 0; i < w; i += dash * 2) {
+          graphics.lineBetween(x + i, y, x + Math.min(i + dash, w), y);
+          graphics.lineBetween(x + i, y + h, x + Math.min(i + dash, w), y + h);
+        }
+        for (let i = 0; i < h; i += dash * 2) {
+          graphics.lineBetween(x, y + i, x, y + Math.min(i + dash, h));
+          graphics.lineBetween(x + w, y + i, x + w, y + Math.min(i + dash, h));
+        }
+        label.setText(`Solar: ${def.name}`);
+      }
+      label.setPosition(x + w / 2, y + h / 2);
+    }
+  }
+
   private refreshResources() {
     const { state } = this.room;
+    this.refreshStructures();
     for (const [id, view] of this.nodeViews) {
       const units = state.nodes.get(id) ?? 0;
       view.label.setText(String(units));
@@ -220,7 +270,9 @@ export class WorldScene extends Phaser.Scene {
     }
     const row = (amount: (id: string) => number) => this.config.resources.map((r) => ({ id: r.id, name: r.name, amount: amount(r.id) }));
     this.hud.setInventory(row((id) => me.inventory.get(id) ?? 0), this.config.inventoryMax, (resource, amount) => this.deposit(resource, amount));
-    this.hud.setCommunity(row((id) => state.community.get(id) ?? 0), state.communityName);
+    const communityRows = [...row((id) => state.community.get(id) ?? 0),
+      ...this.config.items.map((i) => ({ id: i.id, name: i.name, amount: state.community.get(i.id) ?? 0 }))];
+    this.hud.setCommunity(communityRows, state.communityName);
 
     const project = this.config.projects[0];
     const projectState = project && state.projects.get(project.id);
@@ -230,6 +282,9 @@ export class WorldScene extends Phaser.Scene {
         held: (resource) => me.inventory.get(resource) ?? 0,
         community: (resource) => state.community.get(resource) ?? 0,
         ownName: me.name,
+        structure: this.config.structures[0] && state.structures.get(this.config.structures[0].id),
+        mission: this.config.missions[0] && state.missions.get(this.config.missions[0].id),
+        position: { x: me.x, y: me.y },
       });
     }
   }
