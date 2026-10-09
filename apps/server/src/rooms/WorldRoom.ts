@@ -1,6 +1,8 @@
 import { Room, type Client } from "@colyseus/core";
-import { applyMove, isValidName, MESSAGE, type JoinOptions, type RejectedMessage, type RejectReason } from "@juego/shared";
-import { Player, WorldState } from "../state.ts";
+import {
+  applyMove, isValidName, MESSAGE, Player, WorldState,
+  type JoinOptions, type RejectedMessage, type RejectReason,
+} from "@juego/shared";
 import { getWorld, type World } from "../world.ts";
 
 /**
@@ -25,7 +27,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (p.name === options.name) throw new Error("nombre-en-uso");
     }
     const { spawn } = this.world.config;
-    this.state.players.set(client.sessionId, new Player({ name: options.name, x: spawn.x, y: spawn.y }));
+    this.state.players.set(client.sessionId, new Player({ name: options.name, x: spawn.x, y: spawn.y, connected: true }));
   }
 
   onLeave(client: Client) {

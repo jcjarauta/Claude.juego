@@ -1,13 +1,15 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
 
-// Estado sincronizado con los clientes; solo el servidor lo modifica.
-// Los nodos son estáticos en M1 y el cliente los lee de la configuración;
-// pasarán al estado en M3, cuando cambien con la recolección.
+// Estado sincronizado: lo modifica solo el servidor; el cliente lo recibe tipado
+// pasando WorldState a client.join(). Los nodos son estáticos hasta M3 y el
+// cliente los lee de la configuración.
 
 export const Player = schema({
   name: t.string(),
   x: t.int16(),
   y: t.int16(),
+  /** false durante el plazo de reconexión tras un corte inesperado. */
+  connected: t.boolean(),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 

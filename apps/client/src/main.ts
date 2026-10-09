@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import { Client } from "@colyseus/sdk";
-import { ROOM_NAME, type JoinOptions, type WorldConfig } from "@juego/shared";
+import { ROOM_NAME, WorldState, type JoinOptions, type WorldConfig } from "@juego/shared";
 import { createHud } from "./hud.ts";
 import { WorldScene, type WorldSceneData } from "./WorldScene.ts";
 
@@ -18,7 +18,7 @@ async function start() {
   let room;
   try {
     const options: JoinOptions = { name };
-    room = await client.join(ROOM_NAME, options);
+    room = await client.join(ROOM_NAME, options, WorldState);
   } catch (err) {
     hud.notify(`No se pudo entrar en el mundo: ${(err as Error).message}`);
     return;

@@ -2,20 +2,16 @@ import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   createWorldIndex, MESSAGE, REJECT_TEXT,
-  type MoveMessage, type RejectedMessage, type ResourceShape, type WorldConfig, type WorldIndex,
+  type MoveMessage, type Player, type RejectedMessage, type ResourceShape, type WorldConfig, type WorldIndex, type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
 
+export type WorldRoom = Room<unknown, WorldState>;
+
 export interface WorldSceneData {
-  room: Room;
+  room: WorldRoom;
   config: WorldConfig;
   hud: Hud;
-}
-
-interface PlayerState {
-  name: string;
-  x: number;
-  y: number;
 }
 
 interface PlayerView {
@@ -48,7 +44,7 @@ const SEND_MARGIN_MS = 15;
 const hex = (color: string) => Number.parseInt(color.slice(1), 16);
 
 export class WorldScene extends Phaser.Scene {
-  private room!: Room;
+  private room!: WorldRoom;
   private config!: WorldConfig;
   private hud!: Hud;
   private index!: WorldIndex;
@@ -77,10 +73,8 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, width * this.tile, height * this.tile);
 
     const callbacks = Callbacks.get(this.room);
-    // El SDK no conoce la forma del estado (unknown); PlayerState refleja apps/server/src/state.ts.
-    callbacks.onAdd("players", (player, sessionId) => this.addPlayer(callbacks, player as PlayerState, String(sessionId)));
-    callbacks.onRemove("players", (_player, key) => {
-      const sessionId = String(key);
+    callbacks.onAdd("players", (player, sessionId) => this.addPlayer(callbacks, player, sessionId));
+    callbacks.onRemove("players", (_player, sessionId) => {
       const view = this.views.get(sessionId);
       view?.body.destroy();
       view?.label.destroy();
@@ -155,7 +149,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private addPlayer(callbacks: ReturnType<typeof Callbacks.get>, player: PlayerState, sessionId: string) {
+  private addPlayer(callbacks: ReturnType<typeof Callbacks.get<WorldState>>, player: Player, sessionId: string) {
     const own = sessionId === this.room.sessionId;
     const body = this.add.circle(this.center(player.x), this.center(player.y), this.tile / 2 - 5, own ? 0xffd166 : 0x4fc3f7)
       .setStrokeStyle(2, 0x111111);
