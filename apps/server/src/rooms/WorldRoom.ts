@@ -1,8 +1,9 @@
 import { Room, type Client } from "@colyseus/core";
 import {
-  applyMove, checkCollect, checkContribution, checkTransfer, Contribution, ContributorTotals, isValidName, isValidRequestId,
-  MAX_PLAYERS, MESSAGE, Player, ProjectState, projectStatus, regenerate, WorldState,
-  type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason,
+  applyMove, checkBuild, checkCollect, checkContribution, checkCraft, checkTransfer, Contribution, ContributorTotals, isValidName,
+  isValidRequestId, MAX_PLAYERS, MESSAGE, MissionState, missionSatisfied, Player, ProjectState, projectStatus, regenerate,
+  StructureState, WorldState,
+  type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type StructureDef,
 } from "@juego/shared";
 import { COMMUNITY, playerScope, projectScope, type Store } from "../store.ts";
 import { getStore, getWorld, type World } from "../world.ts";
@@ -33,6 +34,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   /** Jugadores cuya posición ha cambiado desde el último guardado. */
   private moved = new Set<string>();
   private lastRegenAt = new Map<string, number>();
+  /** Casillas ocupadas por estructuras construidas (bloquean el paso, CU-04). */
+  private builtCells = new Set<string>();
+  /** Bloqueo combinado: nodos de la configuración y estructuras construidas. */
+  private isBlocked = (x: number, y: number) => this.world.index.isBlocked(x, y) || this.builtCells.has(`${x},${y}`);
   /** Sesiones que ya recibieron sus novedades (se envían una vez, cuando el cliente las pide). */
   private newsSent = new Set<string>();
   /** Plazos de reconexión abiertos por sessionId, para poder cancelarlos. */
@@ -58,6 +63,20 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.state.community.set(resource, amount);
     }
     this.state.communityName = config.community.name;
+    // Estructuras y misiones antes que los proyectos: el estado del proyecto depende de si su estructura existe.
+    const built = new Map(this.store.getStructures().map((s) => [s.id, s]));
+    for (const def of config.structures) {
+      const row = built.get(def.id);
+      this.state.structures.set(def.id, new StructureState({ built: Boolean(row), builtBy: row?.builtBy ?? "", builtAt: row?.builtAt ?? 0 }));
+      if (row) this.blockFootprint(def);
+    }
+    const completed = new Map(this.store.getMissions().map((m) => [m.id, m]));
+    for (const def of config.missions) {
+      const row = completed.get(def.id);
+      this.state.missions.set(def.id, new MissionState({
+        status: row ? "completada" : "pendiente", completedBy: row?.completedBy ?? "", completedAt: row?.completedAt ?? 0,
+      }));
+    }
     for (const project of config.projects) this.loadProject(project);
 
     const tickMs = Math.max(50, Math.min(1000, Math.floor(config.regenIntervalMs / 4)));
@@ -138,7 +157,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const result = applyMove(
         player,
         payload,
-        { width: index.width, height: index.height, isBlocked: index.isBlocked, cooldownMs: config.moveCooldownMs },
+        { width: index.width, height: index.height, isBlocked: this.isBlocked, cooldownMs: config.moveCooldownMs },
         this.lastMoveAt.get(client.sessionId),
         now,
       );
@@ -239,7 +258,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         const check = checkContribution({
           projects: this.world.config.projects,
           projectId: message.projectId, taskId: message.taskId, from: message.from, amount: message.amount,
-          contributed: (projectId, resource) => this.store.getAmount(projectScope(projectId), resource),
+          // Lo aportado sale del registro: no disminuye cuando la construcción consume los materiales.
+          contributed: (projectId, resource) => this.store.contributedAmount(projectId, resource),
           balance: (from, resource) => this.store.getAmount(from === "player" ? own : COMMUNITY, resource),
         });
         if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
@@ -251,7 +271,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         return {
           kind: "done" as const, project, taskId: task.id, resource: task.resource, from, amount,
           sourceAmount: this.store.getAmount(source, task.resource),
-          projectAmount: this.store.getAmount(projectScope(project.id), task.resource),
+          projectAmount: this.store.contributedAmount(project.id, task.resource),
         };
       }));
       if (!outcome || outcome.kind === "duplicate") return;
@@ -272,7 +292,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         name: player.name, taskId: outcome.taskId, resource: outcome.resource, amount: outcome.amount, at: Date.now(),
       }));
       while (projectState.recent.length > RECENT_CONTRIBUTIONS) projectState.recent.shift();
-      projectState.status = projectStatus(outcome.project, (r) => projectState.progress.get(r) ?? 0);
+      projectState.status = this.projectStatusOf(outcome.project, projectState);
     },
 
     /** El cliente pide sus novedades cuando está listo para mostrarlas (una vez por sesión). */
@@ -285,24 +305,128 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       client.send(MESSAGE.news, news);
     },
 
+    /** Construir la estructura de un proyecto listo (RF-007, Q156). */
+    [MESSAGE.build]: (client: Client, payload: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player?.connected) return;
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
+      const requestId = message.requestId;
+      const { config } = this.world;
+      const structure = config.structures.find((s) => s.id === message.structureId);
+      const now = Date.now();
+
+      const outcome = this.safely(client, () => this.store.transaction(() => {
+        if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
+        const project = structure && config.projects.find((p) => p.id === structure.projectId);
+        const check = checkBuild({
+          structure,
+          built: Boolean(structure && this.store.getStructures().some((s) => s.id === structure.id)),
+          projectReady: Boolean(project && project.tasks.every((t) => this.store.contributedAmount(project.id, t.resource) >= t.required)),
+          position: player,
+          others: [...this.state.players.entries()].filter(([id]) => id !== client.sessionId).map(([, p]) => ({ x: p.x, y: p.y })),
+        });
+        if (!check.ok || !project) return { kind: "rejected" as const, reason: check.ok ? "estructura-desconocida" as const : check.reason };
+        // Se consume exactamente lo requerido de los materiales aportados al proyecto.
+        const consumed: Record<string, number> = {};
+        for (const task of project.tasks) {
+          this.store.addAmount(projectScope(project.id), task.resource, -task.required);
+          consumed[task.resource] = task.required;
+        }
+        this.store.addStructure(check.structure.id, player.name, now);
+        this.store.event("build", player.name, requestId, { structure: check.structure.id, project: project.id, consumed });
+        return { kind: "done" as const, structure: check.structure, project };
+      }));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+
+      this.blockFootprint(outcome.structure);
+      const structureState = this.state.structures.get(outcome.structure.id)!;
+      structureState.built = true;
+      structureState.builtBy = player.name;
+      structureState.builtAt = now;
+      const projectState = this.state.projects.get(outcome.project.id);
+      if (projectState) projectState.status = this.projectStatusOf(outcome.project, projectState);
+    },
+
+    /** Fabricar en una estructura con materiales del almacén común; completa misiones (RF-008, Q157, Q158). */
+    [MESSAGE.craft]: (client: Client, payload: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player?.connected) return;
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
+      const requestId = message.requestId;
+      const { config } = this.world;
+      const recipe = config.recipes.find((r) => r.id === message.recipeId);
+      const structure = recipe && config.structures.find((s) => s.id === recipe.structureId);
+      const now = Date.now();
+
+      const outcome = this.safely(client, () => this.store.transaction(() => {
+        if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
+        const stock = (id: string) => this.store.getAmount(COMMUNITY, id);
+        const check = checkCraft({
+          recipe, structure, position: player, stock,
+          structureBuilt: Boolean(structure && this.store.getStructures().some((s) => s.id === structure.id)),
+        });
+        if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
+        const { inputs, output } = check.recipe;
+        for (const [resource, amount] of Object.entries(inputs)) this.store.addAmount(COMMUNITY, resource, -amount);
+        this.store.addAmount(COMMUNITY, output.item, output.amount);
+        this.store.event("craft", player.name, requestId, { recipe: check.recipe.id, consumed: inputs, produced: { [output.item]: output.amount } });
+        // La misión se completa en la misma transacción que la fabricación que la cumple.
+        const already = new Set(this.store.getMissions().map((m) => m.id));
+        const completedNow = config.missions.filter((m) => !already.has(m.id) && missionSatisfied(m, stock));
+        for (const mission of completedNow) {
+          this.store.completeMission(mission.id, player.name, now);
+          this.store.event("mission-complete", player.name, null, { mission: mission.id });
+        }
+        const touched = [...Object.keys(inputs), output.item];
+        return { kind: "done" as const, community: touched.map((id) => [id, stock(id)] as const), completedNow };
+      }));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+
+      for (const [id, amount] of outcome.community) this.state.community.set(id, amount);
+      for (const mission of outcome.completedNow) {
+        const missionState = this.state.missions.get(mission.id)!;
+        missionState.status = "completada";
+        missionState.completedBy = player.name;
+        missionState.completedAt = now;
+      }
+    },
+
     "*": (client: Client) => this.reject(client, "mensaje-desconocido"),
   };
+
+  private blockFootprint(structure: StructureDef) {
+    for (let x = structure.x; x < structure.x + structure.width; x++) {
+      for (let y = structure.y; y < structure.y + structure.height; y++) this.builtCells.add(`${x},${y}`);
+    }
+  }
+
+  /** «construido» si la estructura del proyecto existe; si no, «listo» o «en-curso» según lo aportado. */
+  private projectStatusOf(project: ProjectDef, projectState: ProjectState): string {
+    const structure = this.world.config.structures.find((s) => s.projectId === project.id);
+    if (structure && this.state.structures.get(structure.id)?.built) return "construido";
+    return projectStatus(project, (r) => projectState.progress.get(r) ?? 0);
+  }
 
   /** Reconstruye el estado de un proyecto desde la base de datos (progreso, quién aportó, actividad). */
   private loadProject(project: ProjectDef) {
     const projectState = new ProjectState();
-    for (const [resource, amount] of Object.entries(this.store.getInventory(projectScope(project.id)))) {
-      projectState.progress.set(resource, amount);
-    }
+    // Progreso = suma de lo aportado según el registro (se conserva tras construir).
     for (const [name, byResource] of Object.entries(this.store.contributionTotals(project.id))) {
       const totals = new ContributorTotals();
-      for (const [resource, amount] of Object.entries(byResource)) totals.totals.set(resource, amount);
+      for (const [resource, amount] of Object.entries(byResource)) {
+        totals.totals.set(resource, amount);
+        projectState.progress.set(resource, (projectState.progress.get(resource) ?? 0) + amount);
+      }
       projectState.contributors.set(name, totals);
     }
     for (const row of this.store.recentContributions(project.id, RECENT_CONTRIBUTIONS).reverse()) {
       projectState.recent.push(new Contribution(row));
     }
-    projectState.status = projectStatus(project, (r) => projectState.progress.get(r) ?? 0);
+    projectState.status = this.projectStatusOf(project, projectState);
     this.state.projects.set(project.id, projectState);
   }
 
@@ -346,7 +470,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private savedPosition(name: string) {
     const { index, config } = this.world;
     const saved = this.store.getPlayer(name);
-    if (saved && saved.x >= 0 && saved.y >= 0 && saved.x < index.width && saved.y < index.height && !index.isBlocked(saved.x, saved.y)) {
+    if (saved && saved.x >= 0 && saved.y >= 0 && saved.x < index.width && saved.y < index.height && !this.isBlocked(saved.x, saved.y)) {
       return saved;
     }
     return config.spawn;
