@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createWorldIndex, validateWorldConfig, type WorldConfig, type WorldIndex } from "@juego/shared";
+import type { Accounts } from "./accounts.ts";
 import type { Store } from "./store.ts";
 
 export interface World {
@@ -36,4 +37,16 @@ export function setStore(store: Store) {
 export function getStore(): Store {
   if (!currentStore) throw new Error("El almacén no se ha abierto");
   return currentStore;
+}
+
+let currentAccounts: Accounts | undefined;
+
+/** Cuentas locales (M6); las salas las usan para validar el token al entrar. */
+export function setAccounts(accounts: Accounts) {
+  currentAccounts = accounts;
+}
+
+export function getAccounts(): Accounts {
+  if (!currentAccounts) throw new Error("Las cuentas no se han iniciado");
+  return currentAccounts;
 }

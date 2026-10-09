@@ -12,11 +12,14 @@ export const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${nam
 /** Base de datos temporal: las pruebas nunca tocan data/world.db. */
 export const tempDb = () => join(mkdtempSync(join(tmpdir(), "juego-test-")), "world.db");
 
-let nextPort = 3600 + Math.floor(Math.random() * 400);
+// Rango sin puertos bloqueados por fetch (p. ej. 3659 está en la lista de puertos prohibidos).
+let nextPort = 42000 + Math.floor(Math.random() * 2000);
 
 export interface RunningServer {
   url: string;
   kill: () => Promise<void>;
+  /** Salida completa del proceso (logs incluidos). */
+  output: () => string;
 }
 
 function runServer(env: Record<string, string>) {
@@ -51,6 +54,7 @@ function startServerOnce(env: Record<string, string>): Promise<RunningServer> {
       proc.stdout.off("data", check);
       resolve({
         url: `http://127.0.0.1:${port}`,
+        output,
         kill: () => new Promise((done) => { proc.once("exit", () => done()); proc.kill("SIGKILL"); }),
       });
     };
@@ -65,6 +69,21 @@ export function startServerExpectingFailure(env: Record<string, string>): Promis
   return new Promise((resolve) => proc.once("exit", (code) => resolve({ code, output: output() })));
 }
 
+/** Contraseña de las cuentas de prueba: solo existe en bases temporales. */
+const TEST_PASSWORD = `prueba-${Math.random().toString(36).slice(2)}-clave`;
+
+/** Crea la cuenta de prueba (o entra si ya existe) y devuelve su token de sesión. */
+export async function sessionFor(url: string, name: string, password = TEST_PASSWORD): Promise<string> {
+  const post = (path: string, body: unknown) => fetch(`${url}${path}`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+  let res = await post("/api/registro", { name, password, adult: true });
+  if (res.status === 409) res = await post("/api/sesion", { name, password });
+  const data = await res.json() as { token?: string; error?: string };
+  if (!data.token) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data.token;
+}
+
 export interface TestPlayer {
   room: Room<unknown, WorldState>;
   rejections: RejectReason[];
@@ -72,8 +91,8 @@ export interface TestPlayer {
 }
 
 export async function joinWorld(url: string, name: string): Promise<TestPlayer> {
-  const client = new Client(url);
-  const room = await client.join(ROOM_NAME, { name }, WorldState);
+  const token = await sessionFor(url, name);
+  const room = await new Client(url).join(ROOM_NAME, { token }, WorldState);
   const rejections: RejectReason[] = [];
   room.onMessage(MESSAGE.rejected, (msg: RejectedMessage) => rejections.push(msg.reason));
   await waitFor(() => Boolean(room.state?.players?.get(room.sessionId)));
@@ -87,7 +106,8 @@ export interface TestPanel {
 
 /** Entra como panel profesional (M5b): observador sin personaje. */
 export async function joinPanel(url: string, name: string): Promise<TestPanel> {
-  const room = await new Client(url).join(ROOM_NAME, { name, view: "panel" }, WorldState);
+  const token = await sessionFor(url, name);
+  const room = await new Client(url).join(ROOM_NAME, { token, view: "panel" }, WorldState);
   const rejections: RejectReason[] = [];
   room.onMessage(MESSAGE.rejected, (msg: RejectedMessage) => rejections.push(msg.reason));
   await waitFor(() => Boolean(room.state?.projects?.size));

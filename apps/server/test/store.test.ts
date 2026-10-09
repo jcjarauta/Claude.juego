@@ -78,7 +78,7 @@ test("migración v3 → v4: conserva los datos, copia previa y una revisión por
   v3.close();
 
   const store = openStore(path);
-  assert.equal(store.schemaVersion(), 4);
+  assert.equal(store.schemaVersion(), SCHEMA_VERSION);
   assert.ok(existsSync(`${path}.v3.bak`));
   assert.deepEqual(store.getStructures(), [{ id: "taller", builtAt: 10, builtBy: "ana" }]);
   assert.deepEqual(store.taskEvidence("p", "madera"), { contributions: 2, lastEventId: 2 });

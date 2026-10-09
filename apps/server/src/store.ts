@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -29,6 +29,15 @@ export interface ReviewRow {
   reviewedBy: string;
   reviewedAt: number;
   note: string;
+}
+
+export interface AccountRow {
+  id: string;
+  name: string;
+  passwordHash: string;
+  salt: string;
+  createdAt: number;
+  adultDeclaredAt: number;
 }
 
 export const MIGRATIONS: Record<number, string> = {
@@ -90,6 +99,24 @@ export const MIGRATIONS: Record<number, string> = {
       reviewed_at INTEGER NOT NULL,
       note TEXT NOT NULL,
       PRIMARY KEY (project_id, task_id)
+    );
+  `,
+  // M6: cuentas locales y sesiones. El nombre es único sin distinguir mayúsculas (Q155);
+  // de la sesión solo se guarda el hash del token.
+  5: `
+    CREATE TABLE account (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      password_hash TEXT NOT NULL,
+      salt TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      adult_declared_at INTEGER NOT NULL
+    );
+    CREATE TABLE session (
+      token_hash TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES account (id),
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
     );
   `,
 };
@@ -154,6 +181,13 @@ export function openStore(path: string) {
       reviewed_at = excluded.reviewed_at, note = excluded.note`),
     taskEvidence: db.prepare(`SELECT COUNT(*) AS contributions, COALESCE(MAX(id), 0) AS lastEventId FROM event
       WHERE type = 'contribute' AND json_extract(data, '$.project') = ? AND json_extract(data, '$.task') = ?`),
+    getAccountByName: db.prepare(`SELECT id, name, password_hash AS passwordHash, salt, created_at AS createdAt,
+      adult_declared_at AS adultDeclaredAt FROM account WHERE name = ? COLLATE NOCASE`),
+    addAccount: db.prepare("INSERT INTO account (id, name, password_hash, salt, created_at, adult_declared_at) VALUES (?, ?, ?, ?, ?, ?)"),
+    addSession: db.prepare("INSERT INTO session (token_hash, account_id, created_at, expires_at) VALUES (?, ?, ?, ?)"),
+    getSession: db.prepare(`SELECT s.account_id AS accountId, s.expires_at AS expiresAt, a.name AS name
+      FROM session s JOIN account a ON a.id = s.account_id WHERE s.token_hash = ?`),
+    deleteSession: db.prepare("DELETE FROM session WHERE token_hash = ?"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
     getLastSeen: db.prepare("SELECT last_seen_at AS lastSeenAt FROM player WHERE name = ?"),
     contributionTotals: db.prepare(`SELECT actor AS name, json_extract(data, '$.resource') AS resource, SUM(json_extract(data, '$.amount')) AS total
@@ -245,6 +279,23 @@ export function openStore(path: string) {
     },
     completeMission(id: string, by: string, at: number) {
       q.completeMission.run(id, at, by);
+    },
+    getAccountByName(name: string): AccountRow | undefined {
+      const r = q.getAccountByName.get(name) as AccountRow | undefined;
+      return r && { id: r.id, name: r.name, passwordHash: r.passwordHash, salt: r.salt, createdAt: Number(r.createdAt), adultDeclaredAt: Number(r.adultDeclaredAt) };
+    },
+    addAccount(a: AccountRow) {
+      q.addAccount.run(a.id, a.name, a.passwordHash, a.salt, a.createdAt, a.adultDeclaredAt);
+    },
+    addSession(tokenHash: string, accountId: string, createdAt: number, expiresAt: number) {
+      q.addSession.run(tokenHash, accountId, createdAt, expiresAt);
+    },
+    getSession(tokenHash: string): { accountId: string; expiresAt: number; name: string } | undefined {
+      const r = q.getSession.get(tokenHash) as { accountId: string; expiresAt: number; name: string } | undefined;
+      return r && { accountId: r.accountId, expiresAt: Number(r.expiresAt), name: r.name };
+    },
+    deleteSession(tokenHash: string) {
+      q.deleteSession.run(tokenHash);
     },
     /** Última revisión de cada tarea de un proyecto. */
     getReviews(projectId: string): ReviewRow[] {

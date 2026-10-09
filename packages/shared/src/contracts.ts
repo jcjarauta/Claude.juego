@@ -25,9 +25,54 @@ export const VIEWS = ["mundo", "panel"] as const;
 export type View = (typeof VIEWS)[number];
 
 export interface JoinOptions {
-  name: string;
+  /** Token de sesión de la cuenta (M6). Va en las opciones, no en la URL; el nombre sale de la cuenta. */
+  token: string;
   /** Por defecto "mundo". */
   view?: View;
+}
+
+/** Cuentas locales (M6, Q165): datos mínimos (nombre y contraseña) y declaración de mayoría de edad. */
+export interface RegisterRequest {
+  name: string;
+  password: string;
+  adult: boolean;
+}
+
+export interface LoginRequest {
+  name: string;
+  password: string;
+}
+
+/** Respuesta correcta de registro o inicio de sesión. */
+export interface SessionResponse {
+  token: string;
+  name: string;
+}
+
+export type AccountError =
+  | "nombre-invalido"
+  | "contrasena-invalida"
+  | "edad-no-declarada"
+  | "nombre-ocupado"
+  | "credenciales-invalidas"
+  | "demasiados-intentos"
+  | "solicitud-invalida";
+
+export const ACCOUNT_ERROR_TEXT: Record<AccountError, string> = {
+  "nombre-invalido": "Nombre no válido: usa de 1 a 20 letras, números, guion o guion bajo.",
+  "contrasena-invalida": "La contraseña debe tener entre 8 y 128 caracteres.",
+  "edad-no-declarada": "Para crear una cuenta debes declarar que eres mayor de edad.",
+  "nombre-ocupado": "Ese nombre ya tiene cuenta. Elige otro o entra con tu contraseña.",
+  "credenciales-invalidas": "Nombre o contraseña incorrectos.",
+  "demasiados-intentos": "Demasiados intentos fallidos. Espera 30 segundos y vuelve a probar.",
+  "solicitud-invalida": "Solicitud no válida.",
+};
+
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 128;
+
+export function isValidPassword(password: unknown): password is string {
+  return typeof password === "string" && password.length >= PASSWORD_MIN && password.length <= PASSWORD_MAX;
 }
 
 /** Un paso ortogonal de una casilla: exactamente uno de dx, dy vale -1 o 1. */
@@ -137,7 +182,8 @@ export type RejectReason =
   | "tarea-sin-completar"
   | "nota-invalida"
   | "sin-personaje"
-  | "tareas-sin-aprobar";
+  | "tareas-sin-aprobar"
+  | "demasiadas-solicitudes";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -173,6 +219,7 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "nota-invalida": "Escribe una nota de 1 a 500 caracteres.",
   "sin-personaje": "Desde el panel no se puede actuar en el mundo; entra con tu personaje.",
   "tareas-sin-aprobar": "Un coordinador debe aprobar todas las tareas antes de construir.",
+  "demasiadas-solicitudes": "Demasiadas acciones seguidas; espera un momento.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;
@@ -185,7 +232,8 @@ export const NAME_PATTERN = /^[\p{L}\p{N}_-]{1,20}$/u;
 
 /** Motivos de rechazo al entrar, traducidos para la persona. */
 export function joinErrorText(message: string): string {
-  if (message.includes("nombre-en-uso")) return "Ese nombre ya está en uso en este mundo. Elige otro.";
+  if (message.includes("sesion-invalida")) return "Tu sesión no es válida o ha caducado. Vuelve a entrar.";
+  if (message.includes("nombre-en-uso")) return "Ya estás dentro con esta cuenta en otra pestaña o equipo.";
   if (message.includes("nombre-invalido")) return "Nombre no válido: usa de 1 a 20 letras, números, guion o guion bajo.";
   if (message.includes("mundo-lleno") || message.includes("no rooms found")) return `El mundo está lleno (máximo ${MAX_PLAYERS} jugadores). Inténtalo más tarde.`;
   return `No se pudo entrar en el mundo (${message}).`;
