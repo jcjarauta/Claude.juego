@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q147 (BORRADOR)
+# Registro de decisiones — Q001 a Q148 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -151,6 +151,7 @@
 | Q145 | Pruebas | Prueba del spike BL-02 dada por realizada con Edge y Chrome; Firefox (no instalado) y LAN real quedan para M6 y M2 respectivamente | VERIFICADO (decisión); AHORA |
 | Q146 | Arquitectura | Aprobado ADR-002: Phaser + Colyseus + SQLite en un único proceso (incluye ADR-001, monolito modular). Cierra BL-02 y el Gate 0 | VERIFICADO (decisión); MVP |
 | Q147 | Tecnologías | TypeScript en cliente y servidor a partir de M1 | VERIFICADO (decisión); MVP |
+| Q148 | Multijugador | Los jugadores no se bloquean entre sí (pueden compartir casilla); nodos y bordes sí bloquean. Aprobado con el plan de M2 | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
 

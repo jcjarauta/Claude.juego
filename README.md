@@ -30,7 +30,9 @@ npm.cmd run build
 npm.cmd start
 ```
 
-Abre `http://127.0.0.1:2567/?name=ana`. Para jugar en red local: `$env:HOST="0.0.0.0"; npm.cmd start` (Windows pedirá permiso de firewall).
+Abre `http://127.0.0.1:2567`, escribe tu nombre y entra (también vale `?name=ana` en la URL).
+
+**Red local (2–4 jugadores):** en PowerShell, `$env:HOST="0.0.0.0"; npm.cmd start`. Windows pedirá permiso de firewall para Node: concédelo solo para redes privadas. Los demás abren `http://<IP-del-PC>:2567` (la IP aparece con `ipconfig`, en «Dirección IPv4» del adaptador conectado a la red local).
 
 Comprobaciones: `npm.cmd run typecheck` y `npm.cmd test`. El contenido del mundo está en `content/world.json`.
 

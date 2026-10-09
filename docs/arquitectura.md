@@ -33,6 +33,14 @@ Arquitectura objetivo de **microservicios y ejecución distribuida** (Q58), prot
 - Eventos propuestos: `ResourceCollected`, `ResourceContributed`, `TaskCompleted`, `WorkshopBuilt`, `MissionCompleted`. Nombres **de diseño**, no código existente.
 - Formatos, endpoints, mensajes, autenticación, versiones y semántica de reintentos: **NO VERIFICADOS**. Cada servicio debe documentar una autoridad de escritura por entidad y sus políticas de consistencia. Para el MVP, diseñar contratos mínimos antes de programar.
 
+### 3.1 Sesión y presencia (implementado en M2)
+
+- **Contratos** en `@juego/shared`: mensajes (`contracts.ts`), esquema del estado sincronizado (`state.ts`) y reglas puras (`movement.ts`).
+- **Salida voluntaria** (botón, cerrar o recargar la pestaña mediante `pagehide`): el jugador se retira al momento y su plaza queda libre.
+- **Corte de red:** el jugador queda en el mundo con `connected = false` durante `session.reconnectSeconds` (10 s). Los demás lo ven semitransparente y «reconectando», y no puede moverse. El SDK reconecta solo; si vuelve, conserva la posición; si el plazo vence, se retira.
+- **Mismo nombre durante el plazo:** quien entra con el nombre de un jugador desconectado recupera su personaje, y el plazo de la sesión antigua se cancela para liberar su plaza. Sin cuentas no hay propiedad de nombres: esto se revisará con la identidad de M6 (RF-003).
+- **Colisión:** los jugadores no se bloquean entre sí (Q148).
+
 ## 4. Persistencia y consistencia
 
 Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, considerar idempotencia de comandos. Guardado/reinicio verificables para MVP. Registro de eventos y versionado se ampliarán después. Las copias de seguridad requieren **prueba real de restauración** antes de etiquetar el control como OK.
