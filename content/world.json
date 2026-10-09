@@ -1,0 +1,281 @@
+{
+  "map": {
+    "width": 40,
+    "height": 30,
+    "tileSize": 32,
+    "defaultZoneName": "Camino",
+    "defaultColor": "#3a4a3f"
+  },
+  "spawn": {
+    "x": 20,
+    "y": 10
+  },
+  "moveCooldownMs": 100,
+  "resources": [
+    {
+      "id": "madera",
+      "name": "Madera",
+      "color": "#8d5a2b"
+    },
+    {
+      "id": "piedra",
+      "name": "Piedra",
+      "color": "#b8bec6"
+    },
+    {
+      "id": "fibra",
+      "name": "Fibra",
+      "color": "#e3d26f"
+    }
+  ],
+  "zones": [
+    {
+      "id": "bosque",
+      "name": "Bosque",
+      "x": 0,
+      "y": 0,
+      "width": 15,
+      "height": 18,
+      "color": "#1f4d2b"
+    },
+    {
+      "id": "cantera",
+      "name": "Cantera",
+      "x": 25,
+      "y": 0,
+      "width": 15,
+      "height": 18,
+      "color": "#4b4f58"
+    },
+    {
+      "id": "pradera",
+      "name": "Pradera",
+      "x": 0,
+      "y": 21,
+      "width": 40,
+      "height": 9,
+      "color": "#4f6b2a"
+    },
+    {
+      "id": "aldea",
+      "name": "Aldea",
+      "x": 16,
+      "y": 6,
+      "width": 8,
+      "height": 9,
+      "color": "#6b5232"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "arbol-1",
+      "resource": "madera",
+      "x": 11,
+      "y": 7,
+      "max": 3
+    },
+    {
+      "id": "arbol-2",
+      "resource": "madera",
+      "x": 8,
+      "y": 5,
+      "max": 3
+    },
+    {
+      "id": "arbol-3",
+      "resource": "madera",
+      "x": 6,
+      "y": 3,
+      "max": 3
+    },
+    {
+      "id": "arbol-4",
+      "resource": "madera",
+      "x": 4,
+      "y": 15,
+      "max": 3
+    },
+    {
+      "id": "arbol-5",
+      "resource": "madera",
+      "x": 13,
+      "y": 8,
+      "max": 3
+    },
+    {
+      "id": "arbol-6",
+      "resource": "madera",
+      "x": 2,
+      "y": 15,
+      "max": 3
+    },
+    {
+      "id": "arbol-7",
+      "resource": "madera",
+      "x": 11,
+      "y": 9,
+      "max": 3
+    },
+    {
+      "id": "arbol-8",
+      "resource": "madera",
+      "x": 5,
+      "y": 11,
+      "max": 3
+    },
+    {
+      "id": "arbol-9",
+      "resource": "madera",
+      "x": 5,
+      "y": 13,
+      "max": 3
+    },
+    {
+      "id": "arbol-10",
+      "resource": "madera",
+      "x": 7,
+      "y": 16,
+      "max": 3
+    },
+    {
+      "id": "arbol-11",
+      "resource": "madera",
+      "x": 11,
+      "y": 2,
+      "max": 3
+    },
+    {
+      "id": "arbol-12",
+      "resource": "madera",
+      "x": 9,
+      "y": 15,
+      "max": 3
+    },
+    {
+      "id": "roca-1",
+      "resource": "piedra",
+      "x": 32,
+      "y": 7,
+      "max": 3
+    },
+    {
+      "id": "roca-2",
+      "resource": "piedra",
+      "x": 33,
+      "y": 14,
+      "max": 3
+    },
+    {
+      "id": "roca-3",
+      "resource": "piedra",
+      "x": 29,
+      "y": 9,
+      "max": 3
+    },
+    {
+      "id": "roca-4",
+      "resource": "piedra",
+      "x": 36,
+      "y": 11,
+      "max": 3
+    },
+    {
+      "id": "roca-5",
+      "resource": "piedra",
+      "x": 31,
+      "y": 11,
+      "max": 3
+    },
+    {
+      "id": "roca-6",
+      "resource": "piedra",
+      "x": 29,
+      "y": 16,
+      "max": 3
+    },
+    {
+      "id": "roca-7",
+      "resource": "piedra",
+      "x": 32,
+      "y": 3,
+      "max": 3
+    },
+    {
+      "id": "roca-8",
+      "resource": "piedra",
+      "x": 37,
+      "y": 7,
+      "max": 3
+    },
+    {
+      "id": "mata-1",
+      "resource": "fibra",
+      "x": 31,
+      "y": 26,
+      "max": 3
+    },
+    {
+      "id": "mata-2",
+      "resource": "fibra",
+      "x": 38,
+      "y": 27,
+      "max": 3
+    },
+    {
+      "id": "mata-3",
+      "resource": "fibra",
+      "x": 23,
+      "y": 25,
+      "max": 3
+    },
+    {
+      "id": "mata-4",
+      "resource": "fibra",
+      "x": 35,
+      "y": 25,
+      "max": 3
+    },
+    {
+      "id": "mata-5",
+      "resource": "fibra",
+      "x": 7,
+      "y": 28,
+      "max": 3
+    },
+    {
+      "id": "mata-6",
+      "resource": "fibra",
+      "x": 27,
+      "y": 22,
+      "max": 3
+    },
+    {
+      "id": "mata-7",
+      "resource": "fibra",
+      "x": 7,
+      "y": 25,
+      "max": 3
+    },
+    {
+      "id": "mata-8",
+      "resource": "fibra",
+      "x": 1,
+      "y": 25,
+      "max": 3
+    },
+    {
+      "id": "mata-9",
+      "resource": "fibra",
+      "x": 28,
+      "y": 26,
+      "max": 3
+    },
+    {
+      "id": "mata-10",
+      "resource": "fibra",
+      "x": 33,
+      "y": 28,
+      "max": 3
+    }
+  ]
+}

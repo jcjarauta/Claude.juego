@@ -15,3 +15,10 @@ CLAUDE.local.md
 # Dependencias y artefactos
 node_modules/
 dist/
+
+# Artefactos de compilación del cliente
+apps/client/public/bundle.js
+apps/client/public/bundle.js.map
+
+# Datos locales del servidor
+data/
