@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q144 (BORRADOR)
+# Registro de decisiones — Q001 a Q145 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -148,6 +148,7 @@
 | Q142 | Respuesta | Bloque ENGREMIAT en auditorías y cierres de tarea o fase (PEND-05) | VERIFICADO (decisión); MVP |
 | Q143 | Accesibilidad | Chrome, Edge y Firefox recientes de escritorio; todas las acciones esenciales con teclado; contraste y textos legibles | VERIFICADO (decisión); MVP |
 | Q144 | Misiones | Las misiones futuras serán **proyectos configurables** (objetivos, tareas, recursos y resultado definidos como configuración, no programados uno a uno). Relacionada con Q011 y Q025 | VERIFICADO (decisión); FUTURO (configuración por jugadores); principio en el MVP |
+| Q145 | Pruebas | Prueba del spike BL-02 dada por realizada con Edge y Chrome; Firefox (no instalado) y LAN real quedan para M6 y M2 respectivamente | VERIFICADO (decisión); AHORA |
 
 ## Interpretaciones conservadoras
 

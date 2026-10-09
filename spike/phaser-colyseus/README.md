@@ -33,7 +33,7 @@ Abrir `http://127.0.0.1:2567/?name=ana` y, en otra pestaña, `?name=bea`. Para j
 | Convergencia ≤ 500 ms con 4 clientes | OK en localhost | Máximo observado 35–43 ms sin latencia añadida y 40–92 ms con 20 ms de latencia simulada (`COLYSEUS_LATENCY`), en 3 ejecuciones. Dominado por el `patchRate` de 50 ms |
 | Persistencia sin pérdida tras caída | OK | Servidor matado con SIGKILL tras dos recolecciones; al reiniciar, inventario y nodo intactos |
 | Reloj del mundo | OK | Regenera en vivo, sin jugadores conectados y con el servidor parado |
-| Chrome, Edge y Firefox | PARCIAL | Probado en el navegador integrado de Claude (Chromium): carga, movimiento con flechas y WASD, recolección con Espacio y E, segundo jugador sincronizado, sin errores de consola. **Edge y Firefox: NO VERIFICADO** |
+| Chrome, Edge y Firefox | OK en Chrome y Edge | Navegador integrado (Chromium) y prueba manual del usuario con Edge y Chrome a la vez: movimiento, recolección, estado idéntico en ambas ventanas y regeneración observada en vivo. Registro del servidor: 3 recolecciones y 6 rechazos correctos (casilla bloqueada, árbol agotado, demasiado lejos), sin errores. **Firefox: NO VERIFICADO** (no instalado); prueba aceptada sin él (Q145) |
 
 Suite: 5 pruebas, 15 de 15 ejecuciones correctas (3 rondas).
 
@@ -54,7 +54,7 @@ Con `joinOrCreate`, un quinto jugador no era rechazado: Colyseus creaba **otra c
 
 ## No verificado
 
-- Edge y Firefox (prueba manual pendiente).
+- Firefox (no instalado en el equipo de pruebas).
 - LAN real entre dos equipos (solo localhost y latencia simulada).
 - Rendimiento con más de 4 clientes o sesiones largas (criterio de carga de 15 min no ejecutado).
 

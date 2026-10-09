@@ -33,7 +33,7 @@ BL-01–BL-05 forman el **Gate 0**: no bloquean inventariar requisitos ni prepar
 | ID | Dato pendiente | Cuándo bloquea | Estado |
 |---|---|---|---|
 | BL-01 | Perspectiva 2D y estilo de interacción | Antes de elegir/implementar presentación | **CERRADO** — cenital (Q132) |
-| BL-02 | Stack de motor, backend, base de datos y despliegue, comparado y elegido con ADR tras spike aislado | Antes de crear estructura o instalar dependencias | SPIKE HECHO — Phaser + Colyseus + SQLite cumple los criterios probados (`spike/phaser-colyseus/README.md`); ADR-002 PROPUESTA pendiente de aprobación |
+| BL-02 | Stack de motor, backend, base de datos y despliegue, comparado y elegido con ADR tras spike aislado | Antes de crear estructura o instalar dependencias | SPIKE HECHO — Phaser + Colyseus + SQLite cumple los criterios probados (`spike/phaser-colyseus/README.md`); prueba manual aceptada (Q145); ADR-002 PROPUESTA pendiente de aprobación |
 | BL-03 | Bucle concreto: mapa, recursos, costes del taller, receta, condición de misión | Antes de implementar mecánicas y tests E2E | **DECIDIDO** el diseño (Q133, Q136–Q139); cifras PROPUESTA en `docs/especificacion.md` §3.1 pendientes de revisión |
 | BL-04 | Umbrales: clientes/concurrencia, latencia, reconexión, accesibilidad, recuperación | Antes del gate de aceptación | **DECIDIDO** escala y navegadores (Q134, Q143); umbrales numéricos PROPUESTA en `docs/pruebas.md` §3 pendientes de revisión |
 | BL-05 | Estado físico: repositorio, rutas, permisos, entorno y herramientas | Antes de cualquier comando o cambio en sistema | PARCIAL — ver nota |
@@ -89,4 +89,4 @@ Estos grupos son una **propuesta de orden**, no aprobaciones de entregas ni una 
 
 Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el siguiente gate humano o `NO_GO` real; nunca interpretar este documento como autorización para ejecutar acciones.
 
-**NEXT:** prueba manual del spike en Edge y Firefox y aprobación humana de ADR-002; con ello se cierra el Gate 0 y puede empezar M1.
+**NEXT:** aprobación humana de ADR-002 (prueba manual aceptada, Q145); con ello se cierra el Gate 0 y puede empezar M1.

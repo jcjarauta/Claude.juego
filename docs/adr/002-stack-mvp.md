@@ -33,7 +33,7 @@ Reglas derivadas del spike:
 
 ## Evidencia
 
-`spike/phaser-colyseus/README.md`: 5 pruebas automáticas, 15 de 15 ejecuciones correctas. Convergencia máxima de 92 ms con 4 clientes y 20 ms de latencia simulada (límite: 500 ms). Persistencia tras SIGKILL y regeneración sin jugadores verificadas. Cliente probado en Chromium.
+`spike/phaser-colyseus/README.md`: 5 pruebas automáticas, 15 de 15 ejecuciones correctas. Convergencia máxima de 92 ms con 4 clientes y 20 ms de latencia simulada (límite: 500 ms). Persistencia tras SIGKILL y regeneración sin jugadores verificadas. Prueba manual del usuario con Edge y Chrome simultáneos superada, incluida la regeneración (Q145).
 
 ## Consecuencias
 
@@ -42,7 +42,7 @@ Reglas derivadas del spike:
 - Express entra como dependencia par de Colyseus.
 - Escalar más allá de una sala o un proceso exigiría `presence`/`driver` de Colyseus (Redis); fuera del MVP.
 
-## Pendiente antes de aprobar
+## Limitaciones aceptadas (Q145)
 
-- Prueba manual en Edge y Firefox.
-- Prueba en LAN real con dos equipos (`HOST=0.0.0.0`).
+- Firefox no verificado: se comprobará en el endurecimiento (M6), ya que sigue siendo navegador objetivo (Q143).
+- LAN real con dos equipos no probada: se comprobará en M2 (segundo cliente y sincronización).
