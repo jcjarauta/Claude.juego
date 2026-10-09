@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createWorldIndex, validateWorldConfig, type WorldConfig, type WorldIndex } from "@juego/shared";
+import type { Store } from "./store.ts";
 
 export interface World {
   config: WorldConfig;
@@ -23,4 +24,16 @@ export function loadWorld(path: string): World {
 export function getWorld(): World {
   if (!current) throw new Error("El mundo no se ha cargado");
   return current;
+}
+
+let currentStore: Store | undefined;
+
+/** Almacén abierto al arrancar; las salas lo leen de aquí. */
+export function setStore(store: Store) {
+  currentStore = store;
+}
+
+export function getStore(): Store {
+  if (!currentStore) throw new Error("El almacén no se ha abierto");
+  return currentStore;
 }
