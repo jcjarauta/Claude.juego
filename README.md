@@ -62,6 +62,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1, M2 y M3 cerradas; M4 hecha en la rama `m4-proyecto`: comunidad, proyecto «Construir taller» con tareas y aportes, novedades asíncronas y panel con atajos P/M. Pendiente: tu prueba y la fusión.
+M1–M4 cerradas: mundo compartido por 2–4 jugadores en red local, con recolección, inventarios, persistencia en SQLite y el proyecto comunitario «Construir taller» con aportes y novedades asíncronas. Siguiente: aprobar el plan de M5 (taller, herramienta y misión).
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

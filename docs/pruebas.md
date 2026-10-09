@@ -113,3 +113,20 @@ Defectos encontrados y corregidos:
 - Con `INSERT … ON CONFLICT`, SQLite validaba el `CHECK` en la fila candidata, de modo que restar de un inventario fallaba siempre. Lo detectó la prueba de auditoría del almacén.
 - `crypto.randomUUID` no existe en contextos no seguros (la IP de la red local): se usa `getRandomValues`.
 - Con la pestaña oculta, los movimientos dependían del bucle de fotogramas: ahora un toque se envía al pulsar.
+
+
+### M4 — 2026-10-09 (rama `m4-proyecto`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| TP-06 | `npm.cmd test` | Aportes desde el inventario y desde la comunidad; ambos jugadores ven progreso, quién aportó y actividad; recorte del sobrante (Q153); «tarea completa» al pasarse; proyecto «listo» con las tres tareas | OK |
+| TP-05 (última unidad) | `npm.cmd test`: dos aportes simultáneos con 1 unidad pendiente | Uno pasa y el otro recibe «tarea completa»; el progreso no supera lo requerido | OK |
+| TP-12 | `npm.cmd test` | `requestId` repetido sin efecto; tarea o proyecto desconocidos, origen no permitido, cantidad inválida, saldo insuficiente y falta de `requestId` rechazados sin cambios | OK |
+| TP-13 (asíncrono) | `npm.cmd test` y navegador integrado | Quien entra después ve el avance y los autores; al volver se reciben las novedades («bea aportó 1 de madera»); una sola vez por sesión | OK |
+| TP-09 | `npm.cmd test`: SIGKILL con el proyecto a medias | Progreso, autores, actividad y almacén intactos; auditoría 3 = 3 en todos los ámbitos | OK |
+| TP-10 | Navegador integrado | P lleva al panel del proyecto y M vuelve al mapa; posición e inventario se conservan; aportes con teclado y foco conservado | OK |
+| Migración v1 → v2 | `npm.cmd test` | Datos conservados y copia `*.v1.bak` creada antes de migrar | OK |
+| Carga (4 clientes, 15 min) | `npm.cmd run soak` | 173 comprobaciones del estado completo (incluido el proyecto), 0 divergencias; 316 recolecciones, 28 aportes y 23 depósitos enviados; proyecto completado (20/15/5) sin superar lo requerido; **auditoría: recolectado = jugadores + comunidad + proyecto (madera 120, piedra 80, fibra 100)** | OK |
+| Prueba del usuario | — | Fusión autorizada por la persona responsable el 2026-10-09 sin prueba manual registrada | NO VERIFICADO |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 63 de 63.
