@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q148 (BORRADOR)
+# Registro de decisiones — Q001 a Q151 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -152,6 +152,9 @@
 | Q146 | Arquitectura | Aprobado ADR-002: Phaser + Colyseus + SQLite en un único proceso (incluye ADR-001, monolito modular). Cierra BL-02 y el Gate 0 | VERIFICADO (decisión); MVP |
 | Q147 | Tecnologías | TypeScript en cliente y servidor a partir de M1 | VERIFICADO (decisión); MVP |
 | Q148 | Multijugador | Los jugadores no se bloquean entre sí (pueden compartir casilla); nodos y bordes sí bloquean. Aprobado con el plan de M2 | VERIFICADO (decisión); MVP |
+| Q149 | Persistencia | La posición se guarda al salir y cada 5 s (tras una caída pueden perderse hasta 5 s de movimiento); los recursos se guardan en cada transacción y nunca se pierden. Aprobado con el plan de M3 | VERIFICADO (decisión); MVP |
+| Q150 | Privacidad | Los inventarios son visibles para todos los jugadores del mundo (juego cooperativo de adultos); privacidad por ámbito con los permisos de M6. Aprobado con el plan de M3 | VERIFICADO (decisión); MVP |
+| Q151 | Identidad | Hasta M6, el inventario individual pertenece al nombre: quien entra con ese nombre lo recupera. Riesgo conocido y aceptado; se cierra con RF-003. Aprobado con el plan de M3 | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
 

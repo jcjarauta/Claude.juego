@@ -12,7 +12,7 @@
   },
   "moveCooldownMs": 100,
   "collectCooldownMs": 100,
-  "inventoryMax": 10,
+  "inventoryMax": 3,
   "regenIntervalMs": 120000,
   "session": {
     "reconnectSeconds": 2
@@ -23,26 +23,29 @@
       "name": "Madera",
       "color": "#8d5a2b",
       "shape": "triangle"
-    }
-  ],
-  "zones": [
+    },
     {
-      "id": "bosque",
-      "name": "Bosque",
-      "x": 0,
-      "y": 0,
-      "width": 3,
-      "height": 3,
-      "color": "#1f4d2b"
+      "id": "piedra",
+      "name": "Piedra",
+      "color": "#b8bec6",
+      "shape": "square"
     }
   ],
+  "zones": [],
   "nodes": [
     {
       "id": "arbol-1",
       "resource": "madera",
       "x": 1,
       "y": 0,
-      "max": 3
+      "max": 5
+    },
+    {
+      "id": "roca-1",
+      "resource": "piedra",
+      "x": 3,
+      "y": 3,
+      "max": 1
     }
   ]
 }

@@ -34,6 +34,12 @@ export interface WorldConfig {
   map: { width: number; height: number; tileSize: number; defaultZoneName: string; defaultColor: string };
   spawn: { x: number; y: number };
   moveCooldownMs: number;
+  /** Intervalo mínimo entre recolecciones de un jugador. */
+  collectCooldownMs: number;
+  /** Máximo por recurso en el inventario individual. */
+  inventoryMax: number;
+  /** Cada cuánto recupera un nodo 1 unidad (reloj del mundo). */
+  regenIntervalMs: number;
   /** Segundos que se conserva a un jugador tras un corte inesperado antes de retirarlo. */
   session: { reconnectSeconds: number };
   resources: ResourceDef[];
@@ -57,7 +63,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, session, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -70,6 +76,9 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const inside = (x: unknown, y: unknown) => isInt(x, 0, width - 1) && isInt(y, 0, height - 1);
 
   if (!isInt(moveCooldownMs, 0, 10000)) fail("moveCooldownMs debe ser un entero 0–10000");
+  if (!isInt(collectCooldownMs, 0, 60000)) fail("collectCooldownMs debe ser un entero 0–60000");
+  if (!isInt(inventoryMax, 1, 1000)) fail("inventoryMax debe ser un entero 1–1000");
+  if (!isInt(regenIntervalMs, 50, 86_400_000)) fail("regenIntervalMs debe ser un entero 50–86400000");
   if (!isObject(session) || !isInt(session.reconnectSeconds, 0, 300)) fail("session.reconnectSeconds debe ser un entero 0–300");
 
   const resourceIds = new Set<string>();

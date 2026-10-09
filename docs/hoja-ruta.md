@@ -19,7 +19,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | G0 | Resolución de bloqueos BL-01–BL-05, ADR stack 2D y datos | Consolidación aprobada | Autorización humana del alcance |
 | M1 | Mundo 2D visible web y locomoción/exploración básica | G0 | Demostración local con prueba reproducible — **CERRADA** 2026-10-09 (evidencia en `docs/pruebas.md` §5; prueba en Edge del usuario) |
 | M2 | Segundo cliente y sincronización mínima | M1 | Dos clientes observan el mismo estado sin inconsistencias — **CERRADA** 2026-10-09 (evidencia en `docs/pruebas.md` §5, incluida la red local real) |
-| M3 | Recursos, inventario y persistencia transaccional | M2 | Recolección/reinicio no duplica ni pierde recursos confirmados |
+| M3 | Recursos, inventario y persistencia transaccional | M2 | Recolección/reinicio no duplica ni pierde recursos confirmados — **CERRADA** 2026-10-09 (evidencia en `docs/pruebas.md` §5, incluida la prueba del usuario) |
 | M4 | Comunidad inicial, proyecto y tareas | M3 | Tareas visibles y actualizadas para varios jugadores |
 | M5 | Construcción taller, producción simple y cierre de misión | M4 | Ciclo completo probado de principio a fin |
 | M6 | Endurecimiento: permisos, accesibilidad básica, fallos, pruebas integrales | M5 | Evidencias y aprobación formal del MVP |
@@ -91,4 +91,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** plan de M3 (recolección, inventarios, SQLite y reloj del mundo) para aprobación humana.
+**NEXT:** plan de M4 (comunidad, proyecto «Construir taller», tareas y aportes, incluida la colaboración asíncrona de RF-013).

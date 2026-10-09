@@ -5,7 +5,9 @@ import { defineServer, defineRoom, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ROOM_NAME } from "@juego/shared";
 import { WorldRoom } from "./rooms/WorldRoom.ts";
-import { loadWorld } from "./world.ts";
+import { mkdirSync } from "node:fs";
+import { openStore } from "./store.ts";
+import { loadWorld, setStore } from "./world.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const port = Number(process.env.PORT ?? 2567);
@@ -13,6 +15,8 @@ const port = Number(process.env.PORT ?? 2567);
 const host = process.env.HOST ?? "127.0.0.1";
 const worldPath = process.env.WORLD_CONFIG ?? join(root, "content", "world.json");
 const publicDir = join(root, "apps", "client", "public");
+// Base de datos del mundo; las pruebas usan una temporal con DB_PATH.
+const dbPath = process.env.DB_PATH ?? join(root, "data", "world.db");
 
 function loadOrExit() {
   try {
@@ -23,6 +27,9 @@ function loadOrExit() {
   }
 }
 const world = loadOrExit();
+mkdirSync(dirname(dbPath), { recursive: true });
+const store = openStore(dbPath);
+setStore(store);
 
 // Lo mínimo que se usa de la respuesta de Express (Express llega como dependencia de Colyseus, sin tipos).
 interface HttpResponse {
@@ -57,6 +64,7 @@ const server = defineServer({
   },
 });
 
+server.onShutdown(() => store.close());
 await server.listen(port, host);
 await matchMaker.createRoom(ROOM_NAME, {});
 console.log(`LISTO http://${host}:${port}`);

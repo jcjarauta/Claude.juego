@@ -1,10 +1,16 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client, type Room } from "@colyseus/sdk";
 import { MESSAGE, ROOM_NAME, WorldState, type Player, type RejectReason, type RejectedMessage } from "@juego/shared";
 
 const serverEntry = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 export const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
+
+/** Base de datos temporal: las pruebas nunca tocan data/world.db. */
+export const tempDb = () => join(mkdtempSync(join(tmpdir(), "juego-test-")), "world.db");
 
 let nextPort = 3600 + Math.floor(Math.random() * 400);
 
@@ -16,7 +22,7 @@ export interface RunningServer {
 function runServer(env: Record<string, string>) {
   const port = nextPort++;
   const proc = spawn(process.execPath, [serverEntry], {
-    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", ...env },
+    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", DB_PATH: tempDb(), ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";

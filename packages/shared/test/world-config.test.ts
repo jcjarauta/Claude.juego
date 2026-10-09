@@ -7,6 +7,9 @@ const base = (): WorldConfig => ({
   map: { width: 10, height: 8, tileSize: 32, defaultZoneName: "Camino", defaultColor: "#333333" },
   spawn: { x: 1, y: 1 },
   moveCooldownMs: 100,
+  collectCooldownMs: 1000,
+  inventoryMax: 10,
+  regenIntervalMs: 120000,
   session: { reconnectSeconds: 10 },
   resources: [{ id: "madera", name: "Madera", color: "#8d5a2b", shape: "triangle" }],
   zones: [{ id: "bosque", name: "Bosque", x: 0, y: 0, width: 5, height: 5, color: "#1f4d2b" }],
@@ -76,6 +79,15 @@ test("rechaza un plazo de reconexión ausente o fuera de rango", () => {
   const tooLong = base();
   tooLong.session.reconnectSeconds = 3600;
   assert.match(String(errorsOf(tooLong)), /session.reconnectSeconds/);
+});
+
+test("rechaza parámetros de recursos fuera de rango", () => {
+  const cfg = base();
+  cfg.inventoryMax = 0;
+  cfg.regenIntervalMs = 10;
+  const errors = String(errorsOf(cfg));
+  assert.match(errors, /inventoryMax/);
+  assert.match(errors, /regenIntervalMs/);
 });
 
 test("rechaza un recurso sin forma válida", () => {

@@ -45,6 +45,32 @@ Arquitectura objetivo de **microservicios y ejecución distribuida** (Q58), prot
 
 Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, considerar idempotencia de comandos. Guardado/reinicio verificables para MVP. Registro de eventos y versionado se ampliarán después. Las copias de seguridad requieren **prueba real de restauración** antes de etiquetar el control como OK.
 
+### 4.1 Implementación (M3)
+
+- **Almacén:** `apps/server/src/store.ts`, sobre `node:sqlite` (Node 24), en `data/world.db` (`DB_PATH` para cambiarla), en modo WAL con `synchronous = FULL`. Esquema versionado con `PRAGMA user_version` y migraciones en el propio código.
+- **Tablas:**
+  - `node_state`: unidades y marca de regeneración.
+  - `inventory`: ámbito (`player`/`community`), recurso y cantidad, con `CHECK (amount >= 0)`.
+  - `player`: posición.
+  - `event`: tipo, actor, `request_id` y datos JSON, con `UNIQUE (actor, request_id)`.
+- **Orden de una operación** (recolectar o transferir):
+  1. Transacción `BEGIN IMMEDIATE`.
+  2. Validación con las reglas puras de `@juego/shared` usando los saldos **leídos de la base de datos**.
+  3. Escritura de los cambios y del evento.
+  4. `COMMIT`.
+  5. Solo entonces cambia el estado sincronizado.
+
+  Un error deshace todo y el cliente recibe un rechazo.
+- **Idempotencia:** un `requestId` ya registrado para ese jugador se ignora sin efecto.
+- **Restas:** las restas usan `UPDATE`, nunca `INSERT … ON CONFLICT`, porque SQLite valida el `CHECK` sobre la fila candidata de la inserción.
+- **Reloj del mundo:**
+  - La regeneración se calcula desde `last_regen_at`: al arrancar se pone al día lo transcurrido con el servidor parado.
+  - Durante la partida, un temporizador de la sala la aplica en lotes transaccionales.
+  - La regeneración no genera eventos: no cambia ningún inventario y la auditoría no la necesita.
+- **Auditoría:** `store.audit()` compara lo recolectado según los eventos con lo que hay en todos los inventarios; deben coincidir por recurso.
+- **Posiciones:** se guardan al salir, al cortarse la conexión y cada 5 s (Q149).
+- **Copias de seguridad:** fuera del MVP hasta BL-09. Para empezar de cero basta con borrar `data/world.db`.
+
 ## 5. Autenticación, privacidad y seguridad
 
 Cuentas locales al inicio (adultos); autorización por acción/recurso; mínimos datos; secretos fuera del código; validación del input del cliente; logs redactados sin datos sensibles. No trasladar credenciales ni documentos privados a IA externa sin consentimiento específico y evaluación de riesgos.

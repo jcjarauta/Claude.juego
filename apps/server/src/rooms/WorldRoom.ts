@@ -1,13 +1,20 @@
 import { Room, type Client } from "@colyseus/core";
 import {
-  applyMove, isValidName, MAX_PLAYERS, MESSAGE, Player, WorldState,
-  type JoinOptions, type RejectedMessage, type RejectReason,
+  applyMove, checkCollect, checkTransfer, isValidName, isValidRequestId, MAX_PLAYERS, MESSAGE, Player, regenerate, WorldState,
+  type JoinOptions, type NodeView, type RejectedMessage, type RejectReason,
 } from "@juego/shared";
-import { getWorld, type World } from "../world.ts";
+import { COMMUNITY, playerScope, type Store } from "../store.ts";
+import { getStore, getWorld, type World } from "../world.ts";
+
+const POSITION_SAVE_MS = 5000;
 
 /**
  * Sala única del mundo persistente (ADR-002): se crea al arrancar el servidor,
  * no se cierra al quedar vacía y los clientes entran con join(), nunca joinOrCreate().
+ *
+ * Recursos (M3): toda operación se valida contra la base de datos dentro de una
+ * transacción que también registra su evento; el estado sincronizado solo cambia
+ * después de confirmarla.
  */
 export class WorldRoom extends Room<{ state: WorldState }> {
   maxClients = MAX_PLAYERS;
@@ -15,29 +22,66 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   state = new WorldState();
 
   private world!: World;
+  private store!: Store;
   private lastMoveAt = new Map<string, number>();
+  private lastCollectAt = new Map<string, number>();
+  /** Última dirección intentada por jugador: decide qué nodo recolectar. */
+  private facing = new Map<string, { dx: number; dy: number }>();
+  /** Jugadores cuya posición ha cambiado desde el último guardado. */
+  private moved = new Set<string>();
+  private lastRegenAt = new Map<string, number>();
   /** Plazos de reconexión abiertos por sessionId, para poder cancelarlos. */
   private pendingReconnections = new Map<string, ReturnType<Room["allowReconnection"]>>();
 
   onCreate() {
     this.world = getWorld();
+    this.store = getStore();
+    const { config } = this.world;
+
+    // Puesta al día del reloj del mundo: lo transcurrido con el servidor parado también cuenta.
+    const now = Date.now();
+    this.store.transaction(() => {
+      for (const def of config.nodes) {
+        const saved = this.store.getNode(def.id) ?? { units: def.max, lastRegenAt: now };
+        const r = regenerate({ units: Math.min(saved.units, def.max), max: def.max, lastRegenAt: saved.lastRegenAt }, now, config.regenIntervalMs);
+        this.store.putNode(def.id, r.units, r.lastRegenAt);
+        this.lastRegenAt.set(def.id, r.lastRegenAt);
+        this.state.nodes.set(def.id, r.units);
+      }
+    });
+    for (const [resource, amount] of Object.entries(this.store.getInventory(COMMUNITY))) {
+      this.state.community.set(resource, amount);
+    }
+
+    const tickMs = Math.max(50, Math.min(1000, Math.floor(config.regenIntervalMs / 4)));
+    this.clock.setInterval(() => this.regenTick(), tickMs);
+    this.clock.setInterval(() => this.savePositions(), POSITION_SAVE_MS);
   }
 
   onJoin(client: Client, options: JoinOptions) {
     if (!isValidName(options?.name)) throw new Error("nombre-invalido");
-    let start = this.world.config.spawn;
+    const name = options.name;
+    let start = this.savedPosition(name);
     for (const [sessionId, p] of this.state.players) {
-      if (p.name !== options.name) continue;
+      if (p.name !== name) continue;
       if (p.connected) throw new Error("nombre-en-uso");
       // Mismo nombre que un jugador en plazo de reconexión (p. ej. recarga de página):
-      // recupera su personaje en lugar de quedar bloqueado. Sin cuentas hasta M6.
+      // recupera su personaje en lugar de quedar bloqueado. Sin cuentas hasta M6 (Q151).
       start = { x: p.x, y: p.y };
       this.state.players.delete(sessionId);
       // Cancelar el plazo de la sesión antigua libera su plaza reservada al momento.
       this.pendingReconnections.get(sessionId)?.reject(new Error("personaje-recuperado"));
       this.pendingReconnections.delete(sessionId);
     }
-    this.state.players.set(client.sessionId, new Player({ name: options.name, x: start.x, y: start.y, connected: true }));
+    const player = new Player({ name, x: start.x, y: start.y, connected: true });
+    for (const [resource, amount] of Object.entries(this.store.getInventory(playerScope(name)))) {
+      player.inventory.set(resource, amount);
+    }
+    this.store.transaction(() => {
+      this.store.putPlayer(name, player.x, player.y);
+      this.store.event("join", name, null, null);
+    });
+    this.state.players.set(client.sessionId, player);
   }
 
   /** Corte inesperado: se conserva al jugador durante el plazo de reconexión. */
@@ -45,6 +89,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     player.connected = false;
+    this.savePlayer(client.sessionId);
     this.lastMoveAt.delete(client.sessionId);
     // Si el plazo vence (o se cancela), la promesa se rechaza y Colyseus llama a onLeave;
     // el rechazo se captura para que no termine el proceso como promesa sin gestionar.
@@ -63,9 +108,14 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   /** Salida definitiva: voluntaria o por plazo de reconexión vencido. */
   onLeave(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (player) {
+      this.savePlayer(client.sessionId);
+      this.store.event("leave", player.name, null, null);
+    }
     this.pendingReconnections.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
-    this.lastMoveAt.delete(client.sessionId);
+    for (const map of [this.lastMoveAt, this.lastCollectAt, this.facing]) map.delete(client.sessionId);
   }
 
   messages = {
@@ -81,13 +131,149 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.lastMoveAt.get(client.sessionId),
         now,
       );
+      // Intentar andar hacia un árbol también es mirarlo: así se elige qué recolectar.
+      if (result.ok || result.reason === "casilla-bloqueada" || result.reason === "fuera-del-mapa") {
+        const { dx, dy } = payload as { dx: number; dy: number };
+        this.facing.set(client.sessionId, { dx, dy });
+      }
       if (!result.ok) return this.reject(client, result.reason);
       this.lastMoveAt.set(client.sessionId, now);
       player.x = result.x;
       player.y = result.y;
+      this.moved.add(client.sessionId);
     },
+
+    [MESSAGE.collect]: (client: Client, payload: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player?.connected) return;
+      const requestId = (payload as { requestId?: unknown } | null)?.requestId;
+      if (!isValidRequestId(requestId)) return this.reject(client, "solicitud-invalida");
+      const { config } = this.world;
+      const scope = playerScope(player.name);
+      const now = Date.now();
+
+      const outcome = this.safely(client, () => this.store.transaction(() => {
+        if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
+        // Unidades leídas de la base de datos, no de memoria.
+        const nodes: NodeView[] = config.nodes.map((def) => ({ ...def, units: this.store.getNode(def.id)?.units ?? 0 }));
+        const check = checkCollect({
+          position: player, facing: this.facing.get(client.sessionId), nodes,
+          held: (resource) => this.store.getAmount(scope, resource),
+          inventoryMax: config.inventoryMax, lastCollectAt: this.lastCollectAt.get(client.sessionId),
+          now, cooldownMs: config.collectCooldownMs,
+        });
+        if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
+        const { node } = check;
+        const max = config.nodes.find((d) => d.id === node.id)!.max;
+        // Si el nodo estaba lleno, su reloj de regeneración empieza ahora.
+        const lastRegenAt = node.units >= max ? now : this.lastRegenAt.get(node.id) ?? now;
+        this.store.putNode(node.id, node.units - 1, lastRegenAt);
+        this.store.addAmount(scope, node.resource, 1);
+        this.store.event("collect", player.name, requestId, { resource: node.resource, node: node.id });
+        return { kind: "done" as const, node, lastRegenAt, held: this.store.getAmount(scope, node.resource) };
+      }));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+
+      // Confirmado en la base de datos: ahora sí cambia el estado sincronizado.
+      this.lastCollectAt.set(client.sessionId, now);
+      this.lastRegenAt.set(outcome.node.id, outcome.lastRegenAt);
+      this.state.nodes.set(outcome.node.id, outcome.node.units - 1);
+      player.inventory.set(outcome.node.resource, outcome.held);
+    },
+
+    [MESSAGE.transfer]: (client: Client, payload: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player?.connected) return;
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
+      const requestId = message.requestId;
+      const scope = playerScope(player.name);
+      const knownResources = new Set(this.world.config.resources.map((r) => r.id));
+
+      const outcome = this.safely(client, () => this.store.transaction(() => {
+        if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
+        const check = checkTransfer({
+          resource: message.resource, amount: message.amount, to: message.to, knownResources,
+          balance: (resource) => this.store.getAmount(scope, resource),
+        });
+        if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
+        this.store.addAmount(scope, check.resource, -check.amount);
+        this.store.addAmount(COMMUNITY, check.resource, check.amount);
+        this.store.event("transfer", player.name, requestId, { resource: check.resource, amount: check.amount, to: check.to });
+        return {
+          kind: "done" as const,
+          resource: check.resource,
+          held: this.store.getAmount(scope, check.resource),
+          community: this.store.getAmount(COMMUNITY, check.resource),
+        };
+      }));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+
+      player.inventory.set(outcome.resource, outcome.held);
+      this.state.community.set(outcome.resource, outcome.community);
+    },
+
     "*": (client: Client) => this.reject(client, "mensaje-desconocido"),
   };
+
+  private regenTick() {
+    const { config } = this.world;
+    const now = Date.now();
+    const changes: { id: string; units: number; lastRegenAt: number }[] = [];
+    for (const def of config.nodes) {
+      const r = regenerate(
+        { units: this.state.nodes.get(def.id) ?? 0, max: def.max, lastRegenAt: this.lastRegenAt.get(def.id) ?? now },
+        now, config.regenIntervalMs,
+      );
+      if (r.changed) changes.push({ id: def.id, units: r.units, lastRegenAt: r.lastRegenAt });
+      else this.lastRegenAt.set(def.id, r.lastRegenAt);
+    }
+    if (changes.length === 0) return;
+    this.store.transaction(() => {
+      for (const c of changes) this.store.putNode(c.id, c.units, c.lastRegenAt);
+    });
+    for (const c of changes) {
+      this.lastRegenAt.set(c.id, c.lastRegenAt);
+      this.state.nodes.set(c.id, c.units);
+    }
+  }
+
+  /** La posición se guarda al salir y cada 5 s (Q149); los recursos, en cada transacción. */
+  private savePositions() {
+    if (this.moved.size === 0) return;
+    this.store.transaction(() => {
+      for (const sessionId of this.moved) this.savePlayer(sessionId);
+    });
+  }
+
+  private savePlayer(sessionId: string) {
+    const player = this.state.players.get(sessionId);
+    if (player) this.store.putPlayer(player.name, player.x, player.y);
+    this.moved.delete(sessionId);
+  }
+
+  /** Posición guardada si sigue siendo válida en el mapa actual; si no, el punto de aparición. */
+  private savedPosition(name: string) {
+    const { index, config } = this.world;
+    const saved = this.store.getPlayer(name);
+    if (saved && saved.x >= 0 && saved.y >= 0 && saved.x < index.width && saved.y < index.height && !index.isBlocked(saved.x, saved.y)) {
+      return saved;
+    }
+    return config.spawn;
+  }
+
+  /** Un error inesperado de la base de datos no debe tumbar la sala: se rechaza y se registra. */
+  private safely<T>(client: Client, fn: () => T): T | undefined {
+    try {
+      return fn();
+    } catch (err) {
+      console.error("Error en operación de recursos:", err);
+      this.reject(client, "solicitud-invalida");
+      return undefined;
+    }
+  }
 
   private reject(client: Client, reason: RejectReason) {
     const message: RejectedMessage = { reason };

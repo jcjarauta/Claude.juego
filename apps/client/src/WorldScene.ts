@@ -2,7 +2,8 @@ import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   createWorldIndex, MESSAGE, REJECT_TEXT,
-  type MoveMessage, type Player, type RejectedMessage, type ResourceShape, type WorldConfig, type WorldIndex, type WorldState,
+  type CollectMessage, type MoveMessage, type Player, type RejectedMessage, type ResourceShape, type TransferMessage,
+  type WorldConfig, type WorldIndex, type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
 
@@ -43,6 +44,24 @@ const SEND_MARGIN_MS = 15;
 
 const hex = (color: string) => Number.parseInt(color.slice(1), 16);
 
+/**
+ * Identificador de petición para que el servidor descarte duplicados. Se usa
+ * getRandomValues porque crypto.randomUUID no existe en contextos no seguros
+ * (por ejemplo http://192.168.x.x en red local).
+ */
+function newRequestId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+const isFormControl = (target: EventTarget | null) =>
+  target instanceof HTMLButtonElement || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+
+interface NodeViewObjects {
+  shape: Phaser.GameObjects.Graphics;
+  label: Phaser.GameObjects.Text;
+}
+
 export class WorldScene extends Phaser.Scene {
   private room!: WorldRoom;
   private config!: WorldConfig;
@@ -50,6 +69,9 @@ export class WorldScene extends Phaser.Scene {
   private index!: WorldIndex;
   private tile = 32;
   private views = new Map<string, PlayerView>();
+  private nodeViews = new Map<string, NodeViewObjects>();
+  /** Inventario propio anterior, para anunciar lo recogido y lo depositado. */
+  private lastInventory = new Map<string, number>();
   private keys = new Map<Direction, Phaser.Input.Keyboard.Key[]>();
   private lastSentAt = -Infinity;
   /** Último toque recibido; se envía en cuanto el ritmo lo permite aunque la tecla ya se haya soltado. */
@@ -85,6 +107,10 @@ export class WorldScene extends Phaser.Scene {
       this.refreshPlayerList();
     });
 
+    // Nodos e inventarios se refrescan con cada lote de cambios del servidor.
+    this.room.onStateChange(() => this.refreshResources());
+    this.refreshResources();
+
     this.room.onMessage(MESSAGE.rejected, ({ reason }: RejectedMessage) => {
       if (reason !== "movimiento-demasiado-rapido") this.hud.notify(REJECT_TEXT[reason]);
     });
@@ -96,22 +122,71 @@ export class WorldScene extends Phaser.Scene {
     }
     keyboard.on("keydown", (event: KeyboardEvent) => {
       const dir = CODE_TO_DIRECTION[event.code];
-      if (dir) this.pending = dir;
+      // Un toque se envía al momento si el ritmo lo permite; si no, queda pendiente para el bucle.
+      if (dir && !this.trySendMove(dir, performance.now())) this.pending = dir;
+      // Con el foco en un botón, Espacio pulsa el botón y no recolecta.
+      if ((event.code === "Space" || event.code === "KeyE") && !isFormControl(event.target)) {
+        event.preventDefault();
+        if (!event.repeat) this.sendCollect();
+      }
     });
   }
 
-  update(time: number) {
-    if (time - this.lastSentAt < this.config.moveCooldownMs + SEND_MARGIN_MS) return;
+  update() {
+    // Mismo reloj que en keydown (performance.now) para que el intervalo mínimo sea coherente.
+    const time = performance.now();
     let dir = this.pending;
-    this.pending = undefined;
     if (!dir) {
       for (const [held, keys] of this.keys) {
         if (keys.some((k) => k.isDown)) { dir = held; break; }
       }
     }
-    if (!dir) return;
+    if (dir && this.trySendMove(dir, time)) this.pending = undefined;
+  }
+
+  /** Envía un paso si ha pasado el intervalo mínimo del servidor (más un margen). */
+  private trySendMove(dir: Direction, now: number): boolean {
+    if (now - this.lastSentAt < this.config.moveCooldownMs + SEND_MARGIN_MS) return false;
     this.room.send(MESSAGE.move, STEPS[dir]);
-    this.lastSentAt = time;
+    this.lastSentAt = now;
+    return true;
+  }
+
+  private sendCollect() {
+    const message: CollectMessage = { requestId: newRequestId() };
+    this.room.send(MESSAGE.collect, message);
+  }
+
+  private deposit(resource: string, amount: number) {
+    const message: TransferMessage = { requestId: newRequestId(), resource, amount, to: "community" };
+    this.room.send(MESSAGE.transfer, message);
+  }
+
+  private refreshResources() {
+    const { state } = this.room;
+    for (const [id, view] of this.nodeViews) {
+      const units = state.nodes.get(id) ?? 0;
+      view.label.setText(String(units));
+      view.shape.setAlpha(units > 0 ? 1 : 0.3);
+      view.label.setAlpha(units > 0 ? 1 : 0.6);
+    }
+
+    const me = state.players.get(this.room.sessionId);
+    if (!me) return;
+    const names = new Map(this.config.resources.map((r) => [r.id, r.name.toLowerCase()]));
+    for (const r of this.config.resources) {
+      const now = me.inventory.get(r.id) ?? 0;
+      const before = this.lastInventory.get(r.id);
+      if (before !== undefined && now !== before) {
+        this.hud.announceAction(now > before
+          ? `Has recogido ${now - before} de ${names.get(r.id)} (${now}/${this.config.inventoryMax}).`
+          : `Has depositado ${before - now} de ${names.get(r.id)} en la comunidad.`);
+      }
+      this.lastInventory.set(r.id, now);
+    }
+    const row = (amount: (id: string) => number) => this.config.resources.map((r) => ({ id: r.id, name: r.name, amount: amount(r.id) }));
+    this.hud.setInventory(row((id) => me.inventory.get(id) ?? 0), this.config.inventoryMax, (resource, amount) => this.deposit(resource, amount));
+    this.hud.setCommunity(row((id) => state.community.get(id) ?? 0));
   }
 
   private refreshPlayerList() {
@@ -140,7 +215,15 @@ export class WorldScene extends Phaser.Scene {
     const resources = new Map(this.config.resources.map((r) => [r.id, r]));
     for (const node of this.config.nodes) {
       const r = resources.get(node.resource);
-      if (r) this.drawShape(g, r.shape, hex(r.color), this.center(node.x), this.center(node.y));
+      if (!r) continue;
+      const cx = this.center(node.x);
+      const cy = this.center(node.y);
+      const shape = this.add.graphics();
+      this.drawShape(shape, r.shape, hex(r.color), cx, cy);
+      const label = this.add.text(cx + t / 2 - 2, cy - t / 2 + 2, "", {
+        fontSize: "11px", color: "#ffffff", backgroundColor: "#000000aa", padding: { x: 2, y: 0 },
+      }).setOrigin(1, 0);
+      this.nodeViews.set(node.id, { shape, label });
     }
   }
 
