@@ -16,7 +16,7 @@ No confundir **visión** con **alcance del MVP**. Federación, IA compleja, econ
 | `docs/arquitectura.md` | Módulos, comunicación, persistencia, seguridad, alternativas y registro de ADR (`docs/adr/`) |
 | `docs/hoja-ruta.md` | Etapas G0–M6, bloqueos BL, tensiones AUD, pendientes de consolidación, fases futuras |
 | `docs/pruebas.md` | Catálogo TP/TA, umbrales pendientes y formato de evidencia |
-| `docs/decisiones.md` | Registro histórico Q001–Q130. **Solo lectura**: cambiarlo requiere gate humano |
+| `docs/decisiones.md` | Registro de decisiones Q001–Q143 y su reclasificación. **Solo lectura**: cambiarlo requiere gate humano |
 
 ## 3. Autoridad y permisos
 
@@ -71,7 +71,7 @@ No son agentes instanciados: son enfoques que Claude adopta según la tarea. Sol
 
 ## 9. Datos, IA y herramientas auxiliares
 
-- El repositorio es la única fuente de verdad. Obsidian y Graphify son apoyo **no bloqueante** y su integración está pendiente de decisión (ver `docs/hoja-ruta.md`, PEND-04). No sincronizar ni escribir en ellos sin prueba técnica y autorización específica.
+- El repositorio es la única fuente de verdad. La persona abre `docs/` como vault de Obsidian (Q141): no hay sincronización, y sus ediciones allí son cambios del repositorio que se revisan con `git diff`. Claude no opera Obsidian. Graphify queda para después del MVP; no instalarlo ni ejecutarlo sin autorización específica.
 - Separar datos verificables, inferencias y contenido ficticio o simulado; separar proyectos VIRTUAL / SIMULACIÓN / REAL.
 - No enviar secretos, datos personales ni documentos privados a proveedores externos de IA sin aprobación. No mezclar economía del juego con pagos reales.
 

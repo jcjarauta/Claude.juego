@@ -32,10 +32,10 @@ BL-01–BL-05 forman el **Gate 0**: no bloquean inventariar requisitos ni prepar
 
 | ID | Dato pendiente | Cuándo bloquea | Estado |
 |---|---|---|---|
-| BL-01 | Perspectiva 2D (**cenital o lateral**) y estilo de interacción exacto; «2D evolutivo» no la fija | Antes de elegir/implementar presentación | ABIERTO — recomendación: cenital (PROPUESTA) |
-| BL-02 | Stack de motor, backend, base de datos y despliegue, comparado y elegido con ADR tras spike aislado | Antes de crear estructura o instalar dependencias | ABIERTO — candidatos en `docs/arquitectura.md` §8 |
-| BL-03 | Bucle concreto: mapa pequeño, recurso(s), coste(s) del taller, receta, condición de misión | Antes de implementar mecánicas y tests E2E | ABIERTO |
-| BL-04 | Umbrales: clientes/concurrencia, latencia, reconexión, accesibilidad, recuperación (sin inventar cifras) | Antes del gate de aceptación | ABIERTO |
+| BL-01 | Perspectiva 2D y estilo de interacción | Antes de elegir/implementar presentación | **CERRADO** — cenital (Q132) |
+| BL-02 | Stack de motor, backend, base de datos y despliegue, comparado y elegido con ADR tras spike aislado | Antes de crear estructura o instalar dependencias | ABIERTO — método decidido (Q135); spike definido en `docs/arquitectura.md` §8; requiere autorización para instalar dependencias |
+| BL-03 | Bucle concreto: mapa, recursos, costes del taller, receta, condición de misión | Antes de implementar mecánicas y tests E2E | **DECIDIDO** el diseño (Q133, Q136–Q139); cifras PROPUESTA en `docs/especificacion.md` §3.1 pendientes de revisión |
+| BL-04 | Umbrales: clientes/concurrencia, latencia, reconexión, accesibilidad, recuperación | Antes del gate de aceptación | **DECIDIDO** escala y navegadores (Q134, Q143); umbrales numéricos PROPUESTA en `docs/pruebas.md` §3 pendientes de revisión |
 | BL-05 | Estado físico: repositorio, rutas, permisos, entorno y herramientas | Antes de cualquier comando o cambio en sistema | PARCIAL — ver nota |
 | BL-06 | Nivel de profundidad documental de Q103 | Antes de normalizar el detalle documental definitivo | ABIERTO |
 | BL-07 | Titularidad/licencias de dependencias y contenidos | Antes de distribuir/publicar | ABIERTO |
@@ -43,7 +43,7 @@ BL-01–BL-05 forman el **Gate 0**: no bloquean inventariar requisitos ni prepar
 | BL-09 | RPO/RTO, backups y restauración | Antes de certificar recuperación y producción | ABIERTO |
 | BL-10 | Derechos sobre documentos y acceso de IA a fuentes privadas | Antes de integrar datos externos o publicar derivaciones | ABIERTO |
 
-**Nota BL-05 (VERIFICADO 2026-10-09):** repositorio git creado en `claude.juego` (rama `main`); Windows 11 Pro; disponibles git 2.54, Node 24.18, npm 11.16, Python 3.12, uv 0.12, Docker 29.6, VS Code; Obsidian de escritorio instalado (fuera del PATH); Graphify no instalado. Permisos de Claude definidos en `.claude/settings.json`. Pendiente: confirmar navegador objetivo y si Docker se usará en el MVP.
+**Nota BL-05 (VERIFICADO 2026-10-09):** repositorio git creado en `claude.juego` (rama `main`); Windows 11 Pro; disponibles git 2.54, Node 24.18, npm 11.16, Python 3.12, uv 0.12, Docker 29.6, VS Code; Obsidian de escritorio instalado (fuera del PATH); Graphify no instalado. Permisos de Claude definidos en `.claude/settings.json`. Navegadores objetivo decididos (Q143). Pendiente: si Docker se usará en el MVP (Q065 lo deja como post-MVP).
 
 ## 4. Tensiones de diseño
 
@@ -51,11 +51,11 @@ BL-01–BL-05 forman el **Gate 0**: no bloquean inventariar requisitos ni prepar
 |---|---|---|---|
 | AUD-01 | Microservicios distribuidos (Q58) frente a MVP local pequeño (Q18,Q36) | Compatibles si los servicios son independientes **lógicamente** y se despliegan en un host. Formalizar en ADR-001 | WARN |
 | AUD-02 | Identidad global (Q20,Q69–71) frente a servidores autónomos offline (Q92–94) | Identidad federada con claves/confianza y conflictos; **diferir implementación** | NO_GO solo para federación |
-| AUD-03 | Tiempo persistente (Q40) frente a pausas por actividad y desconexión (Q41) | Definir reloj del mundo y reloj de instancia; prohibir pausa global accidental | WARN |
+| AUD-03 | Tiempo persistente (Q40) frente a pausas por actividad y desconexión (Q41) | MVP: reloj del mundo continuo sin pausas (Q138, RF-014). Relojes de instancia y pausas por actividad: post-MVP | OK para el MVP |
 | AUD-04 | Actividad automatizada/IA (Q21–26,Q39) frente a aprobación humana y privacidad (Q22,Q34,Q53,Q126) | Limitar autonomía por recurso y riesgo; IA no requerida en MVP | WARN |
 | AUD-05 | Proyectos reales (Q55–57) frente a simulaciones y juego (Q83) | Separación VIRTUAL/SIMULACIÓN/REAL; ninguna acción real sin autorización concreta | NO_GO para conectores con escritura |
 | AUD-06 | Mundo procedural reproducible (Q24,Q42) frente a IA generativa no determinista (Q24,Q83) | Registrar semilla/versión procedural; persistir outputs IA aprobados | WARN |
-| AUD-07 | Repositorio como fuente única (Q107–110) frente a notas manuales en Obsidian (Q106,Q110–111) | Repositorio como fuente; notas manuales protegidas. Modo de uso pendiente: PEND-04 | WARN |
+| AUD-07 | Repositorio como fuente única (Q107–110) frente a notas manuales en Obsidian (Q106,Q110–111) | Obsidian abre `docs/` como vault (Q141): no hay copia que sincronizar; las ediciones en Obsidian son cambios del repositorio revisables con `git diff` | OK |
 | AUD-08 | Monedas del juego (Q73) frente a financiación real (Q74) | Subsistemas separados; monedas virtuales no son pagos reales | WARN |
 | AUD-09 | Expansión 2D→3D (Q16) | Portar la lógica no garantiza reutilizar motor/activos; promesa condicionada | WARN |
 | AUD-10 | Formato «asunto/preencabezado/cuerpo» de `prompt.base.txt` | Solo para redactar mensajes, no para documentación técnica | WARN |
@@ -63,15 +63,17 @@ BL-01–BL-05 forman el **Gate 0**: no bloquean inventariar requisitos ni prepar
 
 ## 5. Pendientes detectados en la consolidación del 2026-10-09
 
-Requieren decisión humana (Q122); hasta entonces se mantiene el texto original.
+Todos resueltos por decisión humana el 2026-10-09.
 
-| ID | Pendiente | Propuesta |
+| ID | Pendiente | Resolución |
 |---|---|---|
-| PEND-01 | RF-012: los documentos originales citaban Q59 o Q57 | Mantener Q59 (eventos/API); Q57 trata conflictos de fuentes en integraciones futuras |
-| PEND-02 | 52 decisiones marcadas «MVP» en `docs/decisiones.md` frente a 12 RF; incluye Gantt/Kanban (Q012), microservicios (Q058), contenedores (Q065), métricas/trazas/alertas (Q066), Zero Trust (Q068), SBOM (Q119), SemVer por componente (Q120) | Reclasificar en **MVP funcional**, **principio de diseño** (se respeta, no se construye) y **post-MVP** |
-| PEND-03 | Q014 (colaboración asíncrona y comunicación) y Q040 (tiempo híbrido) marcadas MVP sin RF que las cubra | Incluirlas como RF o moverlas a post-MVP |
-| PEND-04 | Uso de Obsidian y Graphify | (a) abrir `docs/` como vault, sin sincronización; o (b) solo lectura vía `graphify --obsidian-dir` cuando exista código (≥ M3) |
-| PEND-05 | Alcance del bloque ENGREMIAT | Solo auditorías y cierres de fase (regla actual de `CLAUDE.md`) o en cada respuesta |
+| PEND-01 | RF-012: los documentos originales citaban Q59 o Q57 | RF-012 cita Q59 (Q140) |
+| PEND-02 | 52 decisiones marcadas «MVP» frente a 12 RF | Reclasificadas en `docs/decisiones.md` (22 MVP funcional, 29 principio, 1 post-MVP); clasificación PROPUESTA pendiente de revisión (Q140) |
+| PEND-03 | Q014 y Q040 marcadas MVP sin RF | Añadidos RF-013 (colaboración asíncrona) y RF-014 (reloj del mundo) con TP-13 y TP-14 (Q140) |
+| PEND-04 | Uso de Obsidian y Graphify | Obsidian abre `docs/` como vault (Q141); Graphify post-MVP |
+| PEND-05 | Alcance del bloque ENGREMIAT | Auditorías y cierres de tarea o fase (Q142) |
+
+**Revisión pendiente (no bloquea el spike):** cifras del bucle (`docs/especificacion.md` §3.1), umbrales técnicos (`docs/pruebas.md` §3) y reclasificación de decisiones (`docs/decisiones.md`).
 
 ## 6. Fases posteriores sugeridas
 
@@ -87,4 +89,4 @@ Estos grupos son una **propuesta de orden**, no aprobaciones de entregas ni una 
 
 Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el siguiente gate humano o `NO_GO` real; nunca interpretar este documento como autorización para ejecutar acciones.
 
-**NEXT:** decisión humana sobre BL-01 (perspectiva 2D).
+**NEXT:** autorizar el spike de BL-02 (`docs/arquitectura.md` §8), que implica crear código desechable en `spike/` e instalar dependencias de npm.

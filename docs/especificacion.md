@@ -8,6 +8,8 @@ Juego cooperativo de entretenimiento, aprendizaje práctico y simulación social
 
 **Bucle mínimo objetivo:** explorar → localizar/recolectar recursos → aportar materiales a un proyecto común → construir taller → producir primer recurso/objeto → completar misión → persistir y consultar el resultado. El jugador puede alternar mundo y panel de proyecto.
 
+**Concreción del MVP (decisiones Q132–Q143):** vista 2D **cenital**; **2–4 jugadores** en local/LAN; ritmo **mixto** (movimiento y recolección en tiempo real, aportes al proyecto también asíncronos); recursos **madera, piedra y fibra** que **se regeneran con el reloj del mundo**; inventarios **individual, de comunidad y de proyecto**; el taller fabrica una **herramienta** cuya fabricación y entrega completa la misión. Cifras en §3.1.
+
 ## 2. Requisitos del MVP y trazabilidad
 
 Cada fila enlaza requisito, decisiones del usuario, criterio, evidencia exigida y prueba **propuesta** (`docs/pruebas.md`). Ninguna prueba se ha ejecutado.
@@ -15,21 +17,21 @@ Cada fila enlaza requisito, decisiones del usuario, criterio, evidencia exigida 
 | RF | Requisito | Decisiones | Criterio preliminar | Evidencia para VERIFICADO | Prueba |
 |---|---|---|---|---|---|
 | RF-001 | Crear/entrar en un mundo 2D pequeño vía web de escritorio | Q3,Q16,Q17,Q36 | Un cliente carga el mismo mundo identificable | Captura/reproducción en cliente autorizado | TP-01 |
-| RF-002 | Dos o más jugadores colaboran en una sesión en tiempo real | Q14,Q18,Q36,Q59 | Acciones compartidas son visibles y consistentes | Registro de dos sesiones concordantes | TP-02 |
+| RF-002 | De 2 a 4 jugadores colaboran en una sesión en tiempo real en local/LAN | Q14,Q18,Q36,Q59,Q133,Q134 | Acciones compartidas son visibles y consistentes en todos los clientes | Registro de sesiones concordantes con 2 y con 4 clientes | TP-02 |
 | RF-003 | Cuenta/perfil local mínimo con permisos de acceso | Q34,Q68,Q69,Q77 | Un usuario no accede a recursos ajenos sin permiso | Resultado de pruebas negativas de acceso | TP-03 |
-| RF-004 | Explorar mapa y recolectar un recurso | Q27,Q37,Q45 | Acción válida altera inventario/estado en servidor | Estado antes/después y evento validado | TP-04 |
-| RF-005 | Inventario y materiales para un taller, sin duplicar gasto | Q10,Q37,Q46 | Consumo de materiales evita duplicación y es auditable | Estado transaccional y prueba concurrente | TP-05 |
+| RF-004 | Explorar el mapa cenital y recolectar madera, piedra y fibra | Q27,Q37,Q45,Q132,Q136 | Acción válida altera inventario/estado en servidor | Estado antes/después y evento validado | TP-04 |
+| RF-005 | Inventarios individual, de comunidad y de proyecto; transferencias y consumo sin duplicar gasto | Q10,Q37,Q46,Q139 | Consumo y transferencias evitan duplicación y son auditables | Estado transaccional y prueba concurrente | TP-05 |
 | RF-006 | Crear/seguir un proyecto comunitario simple, tareas y aportaciones | Q12,Q13,Q36,Q37 | Se puede consultar estado y avance de tareas | UI y registros coherentes tras cambios | TP-06 |
 | RF-007 | Construir un taller con materiales y condición de logro | Q36,Q37,Q45 | Taller no aparece sin satisfacer reglas y recursos | Regla y transición validada | TP-07 |
 | RF-008 | Completar misión/producto y registrar resultado persistente | Q30,Q36,Q37 | Estado y evidencia persisten tras reconectar | Registro verificable de misión completada | TP-08 |
 | RF-009 | Guardado, carga, reconexión y recuperación básica del mundo | Q35,Q36 | Una sesión reiniciada conserva cambios confirmados | Comparación fiable tras reinicio | TP-09 |
 | RF-010 | Interfaz híbrida: mapa + panel mínimo de proyecto | Q15,Q79 | Se puede cambiar vista conservando contexto | Prueba de navegación y estado compartido | TP-10 |
-| RF-011 | Reglas básicas de accesibilidad y datos mínimos | Q32,Q34 | Interacciones esenciales usables con controles alternativos definidos | Checklist y pruebas de usuario/procedimiento | TP-11 |
-| RF-012 | Eventos verificables y rechazo de acciones inválidas | Q13,Q59,Q63 ⚠ | Acción inválida no altera inventario/estado | Pruebas negativas sin modificación de estado | TP-12 |
+| RF-011 | Accesibilidad base y datos mínimos: Chrome, Edge y Firefox recientes de escritorio; todas las acciones esenciales con teclado; contraste y textos legibles | Q32,Q34,Q143 | Las acciones esenciales del bucle se completan solo con teclado en los tres navegadores | Checklist y recorrido completo con teclado | TP-11 |
+| RF-012 | Eventos verificables y rechazo de acciones inválidas | Q13,Q59,Q63 | Acción inválida no altera inventario/estado | Pruebas negativas sin modificación de estado | TP-12 |
+| RF-013 | Colaboración asíncrona: aportes y tareas del proyecto funcionan aunque los demás jugadores no estén conectados, y quien se conecta ve el estado actualizado y quién aportó qué | Q14,Q133 | Un aporte hecho con un único jugador conectado aparece, con su autor, al conectarse otro | Registro de aporte y vista del segundo jugador tras conectar | TP-13 |
+| RF-014 | Reloj del mundo continuo en servidor que regenera recursos, también sin jugadores conectados y sin pausa global | Q40,Q138 | Un nodo agotado recupera unidades según la regla tras el tiempo de mundo definido, con o sin jugadores | Estado del nodo antes/después de un intervalo controlado | TP-14 |
 
-*«Dos o más» describe la definición funcional mínima de multijugador, **no** un objetivo de carga aprobado; concurrencia real y umbrales siguen pendientes.*
-
-**Nota de consolidación (2026-10-09):** los antiguos 03 y 06 discrepaban en las decisiones citadas. Se ha tomado la unión en RF-002 (+Q59), RF-004 (+Q45) y RF-006 (+Q36). En **RF-012** ⚠ 03 citaba Q59 y 06 citaba Q57 («resolución de conflictos de fuentes», área de integraciones futuras); se mantiene Q59 por pertinencia y queda pendiente de confirmación humana (`docs/hoja-ruta.md`, PEND-01).
+**Nota de consolidación (2026-10-09):** los antiguos 03 y 06 discrepaban en las decisiones citadas. Se ha tomado la unión en RF-002 (+Q59), RF-004 (+Q45) y RF-006 (+Q36). En RF-012 se confirma Q59 (Q140); Q57 trata conflictos de fuentes en integraciones futuras.
 
 ### Requisitos no funcionales y de proceso
 
@@ -50,9 +52,28 @@ Cada fila enlaza requisito, decisiones del usuario, criterio, evidencia exigida 
 **CU-04:** Al cumplirse condiciones, el taller cambia el mundo.  
 **CU-05:** Se crea un objeto simple, se completa la misión y se muestra su resultado.  
 **CU-06:** Un reinicio/reconexión conserva estados confirmados y no duplica recursos.  
-**CU-07:** Una acción sin permisos o con recursos insuficientes se rechaza de forma explicable.
+**CU-07:** Una acción sin permisos o con recursos insuficientes se rechaza de forma explicable.  
+**CU-08:** Un jugador conectado en solitario aporta al proyecto; al conectarse otro, ve el avance y quién aportó.  
+**CU-09:** Un nodo agotado se regenera con el paso del tiempo del mundo, aunque nadie esté conectado.
 
-La representación 2D concreta, los activos gráficos, el algoritmo de exploración, la cantidad/recetas de recursos y las cifras de concurrencia **no están decididos**.
+Los activos gráficos y el algoritmo de exploración **no están decididos**.
+
+### 3.1 Bucle concreto — cifras PROPUESTA (pendientes de revisión humana)
+
+Valores iniciales para implementar y equilibrar; se ajustan con pruebas de juego sin cambiar los requisitos.
+
+| Elemento | Propuesta |
+|---|---|
+| Mapa | 40 × 30 casillas, tres zonas: bosque (madera), cantera (piedra) y pradera (fibra); punto de inicio común junto al solar del taller |
+| Nodos de recurso | 12 árboles, 8 rocas y 10 matas de fibra; cada nodo con 3 unidades |
+| Recolección | Acción de 1 s junto al nodo; +1 unidad al inventario individual |
+| Reloj del mundo | Continuo en el servidor; cada nodo recupera 1 unidad cada 2 min reales hasta su máximo |
+| Inventario individual | Máximo 10 unidades por recurso (obliga a aportar y coordinarse) |
+| Transferencias | Individual → comunidad; individual o comunidad → proyecto; nunca de vuelta |
+| Proyecto «Construir taller» | Tareas: aportar 20 madera, 15 piedra y 5 fibra; al completarlas, cualquier miembro puede ordenar la construcción |
+| Herramienta | Receta en el taller: 3 madera + 2 piedra + 2 fibra del inventario de la comunidad |
+| Misión «Primera herramienta» | Se completa al fabricar la herramienta y depositarla en el inventario de la comunidad |
+| Umbrales técnicos | Ver `docs/pruebas.md` §3 |
 
 ## 4. Modelo conceptual
 
@@ -67,10 +88,13 @@ La representación 2D concreta, los activos gráficos, el algoritmo de exploraci
 | Comunidad | `community_id` | Grupo inicial, membresías y derechos |
 | Proyecto | `project_id` | Objetivo comunitario, tareas, recursos aportados |
 | Tarea | `task_id` | Condición y progreso |
-| Recurso | `resource_type_id` | Tipo, origen/propiedades (cantidades en inventarios) |
-| Inventario | `inventory_id` | Saldo por recurso y propietario/ámbito |
+| Recurso | `resource_type_id` | Tipo, origen/propiedades (cantidades en inventarios); en MVP: madera, piedra, fibra |
+| Nodo de recurso | `resource_node_id` | Posición en el mapa, unidades disponibles, máximo y regla de regeneración |
+| Reloj del mundo | `world_id` | Tiempo de mundo del servidor; dirige la regeneración (RF-014) |
+| Inventario | `inventory_id` | Saldo por recurso; ámbito individual, comunidad o proyecto |
+| Receta | `recipe_id` | Entradas, inventario de origen y producto (en MVP: la herramienta) |
 | Construcción | `structure_id` | Taller construido y sus condiciones |
-| Misión | `mission_id` | Objetivo, estado y resultado |
+| Misión | `mission_id` | Objetivo, estado y resultado. Futuro: proyecto configurable (Q144) |
 | Evento | `event_id` | Tipo, actor, ámbito, hora de servidor, correlación y resultado |
 
 Todos los nombres son **PROPUESTA**. No existen en código verificado.
@@ -91,6 +115,8 @@ Todos los nombres son **PROPUESTA**. No existen en código verificado.
 **Taller:** comprobar condición de construcción → consumir recursos previstos → crear estructura → persistir → notificar.  
 **Misión:** constatar productos/objetivo → registrar logro → persistir → mostrar resultado.
 
+**Principio para el MVP (Q144, PROPUESTA):** el proyecto «Construir taller», la receta de la herramienta y la misión «Primera herramienta» se definen como **datos de configuración** que el servidor carga y valida, no como lógica programada para ese caso. Así, las misiones futuras se añaden con nueva configuración. El editor de configuración para jugadores queda fuera del MVP (FUT-05).
+
 Contratos, formatos y semántica de reintentos: ver `docs/arquitectura.md` §3.
 
 ## 5. Visión futura — no asumir MVP
@@ -98,6 +124,7 @@ Contratos, formatos y semántica de reintentos: ver `docs/arquitectura.md` §3.
 | ID | Ámbito | Decisiones | Evidencia exigida cuando llegue su fase |
 |---|---|---|---|
 | — | Múltiples comunidades, gobernanza configurable, progresión por competencias y economías complejas | Q4–12,Q31 | — |
+| FUT-05 | Misiones como **proyectos configurables**: crear nuevas misiones definiendo objetivos, tareas, recursos y resultado sin programar | Q11,Q25,Q144 | Esquema de configuración validado, permisos de quién configura y pruebas de misiones creadas por configuración |
 | — | Ecosistemas sistémicos, generaciones regionales, territorios protegidos, tecnología, ingeniería y cadenas de producción | Q42–47 | — |
 | FUT-01 | Procesamiento documental y RAG; distinguir `DOCUMENTAL`, `INFERENCIA`, `SIMULACIÓN` | Q48–57 | Fuentes, permisos, citas y evaluación |
 | FUT-02 | Agentes de IA, memoria y recursos | Q21–24,Q84–91 | Evaluaciones, cuotas y autorizaciones |
