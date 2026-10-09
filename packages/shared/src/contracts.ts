@@ -8,6 +8,8 @@ export const MAX_PLAYERS = 4;
 
 export const MESSAGE = {
   move: "move",
+  collect: "collect",
+  transfer: "transfer",
   rejected: "rejected",
 } as const;
 
@@ -21,12 +23,38 @@ export interface MoveMessage {
   dy: number;
 }
 
+/**
+ * Recolectar junto al jugador. requestId lo genera el cliente: si el mismo
+ * identificador llega dos veces (reintento, duplicado), solo cuenta una vez.
+ */
+export interface CollectMessage {
+  requestId: string;
+}
+
+/** Ámbitos a los que un jugador puede transferir desde su inventario (M3: comunidad). */
+export const TRANSFER_TARGETS = ["community"] as const;
+export type TransferTarget = (typeof TRANSFER_TARGETS)[number];
+
+export interface TransferMessage {
+  requestId: string;
+  resource: string;
+  amount: number;
+  to: TransferTarget;
+}
+
 export type RejectReason =
   | "movimiento-invalido"
   | "movimiento-demasiado-rapido"
   | "fuera-del-mapa"
   | "casilla-bloqueada"
-  | "mensaje-desconocido";
+  | "mensaje-desconocido"
+  | "solicitud-invalida"
+  | "recoleccion-demasiado-rapida"
+  | "nodo-lejos"
+  | "nodo-agotado"
+  | "inventario-lleno"
+  | "saldo-insuficiente"
+  | "destino-no-permitido";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -38,7 +66,20 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "fuera-del-mapa": "Has llegado al borde del mundo.",
   "casilla-bloqueada": "Hay algo en el camino.",
   "mensaje-desconocido": "Acción desconocida.",
+  "solicitud-invalida": "Acción no válida.",
+  "recoleccion-demasiado-rapida": "Espera un momento antes de volver a recolectar.",
+  "nodo-lejos": "No hay ningún recurso a tu lado.",
+  "nodo-agotado": "Este recurso está agotado; se regenerará con el tiempo.",
+  "inventario-lleno": "No puedes llevar más de este recurso. Deposítalo en la comunidad.",
+  "saldo-insuficiente": "No tienes suficiente cantidad.",
+  "destino-no-permitido": "No se puede transferir ahí.",
 };
+
+const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;
+
+export function isValidRequestId(id: unknown): id is string {
+  return typeof id === "string" && REQUEST_ID.test(id);
+}
 
 export const NAME_PATTERN = /^[\p{L}\p{N}_-]{1,20}$/u;
 

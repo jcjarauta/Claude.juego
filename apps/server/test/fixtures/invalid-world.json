@@ -11,6 +11,9 @@
     "y": 0
   },
   "moveCooldownMs": 100,
+  "collectCooldownMs": 100,
+  "inventoryMax": 10,
+  "regenIntervalMs": 120000,
   "session": {
     "reconnectSeconds": 2
   },
