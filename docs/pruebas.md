@@ -56,3 +56,19 @@ Umbrales **PROPUESTA** (pendientes de revisión humana, ajustables tras el spike
 `ID de prueba | versión/código real | entorno real | precondición | comando/procedimiento autorizado | resultado observado | evidencia verificable | OK/WARN/ERR/NO_GO | revisor | fecha`.
 
 Los fallos críticos deben reproducirse, diagnosticar causa, corregirse dentro del permiso y repetirse antes del cierre. Pruebas de recuperación y consistencia tienen prioridad sobre extensiones de funcionalidades.
+
+## 5. Evidencias registradas
+
+### M1 — 2026-10-09 (rama `m1-mundo`)
+
+| ID | Versión | Entorno | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|---|---|
+| TP-01 | `m1-mundo` (commit `1fc23d7`) | Windows 11, Node 24.18, navegador integrado (Chromium) | `npm.cmd run build`, `npm.cmd start`, abrir `http://127.0.0.1:2567/?name=ana` y recorrer el mundo con teclado | Mapa 40×30 cargado; recorrido Aldea → Bosque → Camino → Cantera → Pradera con flechas y WASD; cada pulsación da un paso; la cámara sigue; la zona se anuncia en el HUD; un árbol y el borde superior bloquean con aviso; sin errores de consola | OK en Chromium y en Edge (prueba del usuario, 2026-10-09) |
+| TP-01 (automática) | ídem | ídem | `npm.cmd test` — prueba de integración «el mundo del MVP se sirve…» | Configuración 40×30 servida y jugador en el punto de aparición | OK |
+| TP-12 (parcial: movimiento) | ídem | ídem | `npm.cmd test` — «movimiento autoritativo…» | Borde, nodo, diagonal, salto, tipo inválido, mensaje desconocido y exceso de ritmo rechazados sin cambiar el estado | OK |
+| Arranque con configuración inválida | ídem | ídem | `npm.cmd test` — «el servidor no arranca…» | Sale con código 1 y lista los motivos | OK |
+| Unitarias `@juego/shared` | ídem | ídem | `npm.cmd test` | 15 pruebas de validación de configuración y regla de movimiento | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` con 19 de 19 correctas.
+
+Durante la demostración se corrigieron dos defectos del cliente: los toques muy breves de tecla se perdían, y la etiqueta del nombre quedaba fuera del mapa en la fila superior.

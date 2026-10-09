@@ -1,0 +1,23 @@
+{
+  "name": "juego-cooperativo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --test-concurrency=1 packages/shared/test/*.test.ts apps/server/test/*.test.ts",
+    "build": "esbuild apps/client/src/main.ts --bundle --format=esm --target=es2022 --outfile=apps/client/public/bundle.js --minify --sourcemap",
+    "start": "node apps/server/src/index.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

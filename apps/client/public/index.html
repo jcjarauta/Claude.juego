@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Juego cooperativo — M1</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 16px; background: #15191e; color: #f2f2f2; }
+    main { max-width: 820px; margin: 0 auto; }
+    h1 { font-size: 1.3rem; margin: 0 0 8px; }
+    p { margin: 6px 0; line-height: 1.4; }
+    #game { border: 2px solid #5b6b7a; max-width: 800px; }
+    #game canvas { display: block; }
+    #game:focus-within { outline: 3px solid #ffd166; outline-offset: 2px; }
+    .hud { display: flex; gap: 24px; flex-wrap: wrap; font-size: 1rem; margin-top: 8px; }
+    #zona { font-weight: 600; }
+    #aviso { color: #ffd166; min-height: 1.4em; }
+    kbd { background: #2a323b; border: 1px solid #5b6b7a; border-radius: 4px; padding: 0 5px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Mundo cooperativo</h1>
+    <p>Moverse: <kbd>flechas</kbd> o <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (mantener pulsado para seguir andando).
+      Tu personaje es el círculo amarillo. Árboles ▲, rocas ■ y matas de fibra ◆ bloquean el paso.</p>
+    <div id="game"></div>
+    <div class="hud">
+      <p>Zona: <span id="zona" role="status" aria-live="polite">—</span></p>
+      <p id="posicion">Conectando…</p>
+    </div>
+    <p id="aviso" role="alert"></p>
+  </main>
+  <script type="module" src="bundle.js"></script>
+</body>
+</html>

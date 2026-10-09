@@ -1,0 +1,10 @@
+{
+  "name": "@juego/client",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@colyseus/sdk": "0.18.5",
+    "@juego/shared": "*",
+    "phaser": "4.2.1"
+  }
+}
