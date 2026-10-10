@@ -97,4 +97,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba de F2b por la persona responsable y fusión; después, plan de F2c (habilidades) por preguntas. Quedan planteadas F2c (habilidades), F2d (espacio de conversación fijo: Guía y canal común) y F2e (jugadores simulados).
+**NEXT:** prueba de F2b por la persona responsable y fusión; después, plan de F2c (habilidades) por preguntas. Quedan planteadas F2c (habilidades; una receta podrá exigir varias, con filas «Añadir habilidad» como las entradas), F2d (espacio de conversación fijo: Guía y canal común) y F2e (jugadores simulados).
