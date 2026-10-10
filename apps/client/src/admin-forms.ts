@@ -230,15 +230,18 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   // --- Nuevo objeto (F2a) ---
   const itemName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
   const itemErrors = el("div", { className: "error", role: "alert" });
+  const itemConfirm = el("p", { className: "confirmacion", role: "status" });
+  const itemList = el("div", { className: "lista-creados" });
   const itemForm = el("form", { noValidate: true },
     el("h3", { id: "nuevo-objeto-titulo" }, "Nuevo objeto"),
-    el("p", { className: "ayuda" }, `Un objeto se fabrica con una receta y vive en el almacén de la comunidad; no se recolecta. Máximo ${BUILD_LIMITS.items} objetos creados aquí.`),
+    el("p", { className: "ayuda" }, `Un objeto no es un recurso: no se recolecta ni se usa como entrada de receta; se obtiene fabricándolo con una receta y vive en el almacén de la comunidad. Máximo ${BUILD_LIMITS.items} objetos creados aquí.`),
     field("Nombre del objeto", itemName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`), itemErrors,
-    el("button", { type: "submit", textContent: "Crear el objeto" }));
+    el("button", { type: "submit", textContent: "Crear el objeto" }), itemConfirm, itemList);
   itemForm.setAttribute("aria-labelledby", "nuevo-objeto-titulo");
   itemForm.onsubmit = (event) => {
     event.preventDefault();
     itemErrors.replaceChildren();
+    itemConfirm.textContent = "";
     const message: CreateItemMessage = { requestId: newRequestId(), name: itemName.value.trim() };
     pending = { kind: "objeto", name: message.name };
     room.send(MESSAGE.createItem, message);
@@ -257,6 +260,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     return { resource, amount, box: el("div", { className: "entrada-receta" }, field(`Recurso de la entrada ${i + 1}`, resource), field(`Cantidad de la entrada ${i + 1}`, amount)) };
   });
   const recipeErrors = el("div", { className: "error", role: "alert" });
+  const recipeConfirm = el("p", { className: "confirmacion", role: "status" });
   const recipeForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-receta-titulo" }, "Nueva receta"),
     el("p", { className: "ayuda" }, `Se fabrica junto al edificio construido, con recursos del almacén de la comunidad (de 1 a ${BUILD_LIMITS.recipeInputs} entradas). Máximo ${BUILD_LIMITS.recipes} recetas creadas aquí.`),
@@ -265,11 +269,12 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     el("fieldset", {}, el("legend", {}, "Entradas (recursos del almacén común)"), ...inputRows.map((r) => r.box)),
     field("Objeto que se obtiene", recipeOutput), field("Cantidad que se obtiene", outputAmount),
     recipeErrors,
-    el("button", { type: "submit", textContent: "Crear la receta" }));
+    el("button", { type: "submit", textContent: "Crear la receta" }), recipeConfirm);
   recipeForm.setAttribute("aria-labelledby", "nueva-receta-titulo");
   recipeForm.onsubmit = (event) => {
     event.preventDefault();
     recipeErrors.replaceChildren();
+    recipeConfirm.textContent = "";
     const used = inputRows.filter((r) => r.resource.value);
     if (new Set(used.map((r) => r.resource.value)).size !== used.length) {
       recipeErrors.append(el("p", {}, "No repitas un recurso en dos entradas."));
@@ -323,6 +328,12 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       syncOptions(recipeOutput, [...state.items.entries()].map(([id, i]) => [id, i.name]));
       syncOptions(recipeStructure, [...state.structures.entries()].map(([id, s]) => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]));
       minimap.render();
+      // Objetos que ya existen (también los de la configuración), a la vista junto al formulario.
+      const itemsText = [...state.items.values()].map((i) => i.name).join(", ");
+      if (itemList.dataset.text !== itemsText) {
+        itemList.dataset.text = itemsText;
+        itemList.replaceChildren(el("p", { className: "ayuda" }, itemsText ? `Objetos existentes: ${itemsText}.` : "Todavía no hay objetos."));
+      }
       // Confirmación: el proyecto o la misión pedidos aparecen en el estado.
       const projectIds = new Set(state.projects.keys());
       for (const id of projectIds) {
@@ -352,6 +363,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       for (const id of itemIds) {
         if (knownItems && !knownItems.has(id) && pending?.kind === "objeto" && state.items.get(id)!.name === pending.name) {
           announce(`Objeto «${pending.name}» creado.`);
+          itemConfirm.textContent = `Objeto «${pending.name}» creado. Ya puedes elegirlo como resultado de una receta y en las misiones de objetos en el almacén.`;
           pending = undefined;
           itemForm.reset();
           itemName.focus();
@@ -362,6 +374,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       for (const id of recipeIds) {
         if (knownRecipes && !knownRecipes.has(id) && pending?.kind === "receta" && state.recipes.get(id)!.name === pending.name) {
           announce(`Receta «${pending.name}» creada.`);
+          recipeConfirm.textContent = `Receta «${pending.name}» creada. Se fabricará en el edificio elegido cuando esté construido.`;
           pending = undefined;
           recipeForm.reset();
           recipeName.focus();
