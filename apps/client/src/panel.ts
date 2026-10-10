@@ -6,6 +6,11 @@ import {
 } from "@juego/shared";
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
+import { createBoard } from "./views/board.ts";
+import type { ViewContext } from "./views/common.ts";
+import { createMetrics } from "./views/metrics.ts";
+import { createTimeline } from "./views/timeline.ts";
+import { isOverdue, localDay, type RescheduleMessage } from "@juego/shared";
 import { newRequestId } from "./request-id.ts";
 
 // Panel profesional (M5b, RF-015): lista accesible de proyectos y tareas sobre el mismo
@@ -60,6 +65,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
   const headingId = `proyecto-${project.id}`;
   const status = el("span");
   const phase = el("span");
+  const dueText = el("span");
   const origin = el("span");
   const coordinators = el("span");
   const section = el("section", { className: "proyecto" });
@@ -80,6 +86,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
       " ", el("code", {}, project.id), " · Comunidad: ", config.community.name, " · ", origin),
     el("p", {}, project.description),
     el("p", {}, "Estado: ", status, " · ", phase),
+    el("p", {}, "Fecha objetivo: ", dueText),
     el("p", { className: "ayuda" }, "Coordinación: ", coordinators, approvalText),
   );
   if (admin) section.append(el("p", {}, close));
@@ -178,6 +185,11 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
       phase.textContent = closed ? `Cerrado por ${state.closedBy}: no admite aportes` : "Abierto";
       phase.className = closed ? "estado-rechazada" : "";
       origin.textContent = state.origin === "panel" ? `creado por ${state.createdBy} a las ${time(state.createdAt)}` : "de la configuración del mundo";
+      const finished = state.status === "completado" || state.status === "construido";
+      dueText.textContent = state.dueDate
+        ? `${state.dueDate}${isOverdue(state.dueDate, finished, localDay()) ? " — VENCIDO" : ""}${state.reschedules ? ` (replanificado ${state.reschedules} ${state.reschedules === 1 ? "vez" : "veces"})` : ""}`
+        : "sin fecha";
+      dueText.className = isOverdue(state.dueDate, finished, localDay()) ? "estado-rechazada" : "";
       close.hidden = state.origin !== "panel" || closed;
       coordinators.textContent = state.coordinators.length ? [...state.coordinators].join(", ") : "nadie asignado";
       const own = [...room.state.players.values()].find((p) => p.name === me);
@@ -258,7 +270,46 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   };
 
   const container = byId("proyectos");
-  const adminForms = admin ? createAdminForms(container, config, room, announce) : undefined;
+  const adminForms = admin ? createAdminForms(byId("vistas"), config, room, announce) : undefined;
+
+  // Vistas de gestión (F1b): pestañas y selector de proyecto sobre los mismos datos.
+  const projectFilter = byId<HTMLSelectElement>("vista-proyecto");
+  const ctx: ViewContext = {
+    room, config, me: name, announce, filter: () => projectFilter.value,
+    review: (projectId, taskId, decision, note) => {
+      const message: ReviewMessage = { requestId: newRequestId(), projectId, taskId, decision, note };
+      room.send(MESSAGE.review, message);
+    },
+    reschedule: (projectId, taskId, dueDate, reason) => {
+      const message: RescheduleMessage = { requestId: newRequestId(), projectId, ...(taskId ? { taskId } : {}), dueDate, reason };
+      room.send(MESSAGE.reschedule, message);
+    },
+  };
+  const board = createBoard(byId("vista-tablero"), ctx);
+  const timeline = createTimeline(byId("vista-cronograma"), ctx);
+  const metrics = createMetrics(byId("vista-indicadores"), ctx);
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const selectTab = (tab: HTMLButtonElement, focus = true) => {
+    for (const t of tabs) {
+      const selected = t === tab;
+      t.setAttribute("aria-selected", String(selected));
+      t.tabIndex = selected ? 0 : -1;
+      byId(t.getAttribute("aria-controls")!).hidden = !selected;
+    }
+    metrics.setActive(tab.id === "tab-indicadores");
+    if (focus) tab.focus();
+    render();
+  };
+  for (const tab of tabs) {
+    tab.onclick = () => selectTab(tab);
+    tab.onkeydown = (event) => {
+      const i = tabs.indexOf(tab);
+      const next = event.key === "ArrowRight" ? tabs[(i + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(i - 1 + tabs.length) % tabs.length]
+        : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : undefined;
+      if (next) { event.preventDefault(); selectTab(next); }
+    };
+  }
+  projectFilter.onchange = () => render();
 
   let rejectionTimer: number | undefined;
   room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
@@ -288,6 +339,22 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
       }
     }
     for (const view of views.values()) view.render();
+    // Selector de proyecto de las vistas y filtro de la lista.
+    const options = ordered.map(([id, p]) => `${id}|${p.name}|${p.phase}`).join(";");
+    if (projectFilter.dataset.options !== options) {
+      const selected = projectFilter.value;
+      projectFilter.replaceChildren(el("option", { value: "", textContent: "Todos los proyectos" }),
+        ...ordered.map(([id, p]) => el("option", { value: id, textContent: `${p.name}${p.phase === "cerrado" ? " (cerrado)" : ""}` })));
+      projectFilter.value = ordered.some(([id]) => id === selected) ? selected : "";
+      projectFilter.dataset.options = options;
+    }
+    for (const [id] of ordered) {
+      const section = document.getElementById(`proyecto-${id}`)?.closest("section");
+      if (section) section.hidden = Boolean(projectFilter.value) && projectFilter.value !== id;
+    }
+    board.render();
+    timeline.render();
+    metrics.render();
     // Al entrar, el foco va al primer proyecto en cuanto aparece (TP-11).
     if (!focused && views.size) {
       focused = true;
