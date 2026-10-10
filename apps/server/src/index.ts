@@ -129,6 +129,17 @@ const server = defineServer({
       if (!history) return res.status(404).json({ error: "proyecto-desconocido" });
       return res.json(history);
     });
+    // Hilo de comentarios de una tarea (F1c, Q184): mismo control que la historia.
+    app.get("/api/proyectos/:id/tareas/:tarea/comentarios", (req: HttpRequest, res: HttpResponse) => {
+      const header = req.headers.authorization;
+      const token = typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : undefined;
+      const account = accounts.verify(token);
+      if (!account) return res.status(401).json({ error: "sesion-invalida" });
+      if (!historyLimiter.take(`c:${account.id}`, Date.now())) return res.status(429).json({ error: "demasiadas-solicitudes" });
+      const thread = createProjectCore(store, world.config).comments(req.params?.id ?? "", req.params?.tarea ?? "");
+      if (!thread) return res.status(404).json({ error: "tarea-desconocida" });
+      return res.json(thread);
+    });
     app.post("/api/salir", async (req: HttpRequest, res: HttpResponse) => {
       try {
         accounts.logout((await readJson(req)).token);

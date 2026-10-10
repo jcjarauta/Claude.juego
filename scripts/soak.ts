@@ -11,7 +11,7 @@
 // No forma parte de `npm.cmd test`; se ejecuta con `npm.cmd run soak`.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { addDays, isNextTo, localDay, MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
+import { addDays, blockedBy, isNextTo, isTaskDone, localDay, MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
 import { openStore } from "../apps/server/src/store.ts";
 import { joinPanel, joinWorld, sleep, startServer, tempDb, waitFor, type TestPanel, type TestPlayer } from "../apps/server/test/helpers.ts";
 
@@ -33,7 +33,8 @@ const viewers: { room: TestPlayer["room"] }[] = [...bots, panel];
 const POZO = "Pozo de la aldea";
 panel.room.send(MESSAGE.createProject, {
   requestId: randomUUID(), name: POZO, description: "Creado por el soak.", requiresApproval: false, dueDate: addDays(localDay(), 30),
-  tasks: [{ title: "Madera para el brocal", resource: "madera", required: 30, dueDate: addDays(localDay(), 20) }, { title: "Piedra para el pozo", resource: "piedra", required: 20 }],
+  // F1c: la madera depende de la piedra (los aportes prematuros se rechazan sin efecto).
+  tasks: [{ title: "Madera para el brocal", resource: "madera", required: 30, dueDate: addDays(localDay(), 20), dependsOn: ["piedra"] }, { title: "Piedra para el pozo", resource: "piedra", required: 20, dueDate: addDays(localDay(), 15) }],
 });
 await waitFor(() => [...panel.room.state.projects.values()].some((p) => p.name === POZO), 5000);
 const pozoId = [...panel.room.state.projects.entries()].find(([, p]) => p.name === POZO)![0];
@@ -42,6 +43,11 @@ await waitFor(() => [...panel.room.state.missions.values()].some((m) => m.name =
 // F1b: una replanificación con motivo.
 panel.room.send(MESSAGE.reschedule, { requestId: randomUUID(), projectId: pozoId, dueDate: addDays(localDay(), 45), reason: "Soak: ampliamos el plazo" });
 await waitFor(() => panel.room.state.projects.get(pozoId)!.reschedules === 1, 5000);
+// F1c: el panel se apunta a la piedra, asigna a un bot a la madera y comenta.
+panel.room.send(MESSAGE.assign, { requestId: randomUUID(), projectId: pozoId, taskId: "piedra", name: panel.room.state.projects.get(pozoId)!.coordinators[0] });
+panel.room.send(MESSAGE.assign, { requestId: randomUUID(), projectId: pozoId, taskId: "madera", name: "bot1" });
+panel.room.send(MESSAGE.comment, { requestId: randomUUID(), projectId: pozoId, taskId: "madera", text: "Primero la piedra, luego la madera." });
+await waitFor(() => panel.room.state.projects.get(pozoId)!.tasks.get("madera")!.comments === 1, 5000);
 
 let running = true;
 let paused = false;
@@ -87,6 +93,9 @@ async function act(bot: TestPlayer) {
     if (projectState.phase === "cerrado") continue;
     for (const [taskId, task] of projectState.tasks) {
       if (task.required - (projectState.progress.get(task.resource) ?? 0) <= 0) continue;
+      // Las tareas bloqueadas por dependencias (F1c) se saltan, como haría una persona.
+      const done = (id: string) => isTaskDone(projectState.tasks.get(id)?.status ?? "", projectState.requiresApproval);
+      if (blockedBy({ dependsOn: [...task.dependsOn] }, done).length) continue;
       const held = me.inventory.get(task.resource) ?? 0;
       const common = bot.room.state.community.get(task.resource) ?? 0;
       const from = held > 0 && Math.random() < 0.5 ? "player" : common > 0 && Math.random() < 0.2 ? "community" : undefined;
@@ -171,7 +180,7 @@ function fullSnapshot(viewer: { room: TestPlayer["room"] }): string {
   const structures = [...state.structures.entries()].map(([id, s]) => `${id}:${s.built}:${s.builtBy}`).sort().join(";");
   const missions = [...state.missions.entries()].map(([id, m]) => `${id}:${m.status}:${m.completedBy}`).sort().join(";");
   const projects = [...state.projects.entries()].map(([id, p]) =>
-    `${id}:${p.status}:${p.phase}:${p.dueDate}/${p.reschedules}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}`).sort().join(",")}`);
+    `${id}:${p.status}:${p.phase}:${p.dueDate}/${p.reschedules}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}/${[...s.assignees].join("+")}/${s.comments}`).sort().join(",")}`);
   return `${players.join(" ")} | ${nodes} | ${community} | ${projects.join(" ")} | ${structures} | ${missions}`;
 }
 

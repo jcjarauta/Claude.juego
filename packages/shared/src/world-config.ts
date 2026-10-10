@@ -2,7 +2,7 @@
 // El servidor la valida al arrancar y el cliente la recibe ya validada.
 
 import { isValidName } from "./contracts.ts";
-import { dueDateErrors } from "./management.ts";
+import { dependencyErrors, dueDateErrors } from "./management.ts";
 
 export const RESOURCE_SHAPES = ["triangle", "square", "diamond", "circle"] as const;
 export type ResourceShape = (typeof RESOURCE_SHAPES)[number];
@@ -42,6 +42,8 @@ export interface TaskDef {
   acceptance: string;
   /** Fecha objetivo opcional «AAAA-MM-DD» (F1b, Q176); no posterior a la del proyecto. */
   dueDate?: string;
+  /** Tareas del mismo proyecto que deben terminar antes (F1c, Q182). */
+  dependsOn?: string[];
 }
 
 /** Clasificación de realidad de un proyecto (CLAUDE.md §9, AUD-05). */
@@ -198,6 +200,7 @@ export function validateProjectDef(p: unknown, { resourceIds, limits, where }: P
     fail(`${at}: buildRequiresApproval debe ser true o false`);
   }
   for (const e of dueDateErrors(p, where)) fail(e);
+  for (const e of dependencyErrors(p.tasks.filter(isObject) as { id: string }[], where)) fail(e);
   return errors;
 }
 

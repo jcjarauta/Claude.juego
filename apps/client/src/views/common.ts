@@ -1,5 +1,5 @@
 import type { Room } from "@colyseus/sdk";
-import type { ProjectState, WorldConfig, WorldState } from "@juego/shared";
+import { blockedBy, isTaskDone, type ProjectState, type WorldConfig, type WorldState } from "@juego/shared";
 
 // Utilidades compartidas por las vistas de gestión del panel (F1b).
 
@@ -16,7 +16,25 @@ export interface ViewContext {
   review: (projectId: string, taskId: string, decision: "aprobada" | "rechazada", note: string) => void;
   /** Envía una replanificación. */
   reschedule: (projectId: string, taskId: string, dueDate: string, reason: string) => void;
+  /** Apunta o quita a un responsable (F1c). */
+  assign: (projectId: string, taskId: string, name: string, assign: boolean) => void;
+  /** Abre el hilo de comentarios de una tarea (F1c). */
+  openComments: (projectId: string, taskId: string, title: string, opener?: HTMLElement) => void;
+  /** «Mis tareas»: solo las tareas de las que soy responsable (F1c). */
+  mine: () => boolean;
 }
+
+/** Tareas que bloquean a otra (F1c, Q182): títulos de sus requisitos sin terminar. */
+export function blockers(p: ProjectState, taskId: string): string[] {
+  const task = p.tasks.get(taskId);
+  if (!task) return [];
+  const done = (id: string) => isTaskDone(p.tasks.get(id)?.status ?? "", p.requiresApproval);
+  return blockedBy({ dependsOn: [...task.dependsOn] }, done).map((id) => p.tasks.get(id)?.title ?? id);
+}
+
+/** «Mis tareas»: con el filtro activo, solo las tareas en las que soy responsable. */
+export const visibleTask = (ctx: ViewContext, p: ProjectState, taskId: string) =>
+  !ctx.mine() || [...(p.tasks.get(taskId)?.assignees ?? [])].includes(ctx.me);
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -50,7 +68,7 @@ export function readableDate(day: string): string {
 export function signatureOf(ctx: ViewContext, extra = ""): string {
   return visibleProjects(ctx).map(([id, p]) => [
     id, p.status, p.phase, p.dueDate, p.reschedules,
-    [...p.tasks.entries()].map(([t, s]) => `${t}:${s.status}:${s.decision}:${s.dueDate}:${s.reschedules}:${p.progress.get(s.resource) ?? 0}`).join(","),
+    [...p.tasks.entries()].map(([t, s]) => `${t}:${s.status}:${s.decision}:${s.dueDate}:${s.reschedules}:${p.progress.get(s.resource) ?? 0}:${[...s.assignees].join("+")}:${s.comments}`).join(","),
     [...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.values()].join("+")}`).join(","),
-  ].join("|")).join(";") + `#${ctx.filter()}#${extra}`;
+  ].join("|")).join(";") + `#${ctx.filter()}#${ctx.mine()}#${extra}`;
 }

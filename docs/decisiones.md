@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q180 (BORRADOR)
+# Registro de decisiones — Q001 a Q185 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -183,6 +183,11 @@
 | Q178 | Gestión | El tablero refleja estados que deciden los aportes y las revisiones: no hay arrastrar; desde las tarjetas la coordinación aprueba o rechaza con nota. Aprobado con el plan de F1b | VERIFICADO (decisión); F1b |
 | Q179 | Gestión | Gráficas sin librerías externas y siempre con tabla equivalente; la historia se pide por HTTP con el token en la cabecera `Authorization`, nunca en la URL, con límite de frecuencia. Aprobado con el plan de F1b | VERIFICADO (decisión); F1b |
 | Q180 | Gestión | Fase F1b (vistas de gestión: tablero, cronograma e indicadores) elegida por la persona responsable tras F1a (Q012 pasa de post-MVP a implementado en versión sencilla; Gantt con dependencias sigue fuera) | VERIFICADO (decisión); F1b |
+| Q181 | Gestión | Responsables por tarea (máximo 3): la coordinación o la administración asignan a otros; cualquiera se apunta o se quita; informativo (no limita quién aporta). Aprobado con el plan de F1c | VERIFICADO (decisión); F1c |
+| Q182 | Gestión | Dependencias definidas al crear el proyecto (parte de la definición inmutable), solo dentro del mismo proyecto, sin ciclos y con fechas coherentes; una tarea bloqueada rechaza aportes hasta que terminan sus requisitos. Aprobado con el plan de F1c | VERIFICADO (decisión); F1c |
+| Q183 | Gestión | Cadena crítica = la cadena más larga de tareas pendientes encadenadas por dependencias (aproximación sin duraciones). Aprobado con el plan de F1c | VERIFICADO (decisión); F1c |
+| Q184 | Gestión | Comentarios por tarea como traza (no se editan ni se borran); hilo por HTTP con token en la cabecera; el estado sincronizado lleva el número y el último. Aprobado con el plan de F1c | VERIFICADO (decisión); F1c |
+| Q185 | Gestión | Fase F1c (responsables, dependencias y comentarios) elegida por la persona responsable tras F1b | VERIFICADO (decisión); F1c |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

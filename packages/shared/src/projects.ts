@@ -21,6 +21,8 @@ export interface ContributionInput {
   balance: (from: ContributionSource, resource: string) => number;
   /** Proyecto cerrado (F1a): ya no admite aportes. */
   closed?: (projectId: string) => boolean;
+  /** Tarea bloqueada por dependencias sin terminar (F1c, Q182). */
+  blocked?: (projectId: string, taskId: string) => boolean;
 }
 
 export type ContributionResult =
@@ -28,11 +30,12 @@ export type ContributionResult =
   | { ok: false; reason: RejectReason };
 
 export function checkContribution(input: ContributionInput): ContributionResult {
-  const { projects, projectId, taskId, from, amount, contributed, balance, closed } = input;
+  const { projects, projectId, taskId, from, amount, contributed, balance, closed, blocked } = input;
   const project = projects.find((p) => p.id === projectId);
   const task = project?.tasks.find((t) => t.id === taskId);
   if (!project || !task) return { ok: false, reason: "tarea-desconocida" };
   if (closed?.(project.id)) return { ok: false, reason: "proyecto-cerrado" };
+  if (blocked?.(project.id, task.id)) return { ok: false, reason: "tarea-bloqueada" };
   if (!CONTRIBUTION_SOURCES.includes(from as ContributionSource)) return { ok: false, reason: "origen-no-permitido" };
   if (!Number.isInteger(amount) || (amount as number) < 1 || (amount as number) > 1000) return { ok: false, reason: "solicitud-invalida" };
   const source = from as ContributionSource;
@@ -94,6 +97,8 @@ export function checkCreateProject(input: CreateProjectInput): CreateResult<Proj
       ? {
         id: typeof t.resource === "string" ? t.resource : "", title: trimmed(t.title), resource: t.resource, required: t.required,
         acceptance: t.acceptance === "" ? undefined : trimmed(t.acceptance), ...(t.dueDate ? { dueDate: t.dueDate } : {}),
+        // Lista vacía = sin dependencias; cualquier otra cosa la valida validateProjectDef.
+        ...(t.dependsOn !== undefined && !(Array.isArray(t.dependsOn) && t.dependsOn.length === 0) ? { dependsOn: t.dependsOn } : {}),
       }
       : t))
     : raw.tasks;

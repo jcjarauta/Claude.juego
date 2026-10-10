@@ -1,4 +1,4 @@
-import { addDays, daysBetween, isOverdue, isValidDate, localDay, REASON_MAX, REJECT_TEXT } from "@juego/shared";
+import { addDays, criticalChain, daysBetween, isOverdue, isValidDate, localDay, REASON_MAX, REJECT_TEXT } from "@juego/shared";
 import { el, projectDone, readableDate, signatureOf, taskDone, visibleProjects, type ViewContext } from "./common.ts";
 
 // Cronograma (F1b): barras desde el inicio hasta la fecha objetivo, marca de «hoy» y una tabla
@@ -28,6 +28,11 @@ interface Row {
   overdue: boolean;
   status: string;
   reschedules: number;
+  /** Títulos de las tareas de las que depende (F1c). */
+  dependsOn: string[];
+  /** Ids de requisitos (para las líneas del gráfico). */
+  dependsOnIds: string[];
+  critical: boolean;
   canReschedule: boolean;
 }
 
@@ -36,7 +41,7 @@ export function createTimeline(root: HTMLElement, ctx: ViewContext) {
   const tableBody = el("tbody");
   const table = el("table", {},
     el("caption", {}, "Cronograma en tabla (misma información que el gráfico)"),
-    el("thead", {}, el("tr", {}, ...["Elemento", "Inicio", "Fecha objetivo", "Estado", "Plazo", "Replanificado", "Acción"].map((h) => { const th = el("th", {}, h); th.scope = "col"; return th; }))),
+    el("thead", {}, el("tr", {}, ...["Elemento", "Inicio", "Fecha objetivo", "Estado", "Plazo", "Depende de", "Cadena crítica", "Replanificado", "Acción"].map((h) => { const th = el("th", {}, h); th.scope = "col"; return th; }))),
     tableBody);
 
   // Formulario de replanificación común (no se borra al repintar).
@@ -83,10 +88,16 @@ export function createTimeline(root: HTMLElement, ctx: ViewContext) {
         const start = p.createdAt ? localDay(p.createdAt) : today;
         const can = (admin || p.coordinators.includes(ctx.me)) && p.phase !== "cerrado";
         const pDone = projectDone(p);
-        rows.push({ projectId, taskId: "", label: `Proyecto: ${p.name}`, start, due: p.dueDate, done: pDone, overdue: isOverdue(p.dueDate, pDone, today), status: p.phase === "cerrado" ? "cerrado" : p.status, reschedules: p.reschedules, canReschedule: can });
+        rows.push({ projectId, taskId: "", label: `Proyecto: ${p.name}`, start, due: p.dueDate, done: pDone, overdue: isOverdue(p.dueDate, pDone, today), status: p.phase === "cerrado" ? "cerrado" : p.status, reschedules: p.reschedules, canReschedule: can, dependsOn: [], dependsOnIds: [], critical: false });
+        // Cadena crítica (Q183): la cadena más larga de tareas pendientes encadenadas.
+        const chain = new Set(criticalChain([...p.tasks.entries()].map(([id, t]) => ({ id, dependsOn: [...t.dependsOn] })), (id) => taskDone(p, p.tasks.get(id)?.status ?? "")));
         for (const [taskId, t] of p.tasks) {
           const done = taskDone(p, t.status);
-          rows.push({ projectId, taskId, label: `  · ${t.title}`, start, due: t.dueDate, done, overdue: isOverdue(t.dueDate, done, today), status: t.status, reschedules: t.reschedules, canReschedule: can });
+          const deps = [...t.dependsOn];
+          rows.push({
+            projectId, taskId, label: `  · ${t.title}`, start, due: t.dueDate, done, overdue: isOverdue(t.dueDate, done, today), status: t.status,
+            reschedules: t.reschedules, canReschedule: can, dependsOn: deps.map((d) => p.tasks.get(d)?.title ?? d), dependsOnIds: deps, critical: chain.has(taskId),
+          });
         }
       }
 
@@ -112,6 +123,7 @@ export function createTimeline(root: HTMLElement, ctx: ViewContext) {
         th.scope = "row";
         return el("tr", { className: r.overdue ? "vencida" : "" }, th, el("td", {}, readableDate(r.start)), el("td", {}, readableDate(r.due)),
           el("td", {}, STATUS_TEXT[r.status] ?? r.status), el("td", {}, plazo),
+          ...[el("td", {}, r.dependsOn.length ? r.dependsOn.join(", ") : "—"), el("td", {}, r.critical ? "Sí" : "—")],
           el("td", {}, r.reschedules ? `${r.reschedules} ${r.reschedules === 1 ? "vez" : "veces"}` : "No"), action);
       }));
 
@@ -135,11 +147,26 @@ export function createTimeline(root: HTMLElement, ctx: ViewContext) {
         const y = rowH * (i + 1);
         chart.append(svg("text", { x: 4, y: y + 16, class: "crono-etiqueta" }, `${r.label.trim()}${r.overdue ? " (vencida)" : r.done ? " (terminada)" : ""}`));
         const x0 = x(r.start < r.due ? r.start : r.due), x1 = Math.max(x(r.due), x0 + 4);
-        chart.append(svg("rect", { x: x0, y: y + 4, width: x1 - x0, height: rowH - 10, rx: 3, class: r.overdue ? "barra vencida" : r.done ? "barra terminada" : "barra" }));
+        chart.append(svg("rect", {
+          x: x0, y: y + 4, width: x1 - x0, height: rowH - 10, rx: 3,
+          class: `${r.overdue ? "barra vencida" : r.done ? "barra terminada" : "barra"}${r.critical ? " critica" : ""}`,
+        }));
+        if (r.critical) chart.append(svg("text", { x: x1 + 4, y: y + 16, class: "crono-etiqueta" }, "crítica"));
+      });
+      // Líneas de dependencia: del final del requisito al inicio de la tarea que depende de él.
+      dated.forEach((r, i) => {
+        for (const dep of r.dependsOnIds) {
+          const j = dated.findIndex((d) => d.projectId === r.projectId && d.taskId === dep);
+          if (j < 0) continue;
+          const from = dated[j]!;
+          const xFrom = Math.max(x(from.due), x(from.start) + 4), yFrom = rowH * (j + 1) + rowH / 2;
+          const xTo = x(r.start < r.due ? r.start : r.due), yTo = rowH * (i + 1) + rowH / 2;
+          chart.append(svg("path", { d: `M ${xFrom} ${yFrom} C ${xFrom + 20} ${yFrom}, ${xTo - 20} ${yTo}, ${xTo} ${yTo}`, class: "dependencia" }));
+        }
       });
       const tx = x(today);
       chart.append(svg("line", { x1: tx, x2: tx, y1: 4, y2: height - 4, class: "hoy" }), svg("text", { x: tx + 4, y: 16, class: "crono-etiqueta" }, "hoy"));
-      chartBox.append(chart, el("p", { className: "ayuda" }, "Leyenda: barra rellena = pendiente; con rayas = vencida; tenue = terminada. La línea vertical marca hoy."));
+      chartBox.append(chart, el("p", { className: "ayuda" }, "Leyenda: barra rellena = pendiente; con rayas = vencida; tenue = terminada; borde blanco y «crítica» = cadena crítica; líneas azules = dependencias. La línea vertical marca hoy."));
     },
   };
 }

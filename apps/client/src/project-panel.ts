@@ -1,5 +1,5 @@
 import {
-  daysBetween, isNextTo, isOverdue, localDay, missionDefFromState,
+  blockedBy, daysBetween, isNextTo, isOverdue, isTaskDone, localDay, missionDefFromState,
   type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
   type StructureState, type WorldConfig,
 } from "@juego/shared";
@@ -156,15 +156,24 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         row.progress.value = done;
         const taskState = state.tasks.get(task.id);
         const review = taskState?.decision ? ` por ${taskState.reviewedBy}: «${taskState.note}»` : "";
+        // F1c: bloqueo por dependencias, responsables y último comentario (solo lectura en el juego).
+        const blocked = blockedBy({ dependsOn: [...(taskState?.dependsOn ?? [])] }, (id) => isTaskDone(state.tasks.get(id)?.status ?? "", state.requiresApproval))
+          .map((id) => state.tasks.get(id)?.title ?? id);
+        const assignees = [...(taskState?.assignees ?? [])];
+        const extra = [
+          blocked.length ? `BLOQUEADA por: ${blocked.join(", ")}` : "",
+          assignees.length ? `responsables: ${assignees.join(", ")}` : "",
+          taskState?.comments ? `${taskState.comments} comentario(s); último de ${taskState.lastCommentBy}: «${taskState.lastCommentText}»` : "",
+        ].filter(Boolean).join(" · ");
         const st = taskState?.status ?? "pendiente";
         const label = st === "completada" && !state.requiresApproval ? "completa" : TASK_STATUS[st] ?? "pendiente";
-        row.text.textContent = `${done}/${task.required} ${name} — ${label}${review}`;
+        row.text.textContent = `${done}/${task.required} ${name} — ${label}${review}${extra ? ` · ${extra}` : ""}`;
         if (seenReviews && taskState?.decision && seenReviews.get(task.id) !== taskState.reviewedAt) {
           say(`${task.title}: ${taskState.decision} por ${taskState.reviewedBy}.`);
         }
         for (const button of row.buttons) {
           const balance = button.dataset.from === "player" ? held(task.resource) : community(task.resource);
-          const available = closed ? 0 : Math.min(balance, remaining);
+          const available = closed || blocked.length ? 0 : Math.min(balance, remaining);
           button.dataset.available = String(available);
           button.setAttribute("aria-disabled", String(available === 0));
         }

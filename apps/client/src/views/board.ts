@@ -1,5 +1,5 @@
 import { BOARD_COLUMNS, boardColumn, isOverdue, localDay, NOTE_MAX, REJECT_TEXT } from "@juego/shared";
-import { el, readableDate, signatureOf, taskDone, visibleProjects, type ViewContext } from "./common.ts";
+import { blockers, el, readableDate, signatureOf, taskDone, visibleProjects, visibleTask, type ViewContext } from "./common.ts";
 
 // Tablero (F1b, Q178): una columna por estado de tarea. El estado lo deciden los aportes y las
 // revisiones, así que no se arrastra: desde una tarjeta completada la coordinación aprueba o rechaza.
@@ -63,6 +63,7 @@ export function createBoard(root: HTMLElement, ctx: ViewContext) {
       for (const [projectId, project] of visibleProjects(ctx)) {
         const coordinator = project.coordinators.includes(ctx.me);
         for (const [taskId, task] of project.tasks) {
+          if (!visibleTask(ctx, project, taskId)) continue;
           const column = boardColumn(task.status);
           const done = project.progress.get(task.resource) ?? 0;
           const due = task.dueDate || project.dueDate;
@@ -74,6 +75,25 @@ export function createBoard(root: HTMLElement, ctx: ViewContext) {
             el("span", {}, due ? `Fecha objetivo: ${readableDate(due)}${overdue ? " — VENCIDA" : ""}` : "Sin fecha objetivo"),
           );
           if (task.decision) card.append(el("span", {}, `${task.decision === "aprobada" ? "Aprobada" : "Rechazada"} por ${task.reviewedBy}: «${task.note}»`));
+          // F1c: responsables, bloqueo y comentarios.
+          const assignees = [...task.assignees];
+          card.append(el("span", {}, assignees.length ? `Responsables: ${assignees.join(", ")}` : "Sin responsables"));
+          const blocked = blockers(project, taskId);
+          if (blocked.length) card.append(el("span", { className: "bloqueada" }, `BLOQUEADA por: ${blocked.join(", ")}`));
+          const tools = el("p", { className: "acciones" });
+          const finished = taskDone(project, task.status);
+          if (!finished && project.phase !== "cerrado") {
+            const mine = assignees.includes(ctx.me);
+            const toggle = el("button", { type: "button", textContent: mine ? "Quitarme" : "Apuntarme" });
+            toggle.setAttribute("aria-label", `${mine ? "Quitarme de" : "Apuntarme a"} «${task.title}» de ${project.name}`);
+            toggle.onclick = () => ctx.assign(projectId, taskId, ctx.me, !mine);
+            if (mine || assignees.length < 3) tools.append(toggle, " ");
+          }
+          const talk = el("button", { type: "button", textContent: `Comentarios (${task.comments})` });
+          talk.setAttribute("aria-label", `Comentarios de «${task.title}» de ${project.name} (${task.comments})`);
+          talk.onclick = () => ctx.openComments(projectId, taskId, `${task.title} (${project.name})`, talk);
+          tools.append(talk);
+          card.append(tools);
           if (coordinator && (column === "completada" || column === "rechazada" || column === "aprobada") && done >= task.required) {
             const actions = el("p", { className: "acciones" });
             for (const decision of ["aprobada", "rechazada"] as const) {
