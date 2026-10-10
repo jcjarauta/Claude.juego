@@ -268,6 +268,23 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 127 de 127.
 | Prueba del usuario | Persona responsable, 2026-10-10 | Encontró dos defectos (sin confirmación visible al crear un objeto; objetos duplicados); corregidos. «ya está probado»; fusión y subida autorizadas | OK |
 
 Totales F2a: `npm.cmd test` 135 de 135.
+### F2b — 2026-10-10 (rama `f2b-cadenas-produccion`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | Objeto como entrada y entrada desconocida; salida o subproducto entre las entradas; ciclo directo, de 3 recetas y por subproducto, con su camino; verbo; edificios extra (inexistente, repetido, el principal, más del límite); subproductos; `checkCraft` con edificios extra; límites por omisión, parciales, techos duros y su efecto; configuración con `buildLimits` y con un ciclo; descripción de cadenas, qué falta y diagrama por capas (todas las flechas hacia la derecha, sin nodos solapados) | OK |
+| TP-26 | `npm.cmd test` | Molino, Horno, «Harina», «Salvado» y «Pan» creados en el panel; «Moler» (madera → 2 harina + salvado) y «Hornear» (2 harina → pan, con el Molino construido); ciclo, subproducto repetido, verbo largo y edificio desconocido rechazados; sin permiso → `sin-permiso`; sin el Molino construido → `faltan-edificios`; sin harina → `faltan-materiales`; misión «1 pan» completada; verbo, edificios extra y subproducto persisten tras SIGKILL; auditoría cuadrada | OK |
+| Límites configurables | `npm.cmd test` (fixture `limits-world.json`) | Con `recipeInputs` 1, `byproducts` 1, `items` 3 y `side` 2: receta de 2 entradas, receta de 2 subproductos, cuarto objeto y solar de 3 de ancho rechazados; la receta válida se crea | OK |
+| Navegador | Navegador integrado, servidor y base temporales | Objetos creados con confirmación junto al formulario; duplicado «harina» rechazado; entradas agrupadas en Recursos y Objetos; receta con verbo y subproducto; ciclo rechazado con «Forma un ciclo: Harina → Pan → Harina»; lista y diagrama de cadenas en el panel (12 elementos, sin solapes, dentro del lienzo); panel P del juego con «Falta: …» por receta | OK |
+| Contraste | Medición por script en el panel | Textos y bordes del diagrama, lista, confirmación y errores: mínimo 8,56:1 | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea Molino, Horno, Harina, Salvado, Pan y las recetas «Moler» y «Hornear»; los bots construyen y fabrican; 173 comprobaciones, 0 divergencias, convergencia máx. 2 ms; molino y horno construidos, 11 de salvado y 5 de pan; auditoría cuadrada (harina producida 11 = consumida 10 + 1 en almacén; salvado 11; pan 5; madera 120 = 46 + 74; piedra 79 = 24 + 55; fibra 100 = 73 + 27; herramienta 11) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | PENDIENTE_CLON | OK |
+| Prueba del usuario | Persona responsable | Pendiente | — |
+
+Totales F2b: `npm.cmd test` 148 de 148.
+
+Defectos encontrados y corregidos durante la verificación:
+- Tras crear una receta, los campos numéricos del formulario quedaban vacíos al reiniciarlo (los valores iniciales no eran los de `reset()`; venía de F2a). Ahora hay una sola función `el()` compartida que los fija.
 
 Defectos encontrados en la prueba del usuario y corregidos:
 - Al crear un objeto o una receta, la confirmación solo salía en la línea de avisos de la cabecera; ahora aparece junto al formulario, con la lista de objetos existentes.
