@@ -5,7 +5,7 @@ import {
   isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, Player, ProjectState, regenerate,
   ItemState, RecipeState, SkillLevelState, SkillState, StructureState, TaskState, taskStatus, TEACH_OFFER_MS, TEACH_PER_MINUTE, VIEWS, WorldState,
   type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
-  type StructureDef, type TeachOfferedMessage, type TeachResultMessage, type View,
+  type SkillGrantedMessage, type StructureDef, type TeachOfferedMessage, type TeachResultMessage, type View,
 } from "@juego/shared";
 import type { Account } from "../accounts.ts";
 import { log } from "../log.ts";
@@ -558,6 +558,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
       this.applySkillGain(outcome.value);
+      const note: SkillGrantedMessage = { player: outcome.value.player, skill: outcome.value.skill, level: outcome.value.level };
+      client.send(MESSAGE.skillGranted, note);
     },
 
     /** Ofrecer enseñar una habilidad a alguien cercano (F2c, Q198). */

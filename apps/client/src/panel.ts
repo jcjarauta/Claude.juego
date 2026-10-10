@@ -9,7 +9,8 @@ import { createAdminForms } from "./admin-forms.ts";
 import { createBoard } from "./views/board.ts";
 import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
-import { createChains } from "./views/cadenas.ts";
+import { createChains } from "./views/cadenas.ts";
+import { createSkillsView } from "./views/habilidades.ts";
 import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
 import { isOverdue, localDay, type AssignMessage, type RescheduleMessage } from "@juego/shared";
@@ -375,6 +376,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   // Cadenas de producción (F2b): lista de texto y diagrama, para todas las personas.
   const chains = createChains(room, config);
   missionsSection.after(chains.element);
+  const skillsView = createSkillsView(room);
+  chains.element.after(skillsView.element);
 
   // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
   const views = new Map<string, ReturnType<typeof createProjectView>>();
@@ -424,6 +427,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
     });
     missions.replaceChildren(...items);
     chains.render();
+    skillsView.render();
     adminForms?.render();
   };
   room.onStateChange(render);

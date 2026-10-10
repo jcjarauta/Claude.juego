@@ -46,7 +46,8 @@
     .tarea-acciones button { padding: 2px 8px; }
     #proyecto-estado { font-weight: 600; }
     #proyecto-aviso { color: #ffd166; min-height: 1.4em; }
-    #proyecto-aportes, #proyecto-actividad, #misiones, #cadenas-juego { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+    #proyecto-aportes, #proyecto-actividad, #misiones, #cadenas-juego, #habilidades-lista { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+    .oferta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; padding: 6px 8px; border: 1px solid #8a99a8; border-radius: 6px; }
     #cadenas-juego li { margin-bottom: 4px; }
     .selector { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     select { font: inherit; padding: 4px 6px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; max-width: 100%; }
@@ -156,6 +157,19 @@
           </table>
         </section>
       </div>
+      <section id="habilidades-seccion" aria-labelledby="habilidades-titulo" hidden>
+        <h2 id="habilidades-titulo">Tus habilidades</h2>
+        <p id="habilidades-aviso" class="ayuda" role="status" aria-live="polite"></p>
+        <ul id="habilidades-lista"></ul>
+        <div id="habilidades-ofertas"></div>
+        <h3 id="ensenar-titulo">Enseñar</h3>
+        <div class="selector">
+          <label for="ensenar-opciones">Qué enseñar y a quién</label>
+          <select id="ensenar-opciones"></select>
+          <button id="ensenar-boton" type="button">Ofrecer enseñar</button>
+        </div>
+        <p id="ensenar-ayuda" class="ayuda"></p>
+      </section>
       <h2 id="jugadores-titulo">Jugadores</h2>
       <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
       <p id="presencia" class="ayuda" role="status" aria-live="polite"></p>

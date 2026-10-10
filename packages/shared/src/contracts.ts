@@ -32,6 +32,8 @@ export const MESSAGE = {
   teachOffered: "teach-offered",
   /** Servidor → las dos personas: cómo acabó una oferta. */
   teachResult: "teach-result",
+  /** Servidor → quien concede: confirmación de un nivel concedido (F2c). */
+  skillGranted: "skill-granted",
   assign: "assign",
   unassign: "unassign",
   comment: "comment",
@@ -270,6 +272,12 @@ export interface TeachOfferedMessage {
   /** Nivel que alcanzaría al aceptar. */
   level: number;
   expiresAt: number;
+}
+
+export interface SkillGrantedMessage {
+  player: string;
+  skill: string;
+  level: number;
 }
 
 export interface TeachResultMessage {

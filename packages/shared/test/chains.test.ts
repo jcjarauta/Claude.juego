@@ -183,3 +183,17 @@ test("descripción de cadenas: línea de texto, qué falta y diagrama por capas 
   assert.equal(diagram.columns, 5);
   assert.equal(new Set(diagram.nodes.map((n) => `${n.column},${n.row}`)).size, diagram.nodes.length, "ningún nodo comparte casilla");
 });
+
+test("cadenas con habilidades: la línea las nombra y «qué falta» dice el nivel que tienes", async () => {
+  const { describeChains, chainLine, chainMissing } = await import("../src/index.ts");
+  const skill = { id: "molinero", name: "Molinero", description: "", levels: [
+    { name: "Aprendiz", practice: { recipe: "x", times: 1 } }, { name: "Oficial", practice: { recipe: "x", times: 1 } }] };
+  const recipes: RecipeDef[] = [{ id: "moler", name: "Moler", structureId: "molino", verb: "moler", inputs: { madera: 1 }, output: { item: "harina", amount: 1 }, requiresSkills: [{ skill: "molinero", level: 2 }] }];
+  const base = { recipes, building: () => ({ name: "Molino", built: true }), entryName: (id: string) => id, isItem: (id: string) => id === "harina", stock: () => 1, skills: new Map([["molinero", skill]]) };
+  const sin = describeChains(base)[0]!;
+  assert.equal(chainLine(sin), "Moler — moler en Molino, con habilidad Molinero (Oficial): 1 madera → 1 harina");
+  assert.deepEqual(chainMissing(sin), [], "sin conocer el nivel de quien mira no se dice nada");
+  assert.deepEqual(chainMissing(describeChains({ ...base, skillLevel: () => 0 })[0]!), ["ser Oficial en Molinero (no la tienes)"]);
+  assert.deepEqual(chainMissing(describeChains({ ...base, skillLevel: () => 1 })[0]!), ["ser Oficial en Molinero (eres Aprendiz)"]);
+  assert.deepEqual(chainMissing(describeChains({ ...base, skillLevel: () => 2 })[0]!), []);
+});

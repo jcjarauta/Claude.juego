@@ -11,6 +11,8 @@ export interface PlayerListItem {
   name: string;
   connected: boolean;
   own: boolean;
+  /** Habilidades con su nivel, en texto («Molinero (Oficial)»); F2c. */
+  skills?: string;
 }
 
 export interface ResourceRow {
@@ -59,7 +61,7 @@ export function createHud(maxPlayers: number) {
         .sort((a, b) => Number(b.own) - Number(a.own) || a.name.localeCompare(b.name))
         .map((p) => {
           const li = document.createElement("li");
-          li.textContent = `${p.name}${p.own ? " (tú)" : ""}${p.connected ? "" : " — reconectando"}`;
+          li.textContent = `${p.name}${p.own ? " (tú)" : ""}${p.connected ? "" : " — reconectando"}${p.skills ? ` — ${p.skills}` : ""}`;
           if (!p.connected) li.className = "desconectado";
           return li;
         }));
