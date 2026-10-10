@@ -232,6 +232,27 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 107 de 107.
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 118 de 118.
 
+### F1c — 2026-10-10 (rama `f1c-responsables-dependencias`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | Dependencias (ids desconocidos, repetidos, autorreferencia, ciclos de 2 y 3 tareas, fechas incoherentes); tarea terminada con y sin aprobación; bloqueo; cadena crítica; replanificar respetando requisitos; `checkAssign` (apuntarse, sin rol, límite de 3, terminada, cerrado); `checkComment` | OK |
+| TP-21 | `npm.cmd test` | Apuntarse y quitarse; asignar a otro sin rol → `sin-permiso`; cuenta inexistente → `solicitud-invalida`; cuarto responsable → `demasiados-responsables`; persiste tras SIGKILL | OK |
+| TP-22 | `npm.cmd test` | Definición con ciclo → `definicion-invalida`; aporte a tarea bloqueada → `tarea-bloqueada` sin gastar nada; se desbloquea al completar el requisito; con aprobación obligatoria, solo al aprobarlo; replanificar antes que el requisito → `fecha-invalida` | OK |
+| TP-23 | `npm.cmd test` | Número y último comentario en vivo en mundo y panel; vacío → `comentario-invalido`; tarea desconocida → `tarea-desconocida`; hilo por HTTP en orden (401 sin token, 404 tarea desconocida); persiste tras SIGKILL | OK |
+| Migración v7 → v8 | `npm.cmd test` | Datos conservados y copia `*.v7.bak` | OK |
+| Navegador | Navegador integrado, teclado | Crear un proyecto con «Depende de» (casillas por tarea); «BLOQUEADA por» en lista, tablero y juego (botones de aportar desactivados); «Apuntarme/Quitarme» sin perder el foco; hilo de comentarios que se actualiza solo; «Mis tareas» filtra lista y tablero; dependencias y cadena crítica en el cronograma | OK |
+| Contraste | Medición por script en el panel | 169 textos, mínimo 9,99:1 | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | Proyecto del panel con dependencia (madera tras piedra), responsables y comentario; los bots saltan tareas bloqueadas; 173 comprobaciones, 0 divergencias, convergencia máx. 4 ms; proyectos y misiones completados; auditoría cuadrada (madera 120 = 43 + 77; piedra 78 = 25 + 53; fibra 100 = 57 + 43; herramienta 19 = 19) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 127 de 127 | OK |
+| Prueba del usuario | Persona responsable | Pendiente | NO VERIFICADO |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 127 de 127.
+
+Defectos encontrados y corregidos:
+- En la tabla del cronograma, las columnas nuevas no coincidían con sus encabezados.
+- Los bots del soak insistían en aportar a tareas bloqueadas; ahora las saltan.
+
 Defectos encontrados y corregidos durante la demostración:
 - Tras aprobar desde una tarjeta o replanificar, el foco caía en la página (el botón se redibuja); ahora vuelve al panel de la vista.
 - El cronograma mostraba los estados con su identificador interno («en-curso») y «1 vez/veces»; ahora con texto legible y plural correcto.
