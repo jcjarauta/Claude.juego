@@ -23,7 +23,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | M4 | Comunidad inicial, proyecto y tareas | M3 | Tareas visibles y actualizadas para varios jugadores — **CERRADA** 2026-10-09 (evidencia en `docs/pruebas.md` §5; fusión autorizada sin prueba manual registrada) |
 | M5 | Construcción taller, producción simple y cierre de misión | M4 | Ciclo completo probado de principio a fin — **CERRADA** (evidencia en `docs/pruebas.md` §5; probada por la persona responsable y fusionada) |
 | M5b | Núcleo de proyectos y panel profesional (auditoría `docs/auditoria-engremiat-2026-10-09.md`, Q159–Q164) | M5 | Las 10 capacidades del incremento cubiertas por pruebas — **CERRADA** (evidencia en `docs/pruebas.md` §5; probada por la persona responsable y fusionada) |
-| M6 | Endurecimiento: permisos, accesibilidad básica, fallos, pruebas integrales | M5b | Evidencias y aprobación formal del MVP — **HECHA en `m6-endurecimiento`** (cuentas, límite de frecuencia, TA-02, logs, accesibilidad, umbrales; `docs/aceptacion-mvp.md`); pendiente: tu prueba en Chrome/Edge/Firefox, firma y fusión |
+| M6 | Endurecimiento: permisos, accesibilidad básica, fallos, pruebas integrales | M5b | Evidencias y aprobación formal del MVP — **CERRADA: MVP ACEPTADO el 2026-10-10** (`docs/aceptacion-mvp.md`; excepción: Firefox, Q169) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -92,4 +92,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba de la persona responsable y firma de `docs/aceptacion-mvp.md` (identidad y permisos sobre el punto `authorize` del núcleo, accesibilidad incluida Firefox, pruebas integrales y aprobación formal del MVP).
+**NEXT:** MVP aceptado (Q170). Siguiente: que la persona responsable elija la primera fase posterior al MVP (§6); cada una empieza con su propio plan y gate.

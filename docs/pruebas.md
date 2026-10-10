@@ -184,7 +184,8 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 85 de 85.
 | Regresión | `npm.cmd test` | Todas las pruebas anteriores con cuentas automáticas en los helpers | OK |
 | TP-11 (Chromium) | Navegador integrado, solo teclado | Crear cuenta (el error de edad se anuncia y pone el foco en la casilla) → el foco pasa al mapa → recolectar → P → aportar → M → depositar → construir → fabricar → misión completada, con todos los avisos; recarga con sesión guardada; salir de la cuenta. Orden de tabulación lógico | OK |
 | Contraste | Navegador integrado, medición por script de todo el texto HTML visible | Mundo: 53 textos, mínimo 9,99:1. Panel: mínimo 8,64:1 (estados, etiquetas, errores). Umbral WCAG AA 4,5:1. No se mide el texto dentro del lienzo, cuya información también está en HTML | OK |
-| TP-11 (Chrome, Edge, Firefox) | Persona responsable | Pendiente | NO VERIFICADO |
+| TP-11 (Chrome y Edge) | Persona responsable, 2026-10-10 | Probado y aceptado; captura del panel con el mundo real (`coordinacion` aprueba las tres tareas) | OK |
+| TP-11 (Firefox) | — | No instalado; excepción aceptada (Q169) | NO VERIFICADO (excepción aceptada) |
 | Carga (4 clientes + 1 panel con cuentas, 15 min) | `npm.cmd run soak` | 173 comprobaciones, 0 divergencias, convergencia máx. 1 ms; proyecto construido, tareas aprobadas por `coordinacion`, misión completada, 28 herramientas; auditoría cuadrada (madera 120 = 16 + 104; piedra 78 = 7 + 71; fibra 100 = 39 + 61; herramienta 28 = 28) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 98 de 98 | OK |
 

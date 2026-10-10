@@ -1,6 +1,6 @@
 # Aceptación del MVP — ENGREMIAT (gate M6, Q101)
 
-> Informe de cierre del MVP para la **firma de la persona responsable**. Cada requisito se respalda con pruebas **ejecutadas** registradas en `docs/pruebas.md` §5. Las categorías siguen `CLAUDE.md` §5. Fecha: 2026-10-09. Rama: `m6-endurecimiento`.
+> Informe de cierre del MVP, **aceptado por la persona responsable el 2026-10-10** (firma al final). Cada requisito se respalda con pruebas **ejecutadas** registradas en `docs/pruebas.md` §5. Las categorías siguen `CLAUDE.md` §5. Fecha: 2026-10-09. Rama: `m6-endurecimiento`.
 
 ## 1. Qué se acepta
 
@@ -26,7 +26,7 @@ Fuera del MVP (visión futura, `docs/especificacion.md` §5): federación, IA, R
 | RF-008 Misión con resultado persistente | TP-08, TP-09 | M5 (ciclo completo y caída) | OK |
 | RF-009 Guardado, reconexión y recuperación | TP-09 | M2–M6: SIGKILL sin pérdida; reconexión en 64 ms; arranque con 50 000 eventos en 402 ms | OK |
 | RF-010 Mapa + panel de proyecto | TP-10 | M4 (teclas P/M, contexto conservado) | OK |
-| RF-011 Accesibilidad en Chrome, Edge y Firefox | TP-11 | M6: recorrido completo solo con teclado y contraste medido en Chromium (navegador integrado). Chrome y Edge: prueba de la persona responsable. Firefox: ver §5 | WARN hasta tu prueba |
+| RF-011 Accesibilidad en Chrome, Edge y Firefox | TP-11 | M6: recorrido completo solo con teclado y contraste medido en Chromium (navegador integrado); Edge y Chrome probados por la persona responsable (2026-10-10). Firefox no probado: **excepción aceptada** (Q169) | OK con excepción (Firefox) |
 | RF-012 Eventos y rechazo de inválidas | TP-12 | M1–M6 | OK |
 | RF-013 Colaboración asíncrona | TP-13 | M4 | OK |
 | RF-014 Reloj del mundo | TP-14 | M3 | OK |
@@ -58,23 +58,23 @@ Fuera del MVP (visión futura, `docs/especificacion.md` §5): federación, IA, R
 | Bloqueo de intentos en memoria (se pierde al reiniciar) | 5 fallos → 30 s; scrypt encarece cada intento | Suficiente para LAN |
 | Texto del lienzo (etiquetas de Phaser) no medido en contraste | La misma información está en HTML accesible (HUD, inventarios, panel) | — |
 
-## 5. Pendiente para la firma
+## 5. Resolución de lo pendiente
 
-1. Tu recorrido con teclado en **Chrome** y **Edge** (crear cuenta → recolectar → aportar → construir → fabricar → misión; panel y revisión).
-2. **Firefox** (Q143, Q145): no está instalado. O lo instalas tú y lo pruebas, o decides aceptarlo sin Firefox y queda registrado como excepción.
-3. Aprobar los umbrales medidos (Q168).
-4. Firma.
+1. Recorrido en **Chrome** y **Edge**: hecho por la persona responsable (2026-10-10).
+2. **Firefox** (Q143, Q145): no probado; **excepción aceptada** (Q169).
+3. Umbrales medidos: **aprobados** (Q168).
+4. Firma: abajo.
 
 ```text
 ENGREMIAT_PACKAGE_BEGIN
-OK | RF-001…RF-016 respaldados por pruebas ejecutadas (docs/pruebas.md §5), salvo RF-011, que está a la espera de la prueba en Chrome, Edge y Firefox
+OK | RF-001…RF-016 respaldados por pruebas ejecutadas (docs/pruebas.md §5); RF-011 con la excepción de Firefox aceptada (Q169)
 OK | Identidad real: cuentas locales con scrypt, sesiones guardadas como hash, onAuth en la sala; cierra Q151, Q155 y la suplantación de Q161
 OK | Robustez: límite de frecuencia, fallo inyectado sin efectos, logs estructurados sin secretos, recuperación en 402 ms
-WARN | RF-011: recorrido con teclado verificado solo en Chromium; Chrome y Edge, pendientes de tu prueba; Firefox no instalado
+WARN | RF-011: Firefox no probado; excepción aceptada por la persona responsable (Q169)
 WARN | Riesgos residuales del §4 aceptados para el MVP
 NO_GO | Proyectos REAL, conectores con escritura e integraciones externas (AUD-05)
-NEXT | Prueba de la persona responsable y firma de la aceptación del MVP
+NEXT | MVP aceptado (2026-10-10). Siguiente: decidir la primera fase posterior al MVP (docs/hoja-ruta.md §6)
 ENGREMIAT_PACKAGE_END
 ```
 
-**Firma de aceptación:** _pendiente — nombre, fecha y decisión (aceptado / aceptado con excepciones / no aceptado)._
+**Firma de aceptación:** la persona responsable del proyecto acepta el MVP por el chat de trabajo el **2026-10-10**: «Umbrales medidos: aprobados. Navegadores: probado en Edge y Chrome; se acepta sin Firefox como excepción. Decisión: aceptado. Fusiona M6 y súbelo a GitHub». No indicó nombre (el campo quedó como «[tu nombre]»); puede añadirlo editando esta línea. Evidencia de su prueba: captura del panel con el mundo real, cuenta `coordinacion` con las tres tareas aprobadas y el proyecto listo para construir.

@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** MVP completo a la espera de la firma de aceptación (M1–M5b cerradas; M6 hecha en rama). Ver `docs/aceptacion-mvp.md`. El contenido de producto sigue como `PROPUESTA` revisable.
+**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). El contenido de producto posterior al MVP sigue como `PROPUESTA`.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -66,6 +66,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 hecha en la rama `m6-endurecimiento`: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. Pendiente: tu prueba (Chrome, Edge y, si lo decides, Firefox), la firma de `docs/aceptacion-mvp.md` y la fusión.
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). Siguiente: elegir la primera fase posterior al MVP.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

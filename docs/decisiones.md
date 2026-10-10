@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q168 (BORRADOR)
+# Registro de decisiones — Q001 a Q170 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -170,7 +170,9 @@
 | Q165 | Identidad | Cuentas locales con nombre (único sin distinguir mayúsculas), contraseña con scrypt y declaración de mayoría de edad; token de sesión de 30 días que viaja en las opciones de entrada (no en la URL) y se guarda como hash; 5 fallos bloquean 30 s. Cierra Q151 y Q155. Aprobado con el plan de M6 | VERIFICADO (decisión); MVP |
 | Q166 | Identidad | Los nombres con datos previos a M6 los reclama la primera cuenta que se registra con ellos. Aprobado con el plan de M6 | VERIFICADO (decisión); MVP |
 | Q167 | Robustez | Como máximo 8 operaciones con efecto por segundo y sesión (`transfer`, `contribute`, `build`, `craft`, `review`); el exceso se rechaza sin efecto. Aprobado con el plan de M6 | VERIFICADO (decisión); MVP |
-| Q168 | Umbrales | Los umbrales de `docs/pruebas.md` §3 se fijan con los valores medidos en M6 (`docs/aceptacion-mvp.md` §3) | PROPUESTA — pendiente de la firma de aceptación |
+| Q168 | Umbrales | Los umbrales de `docs/pruebas.md` §3 se fijan con los valores medidos en M6 (`docs/aceptacion-mvp.md` §3). Aprobado por la persona responsable el 2026-10-10 | VERIFICADO (decisión); MVP |
+| Q169 | Accesibilidad | El MVP se acepta sin probar en Firefox (Q143 lo pedía); queda como excepción registrada. Chrome y Edge, probados por la persona responsable. Decidido el 2026-10-10 | VERIFICADO (decisión); MVP |
+| Q170 | MVP | **MVP aceptado** por la persona responsable el 2026-10-10 (gate Q101), con la excepción de Q169; M6 se fusiona y se sube a GitHub | VERIFICADO (decisión); MVP |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
