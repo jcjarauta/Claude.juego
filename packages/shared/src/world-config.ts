@@ -87,14 +87,28 @@ export interface ItemDef {
   name: string;
 }
 
-/** Receta: consume recursos del almacén común y deja el producto en él. */
+/** Receta: consume recursos u objetos del almacén común y deja el producto (y subproductos) en él. */
 export interface RecipeDef {
   id: string;
   name: string;
   structureId: string;
+  /** Recursos u objetos del almacén común que consume (F2b, Q190). */
   inputs: Record<string, number>;
   output: { item: string; amount: number };
+  /** Acción que se realiza («moler», «hornear»); por omisión «Fabricar» (F2b, Q191). */
+  verb?: string;
+  /** Otros edificios que deben estar construidos, en cualquier lugar (F2b, Q191). */
+  alsoNeeds?: string[];
+  /** Objetos que además de la salida principal deja la receta (F2b, Q192). */
+  byproducts?: { item: string; amount: number }[];
 }
+
+/** Productos de una receta: la salida principal y los subproductos. */
+export const recipeProducts = (r: Pick<RecipeDef, "output" | "byproducts">): { item: string; amount: number }[] => [r.output, ...(r.byproducts ?? [])];
+
+/** Verbo de una receta («Fabricar» por omisión). */
+export const DEFAULT_VERB = "Fabricar";
+export const recipeVerb = (r: Pick<RecipeDef, "verb">): string => r.verb?.trim() || DEFAULT_VERB;
 
 /** Objetivos de misión (Q144, Q174): objeto en el almacén común o proyecto completado. */
 export type MissionObjective =
@@ -124,6 +138,8 @@ export interface WorldConfig {
   community: { id: string; name: string };
   /** Cuentas con rol de administración: crean proyectos y misiones desde el panel (Q171). Por defecto, ninguna. */
   admins: string[];
+  /** Límites de lo que se crea desde el panel (F2b, Q193); la configuración los completa con los valores por omisión. */
+  buildLimits: BuildLimits;
   projects: ProjectDef[];
   structures: StructureDef[];
   items: ItemDef[];
@@ -235,8 +251,51 @@ export function makeId(name: string, suffix: string): string {
   return `${slug || "p"}-${suffix.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 6) || "0"}`;
 }
 
-/** Límites de las construcciones, objetos y recetas creados desde el panel (F2a, Q188). */
-export const BUILD_LIMITS = { constructions: 10, items: 20, recipes: 20, side: 5, recipeInputs: 4, inputAmount: 100 } as const;
+/** Límites de las construcciones, objetos y recetas creados desde el panel (F2a, Q188; configurables en F2b, Q193). */
+export interface BuildLimits {
+  /** Construcciones, objetos y recetas creados desde el panel. */
+  constructions: number;
+  items: number;
+  recipes: number;
+  /** Lado máximo de un solar. */
+  side: number;
+  /** Entradas distintas por receta y unidades por entrada. */
+  recipeInputs: number;
+  inputAmount: number;
+  /** Unidades de la salida y de cada subproducto. */
+  outputAmount: number;
+  /** Subproductos y edificios extra por receta. */
+  byproducts: number;
+  alsoNeeds: number;
+}
+
+/** Valores por omisión (los de F2a: nada cambia si la configuración no declara `buildLimits`). */
+export const DEFAULT_BUILD_LIMITS: BuildLimits = {
+  constructions: 10, items: 20, recipes: 20, side: 5, recipeInputs: 4, inputAmount: 100, outputAmount: 100, byproducts: 2, alsoNeeds: 2,
+};
+/** Techos que ninguna configuración puede superar. */
+export const HARD_BUILD_LIMITS: BuildLimits = {
+  constructions: 100, items: 200, recipes: 200, side: 10, recipeInputs: 10, inputAmount: 1000, outputAmount: 1000, byproducts: 5, alsoNeeds: 5,
+};
+/** Compatibilidad con F2a: los valores por omisión. */
+export const BUILD_LIMITS = DEFAULT_BUILD_LIMITS;
+
+/** Límites vigentes: los declarados sobre los de omisión. */
+export function resolveBuildLimits(raw: unknown): BuildLimits {
+  return { ...DEFAULT_BUILD_LIMITS, ...(isObject(raw) ? (raw as Partial<BuildLimits>) : {}) };
+}
+
+/** Errores de la sección `buildLimits` (ausente = válida): enteros entre 1 y el techo duro de cada límite. */
+export function validateBuildLimits(raw: unknown): string[] {
+  if (raw === undefined) return [];
+  if (!isObject(raw)) return ["buildLimits debe ser un objeto"];
+  const errors: string[] = [];
+  for (const [key, value] of Object.entries(raw)) {
+    if (!(key in DEFAULT_BUILD_LIMITS)) errors.push(`buildLimits: límite desconocido "${key}" (${Object.keys(DEFAULT_BUILD_LIMITS).join(", ")})`);
+    else if (!isInt(value, 1, HARD_BUILD_LIMITS[key as keyof BuildLimits])) errors.push(`buildLimits.${key} debe ser un entero 1–${HARD_BUILD_LIMITS[key as keyof BuildLimits]}`);
+  }
+  return errors;
+}
 
 export interface PlacementContext {
   width: number;
@@ -295,30 +354,89 @@ export interface RecipeValidationContext {
   resourceIds: ReadonlySet<string>;
   itemIds: ReadonlySet<string>;
   structureIds: ReadonlySet<string>;
+  /** "config": content/world.json (techos duros); "panel": los límites vigentes (`buildLimits`). */
   limits: "config" | "panel";
+  /** Límites vigentes; sin ellos se usan los de omisión. */
+  buildLimits?: BuildLimits;
   where: string;
 }
 
-/** Valida una receta (configuración o panel): entradas (recursos) del almacén común y un objeto de salida. */
-export function validateRecipeDef(r: unknown, { resourceIds, itemIds, structureIds, limits, where }: RecipeValidationContext): string[] {
+/**
+ * Valida una receta (configuración o panel): entradas (recursos u objetos) del almacén común, un objeto de salida,
+ * subproductos opcionales, verbo y edificios extra (F2b). La existencia de ciclos entre recetas la comprueba `recipeCycle`.
+ */
+export function validateRecipeDef(r: unknown, { resourceIds, itemIds, structureIds, limits, buildLimits, where }: RecipeValidationContext): string[] {
   if (!isObject(r) || typeof r.id !== "string" || !ID.test(r.id)) return [`${where}: id inválido`];
   const errors: string[] = [];
   const at = `${where} "${r.id}"`;
-  const panel = limits === "panel";
+  const lim = limits === "panel" ? (buildLimits ?? DEFAULT_BUILD_LIMITS) : HARD_BUILD_LIMITS;
   if (!isText(r.name, 60)) errors.push(`${at}: name obligatorio (máximo 60)`);
   if (typeof r.structureId !== "string" || !structureIds.has(r.structureId)) errors.push(`${at}: estructura desconocida "${String(r.structureId)}"`);
   if (!isObject(r.inputs) || Object.keys(r.inputs).length === 0) errors.push(`${at}: inputs obligatorio`);
   else {
-    if (panel && Object.keys(r.inputs).length > BUILD_LIMITS.recipeInputs) errors.push(`${at}: inputs admite como máximo ${BUILD_LIMITS.recipeInputs} recursos`);
-    const max = panel ? BUILD_LIMITS.inputAmount : 1000;
-    for (const [res, amount] of Object.entries(r.inputs)) {
-      if (!resourceIds.has(res)) errors.push(`${at}: recurso desconocido "${res}"`);
-      if (!isInt(amount, 1, max)) errors.push(`${at}: cantidad de "${res}" debe ser un entero 1–${max}`);
+    if (Object.keys(r.inputs).length > lim.recipeInputs) errors.push(`${at}: inputs admite como máximo ${lim.recipeInputs} entradas`);
+    for (const [id, amount] of Object.entries(r.inputs)) {
+      if (!resourceIds.has(id) && !itemIds.has(id)) errors.push(`${at}: entrada desconocida "${id}"`);
+      if (!isInt(amount, 1, lim.inputAmount)) errors.push(`${at}: cantidad de "${id}" debe ser un entero 1–${lim.inputAmount}`);
     }
   }
+  const produced = new Set<string>();
   if (!isObject(r.output) || typeof r.output.item !== "string" || !itemIds.has(r.output.item)) errors.push(`${at}: objeto de salida desconocido`);
-  else if (!isInt(r.output.amount, 1, 100)) errors.push(`${at}: output.amount debe ser un entero 1–100`);
+  else {
+    produced.add(r.output.item);
+    if (!isInt(r.output.amount, 1, lim.outputAmount)) errors.push(`${at}: output.amount debe ser un entero 1–${lim.outputAmount}`);
+  }
+  if (r.byproducts !== undefined) {
+    if (!Array.isArray(r.byproducts) || r.byproducts.length > lim.byproducts) errors.push(`${at}: byproducts debe ser una lista de como máximo ${lim.byproducts} subproductos`);
+    else r.byproducts.forEach((b, j) => {
+      if (!isObject(b) || typeof b.item !== "string" || !itemIds.has(b.item)) return errors.push(`${at}: subproducto ${j + 1}: objeto desconocido`);
+      if (produced.has(b.item)) errors.push(`${at}: subproducto ${j + 1}: el objeto "${b.item}" ya es otra salida de la receta`);
+      produced.add(b.item);
+      if (!isInt(b.amount, 1, lim.outputAmount)) errors.push(`${at}: subproducto ${j + 1}: amount debe ser un entero 1–${lim.outputAmount}`);
+    });
+  }
+  if (r.verb !== undefined && !isText(r.verb, 20)) errors.push(`${at}: verb debe ser un texto de 1–20 caracteres`);
+  if (r.alsoNeeds !== undefined) {
+    if (!Array.isArray(r.alsoNeeds) || r.alsoNeeds.length > lim.alsoNeeds) errors.push(`${at}: alsoNeeds debe ser una lista de como máximo ${lim.alsoNeeds} edificios`);
+    else {
+      const seen = new Set<string>();
+      for (const id of r.alsoNeeds) {
+        if (typeof id !== "string" || !structureIds.has(id)) errors.push(`${at}: edificio extra desconocido "${String(id)}"`);
+        else if (id === r.structureId) errors.push(`${at}: el edificio extra "${id}" es el principal`);
+        else if (seen.has(id)) errors.push(`${at}: edificio extra repetido "${id}"`);
+        seen.add(String(id));
+      }
+    }
+  }
+  if (isObject(r.inputs)) {
+    for (const item of produced) if (item in r.inputs) errors.push(`${at}: el objeto "${item}" es a la vez entrada y salida`);
+  }
   return errors;
+}
+
+/**
+ * Camino de un ciclo entre recetas si `candidate` lo cierra (p. ej. ["pan", "harina", "pan"]), o undefined.
+ * Arista: cada producto de una receta depende de cada una de sus entradas. Las recetas existentes no tienen ciclos (invariante).
+ */
+export function recipeCycle(recipes: readonly RecipeDef[], candidate: RecipeDef): string[] | undefined {
+  const all = [...recipes.filter((r) => r.id !== candidate.id), candidate];
+  const dependsOn = (item: string): string[] =>
+    all.filter((r) => recipeProducts(r).some((p) => p.item === item)).flatMap((r) => Object.keys(r.inputs));
+  for (const start of recipeProducts(candidate).map((p) => p.item)) {
+    const visit = (item: string, path: string[], seen: Set<string>): string[] | undefined => {
+      for (const next of dependsOn(item)) {
+        if (next === start) return [...path, next];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const found = visit(next, [...path, next], seen);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const cycle = visit(start, [start], new Set([start]));
+    if (cycle) return cycle;
+  }
+  return undefined;
 }
 
 export function validateWorldConfig(input: unknown): ValidationResult {
@@ -326,7 +444,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, admins, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, admins, buildLimits, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -389,6 +507,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   }
 
   if (admins !== undefined && (!Array.isArray(admins) || !admins.every(isValidName))) fail("admins debe ser una lista de nombres válidos");
+  for (const e of validateBuildLimits(buildLimits)) fail(e);
 
   const projectIds = new Set<string>();
   if (!Array.isArray(projects)) fail("projects debe ser una lista");
@@ -423,13 +542,20 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   });
 
   const recipeIds = new Set<string>();
+  const previousRecipes: RecipeDef[] = [];
   if (!Array.isArray(recipes)) fail("recipes debe ser una lista");
   else recipes.forEach((r, i) => {
     if (isObject(r) && typeof r.id === "string" && ID.test(r.id)) {
       if (recipeIds.has(r.id)) fail(`recipes: id duplicado "${r.id}"`);
       recipeIds.add(r.id);
     }
-    for (const e of validateRecipeDef(r, { resourceIds, itemIds, structureIds, limits: "config", where: `recipes[${i}]` })) fail(e);
+    const recipeErrors = validateRecipeDef(r, { resourceIds, itemIds, structureIds, limits: "config", where: `recipes[${i}]` });
+    for (const e of recipeErrors) fail(e);
+    if (!recipeErrors.length) {
+      const cycle = recipeCycle(previousRecipes, r as unknown as RecipeDef);
+      if (cycle) fail(`recipes[${i}] "${(r as { id: string }).id}": forma un ciclo: ${cycle.join(" → ")}`);
+      previousRecipes.push(r as unknown as RecipeDef);
+    }
   });
 
   const missionIds = new Set<string>();
@@ -455,6 +581,7 @@ function withDefaults(config: WorldConfig): WorldConfig {
   return {
     ...config,
     admins: config.admins ?? [],
+    buildLimits: resolveBuildLimits(config.buildLimits),
     projects: config.projects.map((p) => withProjectDefaults(p, resourceName)),
   };
 }

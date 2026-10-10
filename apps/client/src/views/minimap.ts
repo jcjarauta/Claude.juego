@@ -34,7 +34,7 @@ export function createMinimap(config: WorldConfig, room: PanelRoom) {
 
   function mapContext(): MapContext {
     return {
-      width, height, nodeCells, spawn: config.spawn,
+      width, height, nodeCells, spawn: config.spawn, side: config.buildLimits.side,
       structures: [...room.state.structures.entries()].map(([id, s]) => structureDefFromState(id, s)),
     };
   }

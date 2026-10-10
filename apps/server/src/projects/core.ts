@@ -152,6 +152,8 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const nodeCells = new Set(config.nodes.map((n) => `${n.x},${n.y}`));
   const itemIds = () => new Set(items.keys());
+  const limits = config.buildLimits;
+  const entryName = (id: string) => items.get(id)?.def.name ?? config.resources.find((r) => r.id === id)?.name ?? id;
   const allProjects = () => [...projects.values()].map((e) => e.def);
   const projectById = (id: unknown) => (typeof id === "string" ? projects.get(id)?.def : undefined);
   const isClosed = (id: string) => Boolean(projects.get(id)?.closedAt);
@@ -283,7 +285,8 @@ export function createProjectCore(store: Store, config: WorldConfig) {
           openProjects: [...projects.values()].filter((e) => !e.closedAt).length,
           existingProjectIds: new Set(projects.keys()),
           constructions: [...structures.values()].filter((e) => e.origin === "panel" && !e.retiredAt).length,
-          map: { width: config.map.width, height: config.map.height, nodeCells, spawn: config.spawn, structures: activeStructures().map((e) => e.def) },
+          map: { width: config.map.width, height: config.map.height, nodeCells, spawn: config.spawn, structures: activeStructures().map((e) => e.def), side: limits.side },
+          limits,
           idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
@@ -317,7 +320,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const outcome = store.transaction((): Outcome<ItemEntry> => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateItem({
-          actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(),
+          actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), limits,
           takenNames: [...[...items.values()].map((e) => e.def.name), ...config.resources.map((r) => r.name)],
           created: [...items.values()].filter((e) => e.origin === "panel").length, idSuffix: suffix(),
         });
@@ -341,7 +344,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const check = checkCreateRecipe({
           actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), structureIds: new Set(activeStructures().map((e) => e.def.id)),
           created: [...recipes.values()].filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()),
-          takenNames: [...recipes.values()].map((e) => e.def.name), idSuffix: suffix(),
+          takenNames: [...recipes.values()].map((e) => e.def.name), recipes: [...recipes.values()].map((e) => e.def), entryName, limits, idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addRecipeDef(check.def, actor, at);

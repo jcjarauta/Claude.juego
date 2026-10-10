@@ -24,6 +24,17 @@
   "admins": [
     "coordinacion"
   ],
+  "buildLimits": {
+    "constructions": 10,
+    "items": 20,
+    "recipes": 20,
+    "side": 5,
+    "recipeInputs": 4,
+    "inputAmount": 100,
+    "outputAmount": 100,
+    "byproducts": 2,
+    "alsoNeeds": 2
+  },
   "projects": [
     {
       "id": "construir-taller",

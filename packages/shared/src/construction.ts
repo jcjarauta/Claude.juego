@@ -1,4 +1,4 @@
-import { makeId, BUILD_LIMITS, footprintProblems, validateItemDef, validateRecipeDef, validateStructureDef, type ItemDef, type PlacementContext, type ProjectDef, type RecipeDef, type StructureDef } from "./world-config.ts";
+import { makeId, DEFAULT_BUILD_LIMITS, footprintProblems, recipeCycle, validateItemDef, validateRecipeDef, validateStructureDef, type BuildLimits, type ItemDef, type PlacementContext, type ProjectDef, type RecipeDef, type StructureDef } from "./world-config.ts";
 import { authorize, checkCreateProject, type CreateResult } from "./projects.ts";
 
 // Editor de construcciones (F2a, Q186–Q188): la administración crea desde el panel estructuras
@@ -15,6 +15,8 @@ export interface MapContext {
   spawn: { x: number; y: number };
   /** Solares y edificios vigentes (los retirados no cuentan). */
   structures: readonly StructureDef[];
+  /** Lado máximo de un solar (`buildLimits.side`); por omisión, el de F2a. */
+  side?: number;
 }
 
 /** Contexto de colocación para validar un solar nuevo (o para la previsualización del panel). */
@@ -33,7 +35,7 @@ export function placementContext(map: MapContext): PlacementContext {
 
 /** ¿Cabe un solar ahí? Lista de motivos legibles (vacía = cabe). Usada por el servidor y por la previsualización. */
 export function solarProblems(rect: { x?: unknown; y?: unknown; width?: unknown; height?: unknown }, map: MapContext): string[] {
-  return footprintProblems(rect, placementContext(map), BUILD_LIMITS.side);
+  return footprintProblems(rect, placementContext(map), map.side ?? DEFAULT_BUILD_LIMITS.side);
 }
 
 export interface CreateConstructionInput {
@@ -47,14 +49,17 @@ export interface CreateConstructionInput {
   /** Construcciones vigentes creadas desde el panel. */
   constructions: number;
   map: MapContext;
+  /** Límites vigentes; por omisión, los de F2a. */
+  limits?: BuildLimits;
   idSuffix: string;
 }
 
 /** Crear una construcción: un proyecto y su estructura con solar (F2a). */
 export function checkCreateConstruction(input: CreateConstructionInput): CreateResult<{ project: ProjectDef; structure: StructureDef }> {
   const { actor, admins, payload, resourceIds, resourceName, openProjects, existingProjectIds, constructions, map, idSuffix } = input;
+  const limits = input.limits ?? DEFAULT_BUILD_LIMITS;
   if (!authorize(actor, "create-project", { admins })) return { ok: false, reason: "sin-permiso" };
-  if (constructions >= BUILD_LIMITS.constructions) return { ok: false, reason: "demasiadas-construcciones" };
+  if (constructions >= limits.constructions) return { ok: false, reason: "demasiadas-construcciones" };
   const project = checkCreateProject({ actor, admins, payload, resourceIds, resourceName, openProjects, existingIds: existingProjectIds, idSuffix });
   if (!project.ok && project.reason !== "definicion-invalida") return project;
   const raw = isRecord(payload) ? payload : {};
@@ -63,7 +68,7 @@ export function checkCreateConstruction(input: CreateConstructionInput): CreateR
   const structure = { id, name, projectId: id, x: raw.x, y: raw.y, width: raw.width, height: raw.height, color: raw.color };
   const errors = [
     ...(project.ok ? [] : project.details ?? []),
-    ...validateStructureDef(structure, { placement: placementContext(map), projectIds: new Set([id]), maxSide: BUILD_LIMITS.side, where: "construcción" }),
+    ...validateStructureDef(structure, { placement: placementContext(map), projectIds: new Set([id]), maxSide: map.side ?? limits.side, where: "construcción" }),
   ];
   if (errors.length || !project.ok) return { ok: false, reason: "definicion-invalida", details: errors };
   return { ok: true, def: { project: project.def, structure: structure as StructureDef } };
@@ -84,6 +89,7 @@ export interface CreateItemInput {
   takenNames?: readonly string[];
   /** Objetos creados desde el panel. */
   created: number;
+  limits?: BuildLimits;
   idSuffix: string;
 }
 
@@ -91,7 +97,7 @@ export interface CreateItemInput {
 export function checkCreateItem(input: CreateItemInput): CreateResult<ItemDef> {
   const { actor, admins, payload, resourceIds, itemIds, takenNames = [], created, idSuffix } = input;
   if (!authorize(actor, "create-project", { admins })) return { ok: false, reason: "sin-permiso" };
-  if (created >= BUILD_LIMITS.items) return { ok: false, reason: "demasiados-objetos" };
+  if (created >= (input.limits ?? DEFAULT_BUILD_LIMITS).items) return { ok: false, reason: "demasiados-objetos" };
   const raw = isRecord(payload) ? payload : {};
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   const def = { id: makeId(name, idSuffix), name };
@@ -114,6 +120,11 @@ export interface CreateRecipeInput {
   existingIds: ReadonlySet<string>;
   /** Nombres de las recetas que ya existen: no se admite otra igual. */
   takenNames?: readonly string[];
+  /** Recetas existentes, para detectar ciclos (F2b, Q190). */
+  recipes?: readonly RecipeDef[];
+  /** Nombre de un recurso u objeto por id, para describir el ciclo. */
+  entryName?: (id: string) => string;
+  limits?: BuildLimits;
   idSuffix: string;
 }
 
@@ -121,14 +132,21 @@ export interface CreateRecipeInput {
 export function checkCreateRecipe(input: CreateRecipeInput): CreateResult<RecipeDef> {
   const { actor, admins, payload, resourceIds, itemIds, structureIds, created, existingIds, takenNames = [], idSuffix } = input;
   if (!authorize(actor, "create-project", { admins })) return { ok: false, reason: "sin-permiso" };
-  if (created >= BUILD_LIMITS.recipes) return { ok: false, reason: "demasiadas-recetas" };
+  const limits = input.limits ?? DEFAULT_BUILD_LIMITS;
+  if (created >= limits.recipes) return { ok: false, reason: "demasiadas-recetas" };
   const raw = isRecord(payload) ? payload : {};
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   const id = makeId(name, idSuffix);
   if (existingIds.has(id)) return { ok: false, reason: "solicitud-invalida" };
   const output = isRecord(raw.output) ? { item: raw.output.item, amount: raw.output.amount } : raw.output;
-  const def = { id, name, structureId: raw.structureId, inputs: raw.inputs, output };
-  const errors = validateRecipeDef(def, { resourceIds, itemIds, structureIds, limits: "panel", where: "receta" });
+  const def: Record<string, unknown> = { id, name, structureId: raw.structureId, inputs: raw.inputs, output };
+  for (const key of ["verb", "alsoNeeds", "byproducts"] as const) if (raw[key] !== undefined) def[key] = raw[key];
+  if (typeof def.verb === "string") def.verb = def.verb.trim();
+  const errors = validateRecipeDef(def, { resourceIds, itemIds, structureIds, limits: "panel", buildLimits: limits, where: "receta" });
+  if (!errors.length) {
+    const cycle = recipeCycle(input.recipes ?? [], def as unknown as RecipeDef);
+    if (cycle) errors.push(`forma un ciclo: ${cycle.map((id) => input.entryName?.(id) ?? id).join(" → ")}`);
+  }
   if (name && takenNames.some((n) => nameKey(n) === nameKey(name))) errors.push(`ya existe una receta llamada «${name}»`);
   if (errors.length) return { ok: false, reason: "definicion-invalida", details: errors };
   return { ok: true, def: def as unknown as RecipeDef };

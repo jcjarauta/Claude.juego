@@ -7,8 +7,9 @@ import {
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
 import { createBoard } from "./views/board.ts";
-import { blockers, visibleTask, type ViewContext } from "./views/common.ts";
+import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
+import { createChains } from "./views/cadenas.ts";
 import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
 import { isOverdue, localDay, type AssignMessage, type RescheduleMessage } from "@juego/shared";
@@ -25,14 +26,6 @@ const byId = <T extends HTMLElement = HTMLElement>(id: string) => {
   if (!el) throw new Error(`Falta el elemento #${id}`);
   return el as T;
 };
-
-/** Crea un elemento con propiedades (id, className, type, value…) e hijos. */
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  Object.assign(node, props);
-  node.append(...children);
-  return node;
-}
 
 const time = (at: number) => new Date(at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 
@@ -379,6 +372,9 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   missionsSection.setAttribute("aria-labelledby", "misiones-titulo");
   container.after(missionsSection);
   const missionStatus = new Map<string, string>();
+  // Cadenas de producción (F2b): lista de texto y diagrama, para todas las personas.
+  const chains = createChains(room, config);
+  missionsSection.after(chains.element);
 
   // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
   const views = new Map<string, ReturnType<typeof createProjectView>>();
@@ -427,6 +423,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
         def.description ? ` ${def.description}` : "");
     });
     missions.replaceChildren(...items);
+    chains.render();
     adminForms?.render();
   };
   room.onStateChange(render);

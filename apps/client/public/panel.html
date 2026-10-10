@@ -96,10 +96,25 @@
     .mapa-propuesto { fill: none; stroke-width: 3; }
     .mapa-propuesto.bien { stroke: #8fe3a1; }
     .mapa-propuesto.mal { stroke: #ff9b85; stroke-dasharray: 5 3; }
+    /* F2b: cadenas de producción */
+    .cadenas-lista { padding-left: 20px; display: grid; gap: 4px; }
+    .cadenas-diagrama { overflow-x: auto; margin-top: 8px; }
+    .cadenas-svg { max-width: none; background: #0f1317; border: 1px solid #3a4652; }
+    .cadenas-nodo rect { fill: #1b2630; stroke: #8a99a8; stroke-width: 1.5; }
+    .cadenas-nodo.resource rect { fill: #1d3326; stroke: #8fe3a1; }
+    .cadenas-nodo.item rect { fill: #2c2a1a; stroke: #ffd166; }
+    .cadenas-nodo.recipe rect { stroke: #9fd8ff; }
+    .cadenas-nodo.recipe.sin-construir rect { stroke-dasharray: 5 3; stroke: #ff9b85; }
+    .cadenas-nodo text { fill: #f2f2f2; font-size: 12px; }
+    .cadenas-nodo text.sub { fill: #c9d4de; font-size: 11px; }
+    .cadenas-flecha { fill: none; stroke: #9fb2c4; stroke-width: 1.5; }
+    .cadenas-punta { fill: #9fb2c4; }
+    .cadenas-cantidad { fill: #f2f2f2; font-size: 11px; }
     .estado-solar { font-weight: 600; }
     .estado-solar.cabe { color: #8fe3a1; }
     .estado-solar.no-cabe { color: #ff9b85; }
-    .entrada-receta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .filas { display: grid; gap: 10px; }
+    .entrada-receta { align-items: end; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
   </style>
 </head>
 <body>

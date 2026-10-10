@@ -213,9 +213,15 @@ export interface CreateRecipeMessage {
   name: string;
   /** Edificio (id de estructura) donde se fabrica. */
   structureId: string;
-  /** Recursos del almacén común (1–4) y cantidades. */
+  /** Recursos u objetos del almacén común (hasta `buildLimits.recipeInputs`) y cantidades. */
   inputs: Record<string, number>;
   output: { item: string; amount: number };
+  /** Acción («moler»); opcional. */
+  verb?: string;
+  /** Otros edificios que deben estar construidos; opcional. */
+  alsoNeeds?: string[];
+  /** Subproductos; opcional. */
+  byproducts?: { item: string; amount: number }[];
 }
 
 /** Apuntar o quitar a un responsable de una tarea (F1c, Q181). */
@@ -297,6 +303,7 @@ export type RejectReason =
   | "taller-sin-construir"
   | "lejos-del-taller"
   | "faltan-materiales"
+  | "faltan-edificios"
   | "sin-permiso"
   | "tarea-sin-completar"
   | "nota-invalida"
@@ -349,6 +356,7 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "taller-sin-construir": "Primero hay que construir el taller.",
   "lejos-del-taller": "Acércate al taller para fabricar.",
   "faltan-materiales": "Faltan materiales en el almacén de la comunidad.",
+  "faltan-edificios": "Faltan edificios por construir para esta receta.",
   "sin-permiso": "No tienes permiso para esa acción en este proyecto.",
   "tarea-sin-completar": "Solo se puede revisar una tarea completada.",
   "nota-invalida": "Escribe una nota de 1 a 500 caracteres.",

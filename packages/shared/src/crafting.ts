@@ -47,18 +47,22 @@ export interface CraftInput {
   recipe: RecipeDef | undefined;
   structure: StructureDef | undefined;
   structureBuilt: boolean;
+  /** Edificios extra construidos o no (`alsoNeeds`), con su nombre para el aviso (F2b, Q191). Sin ellos no se exige ninguno. */
+  extraBuildings?: readonly { id: string; name: string; built: boolean }[];
   position: Position;
   /** Existencias del almacén de la comunidad. */
   stock: (id: string) => number;
 }
 
-export type CraftResult = { ok: true; recipe: RecipeDef } | { ok: false; reason: RejectReason };
+export type CraftResult = { ok: true; recipe: RecipeDef } | { ok: false; reason: RejectReason; details?: string[] };
 
-/** Q157: taller construido, jugador junto a él y materiales en el almacén común. */
-export function checkCraft({ recipe, structure, structureBuilt, position, stock }: CraftInput): CraftResult {
+/** Q157, Q191: edificio construido, jugador junto a él, edificios extra construidos y materiales en el almacén común. */
+export function checkCraft({ recipe, structure, structureBuilt, extraBuildings = [], position, stock }: CraftInput): CraftResult {
   if (!recipe || !structure) return { ok: false, reason: "receta-desconocida" };
   if (!structureBuilt) return { ok: false, reason: "taller-sin-construir" };
   if (!isNextTo(position, structure)) return { ok: false, reason: "lejos-del-taller" };
+  const missing = extraBuildings.filter((b) => !b.built).map((b) => b.name);
+  if (missing.length) return { ok: false, reason: "faltan-edificios", details: [`Falta construir: ${missing.join(", ")}.`] };
   if (Object.entries(recipe.inputs).some(([resource, amount]) => stock(resource) < amount)) {
     return { ok: false, reason: "faltan-materiales" };
   }
