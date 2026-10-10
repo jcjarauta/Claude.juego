@@ -6,6 +6,8 @@
 // lo recolectado según el registro de eventos debe coincidir con lo que hay en inventarios.
 // M5b: además, un panel profesional (sin personaje) con el nombre del coordinador aporta desde
 // el almacén común y revisa tareas completadas; su vista también debe coincidir.
+// F1a: al empezar, ese panel (administración) crea un proyecto y una misión; los bots aportan
+// a todos los proyectos abiertos.
 // No forma parte de `npm.cmd test`; se ejecuta con `npm.cmd run soak`.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -26,6 +28,17 @@ for (const name of ["bot1", "bot2", "bot3", "bot4"]) bots.push(await joinWorld(s
 const project = config.projects[0];
 const panel: TestPanel = await joinPanel(server.url, project?.coordinators[0] ?? "panel");
 const viewers: { room: TestPlayer["room"] }[] = [...bots, panel];
+
+// Proyecto y misión creados desde el panel (F1a): sin tocar la configuración ni reiniciar.
+const POZO = "Pozo de la aldea";
+panel.room.send(MESSAGE.createProject, {
+  requestId: randomUUID(), name: POZO, description: "Creado por el soak.", requiresApproval: false,
+  tasks: [{ title: "Madera para el brocal", resource: "madera", required: 30 }, { title: "Piedra para el pozo", resource: "piedra", required: 20 }],
+});
+await waitFor(() => [...panel.room.state.projects.values()].some((p) => p.name === POZO), 5000);
+const pozoId = [...panel.room.state.projects.entries()].find(([, p]) => p.name === POZO)![0];
+panel.room.send(MESSAGE.createMission, { requestId: randomUUID(), name: "Agua para la aldea", description: "", objective: { kind: "project-completed", project: pozoId } });
+await waitFor(() => [...panel.room.state.missions.values()].some((m) => m.name === "Agua para la aldea"), 5000);
 
 let running = true;
 let paused = false;
@@ -66,16 +79,17 @@ async function act(bot: TestPlayer) {
       return 130;
     }
   }
-  const projectState = project && bot.room.state.projects.get(project.id);
-  if (project && projectState) {
-    for (const task of project.tasks) {
+  // Aportar a cualquier proyecto abierto (los de la configuración y los creados en el panel).
+  for (const [projectId, projectState] of bot.room.state.projects) {
+    if (projectState.phase === "cerrado") continue;
+    for (const [taskId, task] of projectState.tasks) {
       if (task.required - (projectState.progress.get(task.resource) ?? 0) <= 0) continue;
       const held = me.inventory.get(task.resource) ?? 0;
       const common = bot.room.state.community.get(task.resource) ?? 0;
       const from = held > 0 && Math.random() < 0.5 ? "player" : common > 0 && Math.random() < 0.2 ? "community" : undefined;
       if (!from) continue;
       bot.room.send(MESSAGE.contribute, {
-        requestId: randomUUID(), projectId: project.id, taskId: task.id, from, amount: from === "player" ? held : common,
+        requestId: randomUUID(), projectId, taskId, from, amount: from === "player" ? held : common,
       });
       sent.contributions++;
       return 300;
@@ -154,7 +168,7 @@ function fullSnapshot(viewer: { room: TestPlayer["room"] }): string {
   const structures = [...state.structures.entries()].map(([id, s]) => `${id}:${s.built}:${s.builtBy}`).sort().join(";");
   const missions = [...state.missions.entries()].map(([id, m]) => `${id}:${m.status}:${m.completedBy}`).sort().join(";");
   const projects = [...state.projects.entries()].map(([id, p]) =>
-    `${id}:${p.status}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}`).sort().join(",")}`);
+    `${id}:${p.status}:${p.phase}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}`).sort().join(",")}`);
   return `${players.join(" ")} | ${nodes} | ${community} | ${projects.join(" ")} | ${structures} | ${missions}`;
 }
 
@@ -196,6 +210,8 @@ const projectSummary = project ? (() => {
     mission: config.missions[0] ? state.missions.get(config.missions[0].id)?.status : null,
     tools: recipe ? state.community.get(recipe.output.item) ?? 0 : null,
     tasks: Object.fromEntries([...p.tasks.entries()].map(([id, t]) => [id, `${t.status}${t.reviewedBy ? ` (${t.reviewedBy})` : ""}`])),
+    pozo: { status: state.projects.get(pozoId)?.status, progress: Object.fromEntries(state.projects.get(pozoId)?.progress.entries() ?? []) },
+    missions: Object.fromEntries([...state.missions.values()].map((m) => [m.name, m.status])),
   };
 })() : null;
 const connected = bots.every((b) => b.me().connected);
