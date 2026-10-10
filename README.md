@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** MVP en construcción por etapas (M1–M5 y M5b cerradas; falta M6). El contenido de producto sigue como `PROPUESTA` revisable.
+**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). El contenido de producto posterior al MVP sigue como `PROPUESTA`.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -16,6 +16,7 @@ Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. 
 | `docs/pruebas.md` | Catálogo de pruebas y evidencias de cada etapa |
 | `docs/decisiones.md` | Registro de decisiones (Q001–Q164) y reclasificación de las marcadas MVP |
 | `docs/auditoria-engremiat-2026-10-09.md` | Auditoría de solo lectura que dio origen a M5b |
+| `docs/aceptacion-mvp.md` | Matriz requisito → prueba → evidencia, umbrales medidos y firma del MVP |
 
 ## Arranque (Windows)
 
@@ -31,15 +32,15 @@ npm.cmd run build
 npm.cmd start
 ```
 
-Abre `http://127.0.0.1:2567`, escribe tu nombre y entra (también vale `?name=ana` en la URL).
+Abre `http://127.0.0.1:2567`. La primera vez elige «Crear una cuenta nueva» (nombre, contraseña de 8 a 128 caracteres y declaración de mayoría de edad); después basta con «Entrar». La sesión dura 30 días en ese navegador; «Salir de la cuenta» la cierra.
 
-**Panel de proyectos:** `http://127.0.0.1:2567/panel` (o el enlace del panel del proyecto). Muestra tareas, criterios, evidencias y revisiones del mismo estado que el mundo, sin crear personaje. Para aprobar o rechazar tareas hay que entrar con un nombre de `coordinators` en `content/world.json` (por defecto `coordinacion`; cámbialo por el tuyo).
+**Panel de proyectos:** `http://127.0.0.1:2567/panel` (o el enlace del panel del proyecto). Muestra tareas, criterios, evidencias y revisiones del mismo estado que el mundo, sin crear personaje. Para aprobar o rechazar tareas hay que entrar con una cuenta cuyo nombre esté en `coordinators` de `content/world.json` (por defecto `coordinacion`; cámbialo por el tuyo).
 
 **Red local (2–4 jugadores):** en PowerShell, `$env:HOST="0.0.0.0"; npm.cmd start`. Windows pedirá permiso de firewall para Node: concédelo solo para redes privadas. Los demás abren `http://<IP-del-PC>:2567` (la IP aparece con `ipconfig`, en «Dirección IPv4» del adaptador conectado a la red local).
 
 Comprobaciones: `npm.cmd run typecheck` y `npm.cmd test` (las pruebas usan bases de datos temporales). Prueba de carga de 15 min: `npm.cmd run soak`. El contenido del mundo está en `content/world.json`.
 
-**Datos:** el estado del mundo (nodos, inventarios, posiciones y registro de eventos) se guarda en `data/world.db`, que no está bajo control de versiones. Para empezar un mundo nuevo, detén el servidor y borra ese archivo.
+**Datos:** el estado del mundo (nodos, inventarios, posiciones, cuentas y registro de eventos) se guarda en `data/world.db`, que no está bajo control de versiones. Para empezar un mundo nuevo, detén el servidor y borra ese archivo.
 
 | Carpeta | Contenido |
 |---|---|
@@ -65,6 +66,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. Siguiente: M6 (cuentas, endurecimiento y aceptación del MVP).
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). Siguiente: elegir la primera fase posterior al MVP.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

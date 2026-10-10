@@ -6,9 +6,12 @@ import {
   type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
   type StructureDef, type View,
 } from "@juego/shared";
+import type { Account } from "../accounts.ts";
+import { log } from "../log.ts";
 import { createProjectCore, RECENT_CONTRIBUTIONS, type ProjectCore } from "../projects/core.ts";
+import { createRateLimiter } from "../rate-limit.ts";
 import { COMMUNITY, playerScope, type Store } from "../store.ts";
-import { getStore, getWorld, type World } from "../world.ts";
+import { getAccounts, getStore, getWorld, type World } from "../world.ts";
 
 const POSITION_SAVE_MS = 5000;
 const NEWS_LIMIT = 50;
@@ -44,6 +47,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private isBlocked = (x: number, y: number) => this.world.index.isBlocked(x, y) || this.builtCells.has(`${x},${y}`);
   /** Sesiones que ya recibieron sus novedades (se envían una vez, cuando el cliente las pide). */
   private newsSent = new Set<string>();
+  /** Límite de frecuencia de las operaciones con efecto (M6, Q167). */
+  private limiter = createRateLimiter();
+  private lastLimitLog = new Map<string, number>();
   /** Paneles profesionales conectados (M5b): sessionId → nombre. No tienen personaje. */
   private panels = new Map<string, string>();
   /** Plazos de reconexión abiertos por sessionId, para poder cancelarlos. */
@@ -91,10 +97,20 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.clock.setInterval(() => this.savePositions(), POSITION_SAVE_MS);
   }
 
+  /** M6 (RF-003): solo entra quien tiene una sesión válida; el nombre sale de la cuenta, no del cliente. */
+  onAuth(_client: Client, options: JoinOptions): Account {
+    const account = getAccounts().verify(options?.token);
+    if (!account) {
+      log("warn", "sesion-invalida");
+      throw new Error("sesion-invalida");
+    }
+    return account;
+  }
+
   onJoin(client: Client, options: JoinOptions) {
-    if (!isValidName(options?.name)) throw new Error("nombre-invalido");
-    const name = options.name;
-    const view: View = options.view ?? "mundo";
+    const name = (client.auth as Account).name;
+    if (!isValidName(name)) throw new Error("nombre-invalido");
+    const view: View = options?.view ?? "mundo";
     if (!VIEWS.includes(view)) throw new Error("vista-invalida");
     if (view === "panel") {
       // Panel profesional: observador sin personaje; no ocupa plaza de jugador.
@@ -157,6 +173,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onLeave(client: Client) {
     if (this.panels.delete(client.sessionId)) {
       this.pendingReconnections.delete(client.sessionId);
+      this.limiter.forget(client.sessionId);
       return;
     }
     const player = this.state.players.get(client.sessionId);
@@ -169,6 +186,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     this.newsSent.delete(client.sessionId);
     this.pendingReconnections.delete(client.sessionId);
+    this.limiter.forget(client.sessionId);
+    this.lastLimitLog.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
     for (const map of [this.lastMoveAt, this.lastCollectAt, this.facing]) map.delete(client.sessionId);
   }
@@ -239,7 +258,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     [MESSAGE.transfer]: (client: Client, payload: unknown) => {
       const player = this.characterOf(client);
-      if (!player) return;
+      if (!player || !this.withinLimit(client)) return;
       const message = (payload ?? {}) as Record<string, unknown>;
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
@@ -272,7 +291,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     [MESSAGE.contribute]: (client: Client, payload: unknown) => {
       const actor = this.actorOf(client);
-      if (!actor) return;
+      if (!actor || !this.withinLimit(client)) return;
       const outcome = this.safely(client, () => this.core.contribute(actor, payload));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
@@ -300,7 +319,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     /** Revisar una tarea completada: solo coordinadores, desde el mundo o el panel (M5b, Q161). */
     [MESSAGE.review]: (client: Client, payload: unknown) => {
       const actor = this.actorOf(client);
-      if (!actor) return;
+      if (!actor || !this.withinLimit(client)) return;
       const outcome = this.safely(client, () => this.core.review(actor, payload));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
@@ -327,7 +346,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     /** Construir la estructura de un proyecto listo (RF-007, Q156). */
     [MESSAGE.build]: (client: Client, payload: unknown) => {
       const player = this.characterOf(client);
-      if (!player) return;
+      if (!player || !this.withinLimit(client)) return;
       const message = (payload ?? {}) as Record<string, unknown>;
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
@@ -367,7 +386,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     /** Fabricar en una estructura con materiales del almacén común; completa misiones (RF-008, Q157, Q158). */
     [MESSAGE.craft]: (client: Client, payload: unknown) => {
       const player = this.characterOf(client);
-      if (!player) return;
+      if (!player || !this.withinLimit(client)) return;
       const message = (payload ?? {}) as Record<string, unknown>;
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
@@ -412,6 +431,19 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     "*": (client: Client) => this.reject(client, "mensaje-desconocido"),
   };
+
+  /** Q167: como máximo 8 operaciones con efecto por segundo y sesión; el exceso se rechaza sin efecto. */
+  private withinLimit(client: Client): boolean {
+    const now = Date.now();
+    if (this.limiter.take(client.sessionId, now)) return true;
+    this.reject(client, "demasiadas-solicitudes");
+    // Un registro como mucho cada 10 s por sesión, para no inundar los logs.
+    if (now - (this.lastLimitLog.get(client.sessionId) ?? 0) > 10_000) {
+      this.lastLimitLog.set(client.sessionId, now);
+      log("warn", "limite-frecuencia", { account: (client.auth as Account | undefined)?.id });
+    }
+    return false;
+  }
 
   /** Nombre de quien actúa: jugador conectado o panel. */
   private actorOf(client: Client): string | undefined {
@@ -533,7 +565,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     try {
       return fn();
     } catch (err) {
-      console.error("Error en operación de recursos:", err);
+      // Q067: error explícito; la transacción ya se ha deshecho y no se confirma nada.
+      log("error", "error-operacion", { account: (client.auth as Account | undefined)?.id, message: (err as Error).message });
       this.reject(client, "solicitud-invalida");
       return undefined;
     }

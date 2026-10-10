@@ -1,9 +1,10 @@
 import { Client, type Room } from "@colyseus/sdk";
 import {
-  authorize, isValidName, joinErrorText, MESSAGE, NOTE_MAX, REJECT_TEXT, ROOM_NAME, WorldState,
+  authorize, MESSAGE, NOTE_MAX, REJECT_TEXT, ROOM_NAME, WorldState,
   type ContributeMessage, type ContributionSource, type JoinOptions, type ProjectDef, type RejectedMessage, type ReviewDecision,
   type ReviewMessage, type TaskDef, type WorldConfig,
 } from "@juego/shared";
+import { enter, logout } from "./account.ts";
 import { newRequestId } from "./request-id.ts";
 
 // Panel profesional (M5b, RF-015): lista accesible de proyectos y tareas sobre el mismo
@@ -11,12 +12,6 @@ import { newRequestId } from "./request-id.ts";
 // y, si es coordinador, revisar tareas. El servidor decide; aquí solo se pide.
 
 type PanelRoom = Room<unknown, WorldState>;
-
-const NAME_KEY = "juego.nombre";
-const storage = {
-  get: () => { try { return localStorage.getItem(NAME_KEY) ?? ""; } catch { return ""; } },
-  set: (name: string) => { try { localStorage.setItem(NAME_KEY, name); } catch { /* sin almacenamiento */ } },
-};
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => {
   const el = document.getElementById(id);
@@ -48,8 +43,8 @@ const PROJECT_STATUS_TEXT: Record<string, string> = {
   construido: "Construido",
 };
 
-async function join(name: string): Promise<PanelRoom> {
-  const options: JoinOptions = { name, view: "panel" };
+async function join(token: string): Promise<PanelRoom> {
+  const options: JoinOptions = { token, view: "panel" };
   return new Client(location.origin).join(ROOM_NAME, options, WorldState);
 }
 
@@ -229,6 +224,11 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   room.onReconnect(() => { connection.textContent = "Reconectado."; });
   room.onLeave(() => { connection.textContent = "Desconectado del servidor. Recarga la página para volver."; });
   window.addEventListener("pagehide", () => { void room.leave(true); });
+  byId("salir").onclick = async () => {
+    await room.leave(true);
+    await logout();
+    location.reload();
+  };
 
   let rejectionTimer: number | undefined;
   room.onMessage(MESSAGE.rejected, ({ reason }: RejectedMessage) => {
@@ -247,47 +247,10 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   byId(`proyecto-${config.projects[0]?.id}`)?.focus();
 }
 
-function showForm(config: WorldConfig, initialError = "") {
-  const form = byId<HTMLFormElement>("entrada");
-  const input = byId<HTMLInputElement>("nombre");
-  const error = byId("nombre-error");
-  form.hidden = false;
-  input.value = storage.get();
-  error.textContent = initialError;
-  input.setAttribute("aria-invalid", String(Boolean(initialError)));
-  input.focus();
-  form.onsubmit = async (event) => {
-    event.preventDefault();
-    const name = input.value.trim();
-    if (!isValidName(name)) {
-      error.textContent = joinErrorText("nombre-invalido");
-      input.setAttribute("aria-invalid", "true");
-      return input.focus();
-    }
-    error.textContent = "Entrando…";
-    try {
-      const room = await join(name);
-      storage.set(name);
-      startPanel(room, config, name);
-    } catch (err) {
-      error.textContent = joinErrorText((err as Error).message).replace("en el mundo", "en el panel");
-      input.setAttribute("aria-invalid", "true");
-      input.focus();
-    }
-  };
-}
-
 async function start() {
   const config = (await (await fetch("/config")).json()) as WorldConfig;
-  const fromUrl = new URLSearchParams(location.search).get("name");
-  if (fromUrl) {
-    try {
-      return startPanel(await join(fromUrl), config, fromUrl);
-    } catch (err) {
-      return showForm(config, joinErrorText((err as Error).message));
-    }
-  }
-  showForm(config);
+  const { room, session } = await enter(join);
+  startPanel(room, config, session.name);
 }
 
 start();

@@ -73,6 +73,7 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 - **Migración v2 (M4):** `player.last_seen_at` e índice `event(type, at)`. Antes de migrar una base con datos se crea `data/world.db.v1.bak` con `VACUUM INTO`.
 - **Construcción, fabricación y misiones (M5):** migración v3 (tablas `structure` y `mission` con clave primaria: no se construye ni se completa dos veces). `build` consume del inventario del proyecto exactamente lo requerido; `craft` consume del almacén común y deja el producto en él; la misión se completa en la misma transacción que la fabricación que la cumple. Las casillas de una estructura construida se suman a los bloqueos de movimiento. El progreso de un proyecto se calcula desde el registro de aportes, de modo que no vuelve a 0 al consumirse los materiales.
 - **Auditoría general:** para cada recurso u objeto, recolectado + fabricado = en inventarios + consumido; `audit().balanced` debe ser `true`.
+- **Cuentas (M6, migración v5, copia `*.v4.bak`):** tablas `account` (id UUID, nombre único sin distinguir mayúsculas, hash scrypt y sal, declaración de edad) y `session` (hash SHA-256 del token, cuenta, caducidad). Lógica en `apps/server/src/accounts.ts`, sin dependencia de Colyseus.
 - **Núcleo de proyectos (M5b, Q160):** `apps/server/src/projects/core.ts` concentra aportar, revisar, comprobar si un proyecto está completo o le faltan aprobaciones, consumir sus materiales al construir y reconstruir su estado. No conoce Colyseus ni el mapa: recibe actor y mensaje y devuelve `done`, `duplicate` o `rejected`; la sala aplica el resultado al estado sincronizado. Los permisos pasan por un único punto, `authorize` (`packages/shared/src/projects.ts`), que M6 conectará a las cuentas.
 - **Revisiones (M5b):** migración v4 (tabla `task_review`, última revisión por tarea; copia `*.v3.bak`). El historial completo está en los eventos `task-review`, con la evidencia `{contributions, lastEventId}`.
 - **Panel profesional (M5b):** página `/panel` (segunda entrada de esbuild, `panel.js`) que entra en la misma sala con `view: "panel"`: observador sin personaje, hasta `MAX_PANELS` = 4 además de los 4 jugadores (el límite de jugadores se comprueba en `onJoin`). Desde un panel, `move`, `collect`, `transfer`, `build` y `craft` se rechazan con `sin-personaje`.
@@ -81,6 +82,15 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 ## 5. Autenticación, privacidad y seguridad
 
 Cuentas locales al inicio (adultos); autorización por acción/recurso; mínimos datos; secretos fuera del código; validación del input del cliente; logs redactados sin datos sensibles. No trasladar credenciales ni documentos privados a IA externa sin consentimiento específico y evaluación de riesgos.
+
+**Implementación (M6, RF-003, Q165–Q167):**
+
+- **Cuentas:** `POST /api/registro` (nombre, contraseña de 8–128 caracteres, declaración de mayoría de edad), `/api/sesion` y `/api/salir`. El cuerpo JSON se lee con un límite de 4 KB. La contraseña se guarda con scrypt (sal de 16 bytes) y se compara en tiempo constante; si el nombre no existe se calcula igualmente un hash, para no delatarlo por el tiempo de respuesta. Tras 5 fallos, ese nombre queda bloqueado 30 s.
+- **Sesión:** token aleatorio de 32 bytes, guardado solo como hash y válido 30 días. El cliente lo conserva en `localStorage` y lo envía en las opciones de entrada a la sala (en el cuerpo de la petición, no en la URL). `WorldRoom.onAuth` lo valida y el nombre sale de la cuenta, nunca del cliente.
+- **Permisos:** `authorize` (núcleo de proyectos) recibe el nombre de la cuenta autenticada; los coordinadores de la configuración son nombres de cuenta.
+- **Límite de frecuencia:** cubo de fichas por sesión, 8 operaciones con efecto por segundo; el exceso recibe `demasiadas-solicitudes`.
+- **Logs:** una línea JSON por incidente (`apps/server/src/log.ts`): arranque, registro, inicio de sesión, sesión inválida, límite de frecuencia y error de operación. Llevan el id de cuenta cuando aplica y nunca contraseñas ni tokens (se comprueba en las pruebas).
+- **Riesgo aceptado:** en LAN por HTTP, contraseñas y tokens viajan sin cifrar dentro de la red privada. HTTPS queda para después del MVP.
 
 ## 6. Red local y federación (futuro)
 

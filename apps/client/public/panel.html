@@ -19,7 +19,7 @@
     input, select, textarea { font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; }
     textarea { min-height: 4.5em; resize: vertical; }
     fieldset { border: 1px solid #3a4652; border-radius: 4px; padding: 6px 10px; }
-    fieldset label { font-weight: 400; margin-right: 14px; }
+    fieldset label, #edad-bloque label { font-weight: 400; margin-right: 14px; }
     button { font: inherit; padding: 4px 12px; border-radius: 4px; border: 1px solid #ffd166; background: #2a323b; color: #f2f2f2; cursor: pointer; width: fit-content; }
     button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
     input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
@@ -46,16 +46,27 @@
     <p class="ayuda">Vista profesional del mismo estado que el mundo: lo que hagas aquí se ve en el mapa y al revés.
       <a href="/">Ir al mundo</a></p>
 
-    <form id="entrada" hidden novalidate>
-      <label for="nombre">Tu nombre</label>
-      <input id="nombre" name="nombre" maxlength="20" autocomplete="nickname" required aria-describedby="nombre-ayuda nombre-error">
-      <p id="nombre-ayuda" class="ayuda">El mismo nombre que usas en el mundo. El panel no crea personaje.</p>
+    <form id="entrada" hidden novalidate aria-labelledby="entrada-titulo">
+      <h2 id="entrada-titulo">Tu cuenta</h2>
+      <fieldset>
+        <legend>¿Tienes cuenta?</legend>
+        <label><input type="radio" name="modo" value="entrar" checked> Ya tengo cuenta: entrar</label>
+        <label><input type="radio" name="modo" value="registro"> Crear una cuenta nueva</label>
+      </fieldset>
+      <label for="nombre">Nombre</label>
+      <input id="nombre" name="nombre" maxlength="20" autocomplete="username" required aria-describedby="nombre-ayuda nombre-error">
+      <p id="nombre-ayuda" class="ayuda">De 1 a 20 letras, números, guion o guion bajo. Es tu nombre en el mundo y en el panel.</p>
+      <label for="contrasena">Contraseña</label>
+      <input id="contrasena" name="contrasena" type="password" maxlength="128" autocomplete="current-password" required aria-describedby="contrasena-ayuda nombre-error">
+      <p id="contrasena-ayuda" class="ayuda">Entre 8 y 128 caracteres. Solo se guarda cifrada en este servidor.</p>
+      <p id="edad-bloque" hidden><label><input type="checkbox" id="edad" name="edad"> Declaro que soy mayor de edad</label></p>
       <p id="nombre-error" class="error" role="alert"></p>
-      <button type="submit">Abrir el panel</button>
+      <button id="entrada-boton" type="submit">Entrar</button>
     </form>
 
     <section id="panel" hidden>
-      <p><span id="quien"></span> <span id="conexion" role="status" aria-live="polite"></span></p>
+      <p><span id="quien"></span> <span id="conexion" role="status" aria-live="polite"></span>
+        <button id="salir" type="button">Salir de la cuenta</button></p>
       <p id="aviso" class="aviso" role="status" aria-live="polite"></p>
       <p id="rechazo" class="error" role="alert"></p>
       <div id="proyectos"></div>
