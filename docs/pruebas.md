@@ -251,6 +251,23 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 118 de 118.
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 127 de 127.
 
+### F2a — 2026-10-10 (rama `f2a-editor-construcciones`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | `validateStructureDef`/`footprintProblems` (fuera del mapa, nodo, aparición, solapes, tamaño), objetos y recetas (entradas 0 o 5, recursos u objetos desconocidos), `checkCreateConstruction/Item/Recipe`, permisos y límites | OK |
+| TP-24 | `npm.cmd test` | Construcción creada solo por la administración; solar visible en el estado; solar inválido → rechazo con motivo; aportar, construir junto al solar nuevo, misión; cerrar sin construir retira el solar; persiste tras SIGKILL | OK |
+| TP-25 | `npm.cmd test` | Objeto y receta nuevos; fabricar exige edificio construido, cercanía y materiales; auditoría cuadrada con objetos nuevos | OK |
+| Migración v8 → v9 | `npm.cmd test` | Datos conservados y copia `*.v8.bak` | OK |
+| Navegador | Navegador integrado, teclado | Formulario de construcción con minimapa y texto «cabe / no cabe», objeto, receta, selector de proyectos en el juego y objeto nuevo en el almacén común | OK |
+| Dibujo del solar en el lienzo de Phaser | — | La lógica lee el estado; no se comprobó visualmente | NO VERIFICADO |
+| Contraste | — | Formularios y minimapa nuevos sin medir | NO VERIFICADO |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea «Molino del soak», «Harina del soak» y la receta «Moler»; los bots construyen y fabrican en cualquier edificio; 173 comprobaciones, 0 divergencias, convergencia máx. 1 ms; molino construido, 11 de harina; auditoría cuadrada (madera 120 = 50 + 70; piedra 77 = 25 + 52; fibra 100 = 73 + 27; herramienta 11; harina 11) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 134 de 134 | OK |
+| Prueba del usuario | Persona responsable | Pendiente | — |
+
+Totales F2a: `npm.cmd test` 134 de 134.
+
 Defectos encontrados y corregidos:
 - En la tabla del cronograma, las columnas nuevas no coincidían con sus encabezados.
 - Los bots del soak insistían en aportar a tareas bloqueadas; ahora las saltan.
