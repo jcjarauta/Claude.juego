@@ -206,7 +206,7 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 98 de 98.
 | Contraste | Medición por script, panel con formularios | 131 textos, mínimo 7,94:1 | OK |
 | Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea un proyecto (30 madera, 20 piedra) y su misión al empezar; 173 comprobaciones, 0 divergencias, convergencia máx. 3 ms; el proyecto del panel y el taller completados, las dos misiones completadas, 18 herramientas; auditoría cuadrada (madera 120 = 46 + 74; piedra 79 = 28 + 51; fibra 100 = 59 + 41; herramienta 18 = 18) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 107 de 107 | OK |
-| Prueba del usuario | Persona responsable | Pendiente | NO VERIFICADO |
+| Prueba del usuario | Persona responsable, 2026-10-10 | Proyecto y misión creados desde el panel como `coordinacion` y jugados en el mundo: «ya está probado»; fusión y subida autorizadas | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 107 de 107.
 
@@ -214,7 +214,8 @@ Defectos encontrados y corregidos:
 - Phaser capturaba las flechas y W/A/S/D en toda la ventana: en una lista desplegable las flechas movían al personaje en lugar de cambiar de opción. Ahora no hay captura global y el movimiento se ignora con el foco en listas y campos de texto.
 - Los avisos del panel del juego se tapaban entre sí (el aporte ocultaba la misión completada); ahora se leen juntos.
 - Un formulario enviado con el nombre vacío no mostraba el error junto a él; ahora sí, y los mensajes del servidor se muestran sin ids internos ni nombres de campo en inglés.
-- El navegador podía usar un `bundle.js` antiguo en caché con una página nueva (panel vacío en la prueba del usuario); el servidor envía ahora `Cache-Control: no-cache`.
+- El navegador podía usar un `bundle.js` antiguo en caché con una página nueva; el servidor envía ahora `Cache-Control: no-cache`.
+- En la prueba del usuario, un servidor antiguo seguía escuchando en `127.0.0.1:2567` mientras el nuevo escuchaba en `0.0.0.0:2567`; Windows enviaba las peticiones locales al antiguo. Se resolvió parando el antiguo (aviso para el futuro: comprobar con `netstat -ano | findstr :2567`).
 
 Defectos encontrados y corregidos:
 - `fetch` se niega a conectar con ciertos puertos (por ejemplo, el 3659). Las pruebas elegían puertos al azar entre 3600 y 4000 y fallaban de vez en cuando; ahora usan 42000–43999.
