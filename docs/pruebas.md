@@ -32,6 +32,8 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-14 | Agotar un nodo y dejar pasar tiempo de mundo con y sin clientes conectados (reloj controlable en pruebas) | El nodo recupera unidades según la regla, sin superar su máximo |
 | TP-15 | Panel profesional y jugador a la vez; plazas | Aportes cruzados visibles en ambas vistas; el panel no crea personaje ni ocupa plaza; acciones de mundo desde el panel rechazadas |
 | TP-16 | Revisar tareas con y sin rol, completas e incompletas | Solo la coordinación revisa tareas completas; nota obligatoria; decisión y evidencia persisten; aprobación obligatoria configurable |
+| TP-17 | Crear, jugar y cerrar proyectos desde el panel | Solo la administración crea y cierra; definiciones inválidas rechazadas con detalle; todos lo ven al momento; se completa con aportes; cerrado no admite aportes; límite de abiertos |
+| TP-18 | Misión configurable «proyecto completado» | Se completa en la misma transacción que el aporte o la aprobación que completa el proyecto, con autor; persiste tras caída |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
