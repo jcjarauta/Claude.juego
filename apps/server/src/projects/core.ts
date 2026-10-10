@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import {
-  authorize, checkCloseProject, checkContribution, checkCreateMission, checkCreateProject, checkReview, isValidRequestId,
+  authorize, checkCloseProject, checkContribution, checkCreateMission, checkCreateProject, checkReschedule, checkReview, isValidRequestId,
   missionSatisfied, projectStatus,
   type ContributionSource, type MissionDef, type ProjectDef, type RejectReason, type ReviewDecision, type WorldConfig,
 } from "@juego/shared";
@@ -64,6 +64,20 @@ export interface MissionEntry {
   createdAt: number;
 }
 
+/** Fechas vigentes de un proyecto y de sus tareas (F1b): la última replanificación o la de la definición. */
+export interface Schedule {
+  projectDue: string;
+  projectCount: number;
+  tasks: Record<string, { due: string; count: number }>;
+}
+
+export interface RescheduleDone {
+  project: ProjectDef;
+  taskId: string;
+  dueDate: string;
+  count: number;
+}
+
 export interface ProjectSnapshot {
   /** Aportado por recurso. */
   progress: Record<string, number>;
@@ -96,6 +110,23 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   // Lo aportado sale del registro: no disminuye cuando la construcción consume los materiales.
   const contributed = (projectId: string, resource: string) => store.contributedAmount(projectId, resource);
   const suffix = () => randomBytes(3).toString("hex");
+
+  function scheduleOf(project: ProjectDef): Schedule {
+    const schedule: Schedule = {
+      projectDue: project.dueDate ?? "", projectCount: 0,
+      tasks: Object.fromEntries(project.tasks.map((t) => [t.id, { due: t.dueDate ?? "", count: 0 }])),
+    };
+    for (const change of store.getScheduleChanges(project.id)) {
+      if (change.taskId === "") {
+        schedule.projectDue = change.dueDate;
+        schedule.projectCount++;
+      } else if (schedule.tasks[change.taskId]) {
+        schedule.tasks[change.taskId]!.due = change.dueDate;
+        schedule.tasks[change.taskId]!.count++;
+      }
+    }
+    return schedule;
+  }
 
   const isComplete = (project: ProjectDef) => project.tasks.every((t) => contributed(project.id, t.resource) >= t.required);
 
@@ -135,6 +166,36 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   return {
     projectById,
     projects: allProjects,
+    scheduleOf,
+
+    /** Replanificar la fecha objetivo de un proyecto o tarea (F1b, Q177): con motivo y trazado. */
+    reschedule(actor: string, payload: unknown): Outcome<RescheduleDone> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      return store.transaction((): Outcome<RescheduleDone> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const project = projectById(message.projectId);
+        const schedule = project ? scheduleOf(project) : undefined;
+        const check = checkReschedule({
+          actor, admins: config.admins, project, closed: Boolean(project && isClosed(project.id)),
+          taskId: message.taskId, dueDate: message.dueDate, reason: message.reason,
+          projectDue: schedule?.projectDue ?? "", taskDues: Object.fromEntries(Object.entries(schedule?.tasks ?? {}).map(([id, t]) => [id, t.due])),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason };
+        store.addScheduleChange(check.project.id, check.taskId, check.dueDate, actor, at, check.reason);
+        store.event("schedule-changed", actor, requestId, { project: check.project.id, task: check.taskId, dueDate: check.dueDate, reason: check.reason });
+        const count = check.taskId === "" ? schedule!.projectCount + 1 : schedule!.tasks[check.taskId]!.count + 1;
+        return { kind: "done", value: { project: check.project, taskId: check.taskId, dueDate: check.dueDate, count } };
+      });
+    },
+
+    /** Historia para las gráficas: aportado por día y replanificaciones (F1b). */
+    history(projectId: string) {
+      if (!projects.has(projectId)) return undefined;
+      return { projectId, days: store.contributionsByDay(projectId), schedule: store.getScheduleChanges(projectId) };
+    },
     projectEntries: () => [...projects.values()],
     missionEntries: () => [...missions.values()],
     isClosed,

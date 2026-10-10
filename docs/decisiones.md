@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q175 (BORRADOR)
+# Registro de decisiones — Q001 a Q180 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -178,6 +178,11 @@
 | Q173 | Proyectos | Los proyectos sin estructura se completan con sus tareas (y aprobaciones si se exigen). Estructuras, recetas y objetos nuevos siguen siendo configuración; su creación desde la interfaz queda para FUT-04. Aprobado con el plan de F1a | VERIFICADO (decisión); F1a |
 | Q174 | Misiones | Misiones con objetivo `project-completed`, además de `item-in-community`; se completan en la misma transacción que la operación que las cumple. Aprobado con el plan de F1a | VERIFICADO (decisión); F1a |
 | Q175 | Proyectos | Fase F1a elegida por la persona responsable como primera fase posterior al MVP (FUT-05): proyectos y misiones configurables desde el panel. Límites: 20 proyectos abiertos, 8 tareas (una por recurso), cantidades 1–1000, 50 misiones | VERIFICADO (decisión); F1a |
+| Q176 | Gestión | Fechas objetivo opcionales con precisión de día («AAAA-MM-DD») para proyectos y tareas; una tarea no puede vencer después que su proyecto; «vencida» = fecha pasada y sin terminar. Aprobado con el plan de F1b | VERIFICADO (decisión); F1b |
+| Q177 | Gestión | Replanificar lo hacen la coordinación o la administración, con motivo obligatorio; queda historial (tabla y evento) y la definición original no cambia. Aprobado con el plan de F1b | VERIFICADO (decisión); F1b |
+| Q178 | Gestión | El tablero refleja estados que deciden los aportes y las revisiones: no hay arrastrar; desde las tarjetas la coordinación aprueba o rechaza con nota. Aprobado con el plan de F1b | VERIFICADO (decisión); F1b |
+| Q179 | Gestión | Gráficas sin librerías externas y siempre con tabla equivalente; la historia se pide por HTTP con el token en la cabecera `Authorization`, nunca en la URL, con límite de frecuencia. Aprobado con el plan de F1b | VERIFICADO (decisión); F1b |
+| Q180 | Gestión | Fase F1b (vistas de gestión: tablero, cronograma e indicadores) elegida por la persona responsable tras F1a (Q012 pasa de post-MVP a implementado en versión sencilla; Gantt con dependencias sigue fuera) | VERIFICADO (decisión); F1b |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

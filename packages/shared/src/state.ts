@@ -40,6 +40,10 @@ export const TaskState = schema({
   resource: t.string(),
   required: t.uint16(),
   acceptance: t.string(),
+  /** Fecha objetivo vigente «AAAA-MM-DD» o "" (F1b). */
+  dueDate: t.string(),
+  /** Veces que se ha replanificado. */
+  reschedules: t.uint16(),
   /** "pendiente" | "en-curso" | "completada" | "aprobada" | "rechazada" */
   status: t.string(),
   /** Última revisión: "" (ninguna), "aprobada" o "rechazada". */
@@ -63,6 +67,9 @@ export const ProjectState = schema({
   closedBy: t.string(),
   /** Completar exige todas las tareas aprobadas (Q162). */
   requiresApproval: t.boolean(),
+  /** Fecha objetivo vigente «AAAA-MM-DD» o "" (F1b). */
+  dueDate: t.string(),
+  reschedules: t.uint16(),
   /** Con estructura: "en-curso" | "listo" | "construido". Sin estructura: "en-curso" | "en-revision" | "completado". */
   status: t.string(),
   /** Clasificación de realidad (Q163): en el MVP siempre "VIRTUAL". */
@@ -125,8 +132,10 @@ export function projectDefFromState(id: string, p: ProjectState): ProjectDef {
   return {
     id, name: p.name, description: p.description, reality: p.reality as ProjectDef["reality"],
     coordinators: [...p.coordinators], buildRequiresApproval: p.requiresApproval,
+    ...(p.dueDate ? { dueDate: p.dueDate } : {}),
     tasks: [...p.tasks.entries()].map(([taskId, task]) => ({
       id: taskId, title: task.title, resource: task.resource, required: task.required, acceptance: task.acceptance,
+      ...(task.dueDate ? { dueDate: task.dueDate } : {}),
     })),
   };
 }

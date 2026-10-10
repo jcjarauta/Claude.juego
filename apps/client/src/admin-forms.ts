@@ -51,6 +51,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const description = el("textarea", { maxLength: PANEL_LIMITS.description });
   const coordinators = el("input", { autocomplete: "off" });
   const approval = el("input", { type: "checkbox", id: "nuevo-aprobacion" });
+  const projectDue = el("input", { type: "date" });
   const taskList = el("ol", { className: "tareas-nuevas" });
   const addTask = el("button", { type: "button", textContent: "Añadir tarea" });
   const projectErrors = el("div", { className: "error", role: "alert" });
@@ -59,6 +60,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     field("Nombre", name, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`),
     field("Descripción", description, `Opcional, hasta ${PANEL_LIMITS.description} caracteres.`),
     el("fieldset", {}, el("legend", {}, "Tareas (una por recurso)"), taskList, addTask),
+    field("Fecha objetivo del proyecto", projectDue, "Opcional (AAAA-MM-DD). Las tareas no pueden vencer después."),
     field("Coordinación", coordinators, "Nombres de cuenta separados por comas. Si lo dejas vacío, coordinas tú."),
     el("p", {}, el("label", {}, approval, " Completar exige que la coordinación apruebe todas las tareas")),
     projectErrors,
@@ -66,7 +68,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   );
   projectForm.setAttribute("aria-labelledby", "nuevo-proyecto-titulo");
 
-  interface TaskRow { li: HTMLLIElement; resource: HTMLSelectElement; title: HTMLInputElement; required: HTMLInputElement; acceptance: HTMLInputElement }
+  interface TaskRow { li: HTMLLIElement; resource: HTMLSelectElement; title: HTMLInputElement; required: HTMLInputElement; acceptance: HTMLInputElement; due: HTMLInputElement }
   const rows: TaskRow[] = [];
   function addTaskRow() {
     if (rows.length >= Math.min(PANEL_LIMITS.tasks, resources.length)) return;
@@ -78,12 +80,14 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     const title = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
     const required = el("input", { type: "number", min: "1", max: String(PANEL_LIMITS.required), value: "5", inputMode: "numeric" });
     const acceptance = el("input", { maxLength: PANEL_LIMITS.acceptance, autocomplete: "off" });
+    const due = el("input", { type: "date" });
     const remove = el("button", { type: "button", textContent: `Quitar la tarea ${n}` });
     const li = el("li", { className: "tarea-nueva" },
       field(`Recurso de la tarea ${n}`, resource), field(`Título de la tarea ${n}`, title),
       field(`Cantidad de la tarea ${n}`, required, `De 1 a ${PANEL_LIMITS.required}.`),
-      field(`Criterio de aceptación de la tarea ${n}`, acceptance, "Opcional; por defecto «Aportar N de recurso»."), remove);
-    const row = { li, resource, title, required, acceptance };
+      field(`Criterio de aceptación de la tarea ${n}`, acceptance, "Opcional; por defecto «Aportar N de recurso»."),
+      field(`Fecha objetivo de la tarea ${n}`, due, "Opcional."), remove);
+    const row = { li, resource, title, required, acceptance, due };
     remove.onclick = () => {
       rows.splice(rows.indexOf(row), 1);
       li.remove();
@@ -110,11 +114,13 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       title: r.title.value.trim() || `Aportar ${r.resource.selectedOptions[0]?.textContent?.toLowerCase() ?? r.resource.value}`,
       required: Number(r.required.value),
       ...(r.acceptance.value.trim() ? { acceptance: r.acceptance.value.trim() } : {}),
+      ...(r.due.value ? { dueDate: r.due.value } : {}),
     }));
     const list = coordinators.value.split(",").map((s) => s.trim()).filter(Boolean);
     const message: CreateProjectMessage = {
       requestId: newRequestId(), name: name.value.trim(), description: description.value.trim(), tasks,
       ...(list.length ? { coordinators: list } : {}), requiresApproval: approval.checked,
+      ...(projectDue.value ? { dueDate: projectDue.value } : {}),
     };
     pendingProject = message.name;
     room.send(MESSAGE.createProject, message);

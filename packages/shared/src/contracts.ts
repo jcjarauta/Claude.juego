@@ -20,6 +20,7 @@ export const MESSAGE = {
   createProject: "create-project",
   closeProject: "close-project",
   createMission: "create-mission",
+  reschedule: "reschedule",
   rejected: "rejected",
 } as const;
 
@@ -154,6 +155,8 @@ export interface NewTask {
   required: number;
   /** Criterio legible; por defecto «Aportar N de X». */
   acceptance?: string;
+  /** Fecha objetivo «AAAA-MM-DD» (F1b). */
+  dueDate?: string;
 }
 
 /** Crear un proyecto desde el panel (solo administración, Q171). Queda publicado e inmutable (Q172). */
@@ -166,6 +169,27 @@ export interface CreateProjectMessage {
   coordinators?: string[];
   /** Completar exige todas las tareas aprobadas. */
   requiresApproval?: boolean;
+  /** Fecha objetivo «AAAA-MM-DD» (F1b). */
+  dueDate?: string;
+}
+
+/** Replanificar la fecha objetivo de un proyecto o de una tarea (F1b, Q177). */
+export interface RescheduleMessage {
+  requestId: string;
+  projectId: string;
+  /** Vacío o ausente: el proyecto. */
+  taskId?: string;
+  dueDate: string;
+  /** Motivo: 1–500 caracteres. */
+  reason: string;
+}
+
+/** Historia de un proyecto para las gráficas (F1b): aportado por día. */
+export interface HistoryResponse {
+  projectId: string;
+  days: { day: string; amount: number }[];
+  /** Replanificaciones, de la más antigua a la más reciente. */
+  schedule: { taskId: string; dueDate: string; by: string; at: number; reason: string }[];
 }
 
 export interface CloseProjectMessage {
@@ -226,7 +250,9 @@ export type RejectReason =
   | "proyecto-de-serie"
   | "demasiados-proyectos"
   | "demasiadas-misiones"
-  | "definicion-invalida";
+  | "definicion-invalida"
+  | "fecha-invalida"
+  | "motivo-invalido";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -271,6 +297,8 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "demasiados-proyectos": "Hay demasiados proyectos abiertos (máximo 20). Cierra alguno antes de crear otro.",
   "demasiadas-misiones": "Hay demasiadas misiones (máximo 50).",
   "definicion-invalida": "La definición no es válida; revisa los campos indicados.",
+  "fecha-invalida": "La fecha no es válida: usa AAAA-MM-DD; una tarea no puede vencer después que su proyecto.",
+  "motivo-invalido": "Escribe un motivo de 1 a 500 caracteres.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

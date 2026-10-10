@@ -6,7 +6,7 @@ import type { MissionDef, ProjectDef } from "@juego/shared";
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -138,6 +138,19 @@ export const MIGRATIONS: Record<number, string> = {
       created_at INTEGER NOT NULL
     );
   `,
+  // F1b: replanificaciones. La fecha vigente es la última; la definición original no cambia (Q177).
+  7: `
+    CREATE TABLE schedule_change (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      task_id TEXT NOT NULL DEFAULT '',
+      due_date TEXT NOT NULL,
+      changed_by TEXT NOT NULL,
+      changed_at INTEGER NOT NULL,
+      reason TEXT NOT NULL
+    );
+    CREATE INDEX schedule_change_project ON schedule_change (project_id, id);
+  `,
 };
 
 export function openStore(path: string) {
@@ -211,6 +224,12 @@ export function openStore(path: string) {
       FROM project_def ORDER BY created_at, id`),
     addProjectDef: db.prepare("INSERT INTO project_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     closeProjectDef: db.prepare("UPDATE project_def SET closed_by = ?, closed_at = ? WHERE id = ? AND closed_at IS NULL"),
+    addScheduleChange: db.prepare(`INSERT INTO schedule_change (project_id, task_id, due_date, changed_by, changed_at, reason)
+      VALUES (?, ?, ?, ?, ?, ?)`),
+    getScheduleChanges: db.prepare(`SELECT task_id AS taskId, due_date AS dueDate, changed_by AS "by", changed_at AS "at", reason
+      FROM schedule_change WHERE project_id = ? ORDER BY id`),
+    contributionsByDay: db.prepare(`SELECT date(at / 1000, 'unixepoch', 'localtime') AS day, SUM(json_extract(data, '$.amount')) AS amount
+      FROM event WHERE type = 'contribute' AND json_extract(data, '$.project') = ? GROUP BY day ORDER BY day`),
     getMissionDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM mission_def ORDER BY created_at, id"),
     addMissionDef: db.prepare("INSERT INTO mission_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
@@ -333,6 +352,18 @@ export function openStore(path: string) {
     /** Cierra un proyecto abierto; lanza si no existe o ya estaba cerrado. */
     closeProjectDef(id: string, by: string, at: number) {
       if (Number(q.closeProjectDef.run(by, at, id).changes) !== 1) throw new Error(`proyecto-no-cerrable: ${id}`);
+    },
+    addScheduleChange(projectId: string, taskId: string, dueDate: string, by: string, at: number, reason: string) {
+      q.addScheduleChange.run(projectId, taskId, dueDate, by, at, reason);
+    },
+    /** Replanificaciones de un proyecto, de la más antigua a la más reciente (F1b). */
+    getScheduleChanges(projectId: string): { taskId: string; dueDate: string; by: string; at: number; reason: string }[] {
+      return (q.getScheduleChanges.all(projectId) as { taskId: string; dueDate: string; by: string; at: number; reason: string }[])
+        .map((r) => ({ taskId: r.taskId, dueDate: r.dueDate, by: r.by, at: Number(r.at), reason: r.reason }));
+    },
+    /** Aportado por día (hora local del servidor) a un proyecto, para la historia (F1b). */
+    contributionsByDay(projectId: string): { day: string; amount: number }[] {
+      return (q.contributionsByDay.all(projectId) as { day: string; amount: number }[]).map((r) => ({ day: r.day, amount: Number(r.amount) }));
     },
     getMissionDefs(): { def: MissionDef; createdBy: string; createdAt: number }[] {
       return (q.getMissionDefs.all() as { definition: string; createdBy: string; createdAt: number }[])

@@ -332,6 +332,20 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.applyMissions(done.missions);
     },
 
+    /** Replanificar la fecha objetivo de un proyecto o tarea (F1b, Q177). */
+    [MESSAGE.reschedule]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.reschedule(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+      const { project, taskId, dueDate, count } = outcome.value;
+      const projectState = this.state.projects.get(project.id)!;
+      const target = taskId === "" ? projectState : projectState.tasks.get(taskId)!;
+      target.dueDate = dueDate;
+      target.reschedules = count;
+    },
+
     /** Crear un proyecto desde el panel (F1a, solo administración). */
     [MESSAGE.createProject]: (client: Client, payload: unknown) => {
       const actor = this.actorOf(client);
@@ -546,6 +560,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       name: project.name, description: project.description, origin, createdBy, createdAt,
       phase: closedAt ? "cerrado" : "abierto", closedBy, requiresApproval: project.buildRequiresApproval,
     });
+    const schedule = this.core.scheduleOf(project);
+    projectState.dueDate = schedule.projectDue;
+    projectState.reschedules = schedule.projectCount;
     for (const [resource, amount] of Object.entries(snapshot.progress)) projectState.progress.set(resource, amount);
     for (const [name, byResource] of Object.entries(snapshot.contributors)) {
       const totals = new ContributorTotals();
@@ -559,6 +576,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const review = snapshot.reviews[task.id];
       projectState.tasks.set(task.id, new TaskState({
         title: task.title, resource: task.resource, required: task.required, acceptance: task.acceptance,
+        dueDate: schedule.tasks[task.id]?.due ?? "", reschedules: schedule.tasks[task.id]?.count ?? 0,
         status: "", decision: review?.decision ?? "", reviewedBy: review?.reviewedBy ?? "",
         reviewedAt: review?.reviewedAt ?? 0, note: review?.note ?? "",
       }));

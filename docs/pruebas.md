@@ -34,6 +34,8 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-16 | Revisar tareas con y sin rol, completas e incompletas | Solo la coordinación revisa tareas completas; nota obligatoria; decisión y evidencia persisten; aprobación obligatoria configurable |
 | TP-17 | Crear, jugar y cerrar proyectos desde el panel | Solo la administración crea y cierra; definiciones inválidas rechazadas con detalle; todos lo ven al momento; se completa con aportes; cerrado no admite aportes; límite de abiertos |
 | TP-18 | Misión configurable «proyecto completado» | Se completa en la misma transacción que el aporte o la aprobación que completa el proyecto, con autor; persiste tras caída |
+| TP-19 | Fechas objetivo y replanificación | Fechas válidas al crear; replanificar solo con permiso, motivo y fechas coherentes; historial con evento; persiste tras caída |
+| TP-20 | Historia para gráficas | Solo con sesión (token en la cabecera); serie por día igual a los aportes; replanificaciones; límite de frecuencia; rendimiento con 50 000 aportes |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
@@ -209,6 +211,27 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 98 de 98.
 | Prueba del usuario | Persona responsable, 2026-10-10 | Proyecto y misión creados desde el panel como `coordinacion` y jugados en el mundo: «ya está probado»; fusión y subida autorizadas | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 107 de 107.
+
+### F1b — 2026-10-10 (rama `f1b-vistas-gestion`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | Fechas (formato, 2026-02-30 y 2025-02-29 inválidas, cambio de hora, cambio de año); «vencida» (el mismo día no); columnas del tablero; serie acumulada; indicadores (avance limitado a lo requerido, ritmo de 7 días sin contar el futuro, retraso); validación de fechas en la definición; `checkReschedule` (permiso, proyecto cerrado, fecha incoherente, motivo) | OK |
+| TP-19 | `npm.cmd test` | Fecha inválida al crear → `definicion-invalida`; fechas visibles en el estado; replanificar sin permiso → `sin-permiso`, sin motivo → `motivo-invalido`, tarea después del proyecto o proyecto antes que una tarea → `fecha-invalida`; con permiso cambian fecha y contador; eventos con motivo; tras SIGKILL, fechas vigentes y contadores intactos | OK |
+| TP-20 | `npm.cmd test` | Sin token o con token inventado → 401; con token, aportado por día igual a los aportes y replanificaciones con autor y motivo; proyecto inexistente → 404; ráfaga → 429 | OK |
+| Rendimiento de la historia | `npm.cmd test` con 50 000 aportes | 48 ms | OK |
+| Migración v6 → v7 | `npm.cmd test` | Datos conservados y copia `*.v6.bak` | OK |
+| Navegador | Navegador integrado, solo teclado | Pestañas con flechas, Inicio y Fin; tablero con columnas y contadores, tarjeta vencida marcada; aprobar desde una tarjeta con nota (la tarjeta pasa a «Aprobada» y se anuncia); cronograma con barras, «hoy» y tabla; replanificar una tarea (fecha y contador actualizados); indicadores por proyecto y globales; selector de proyecto y evolución con tabla; fecha objetivo y días restantes en el panel del juego | OK |
+| Contraste | Medición por script en las tres vistas | 72 textos, mínimo 9,99:1; etiquetas del gráfico 16,66:1 | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea un proyecto con fechas y lo replanifica una vez; 173 comprobaciones del estado completo (incluidas fechas y contadores), 0 divergencias, convergencia máx. 3 ms; proyectos completados y misiones completadas; auditoría cuadrada (madera 120 = 43 + 77; piedra 79 = 26 + 53; fibra 100 = 57 + 43; herramienta 19 = 19) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 118 de 118 | OK |
+| Prueba del usuario | Persona responsable, 2026-10-10 | «ya está probado»; fusión y subida autorizadas | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 118 de 118.
+
+Defectos encontrados y corregidos durante la demostración:
+- Tras aprobar desde una tarjeta o replanificar, el foco caía en la página (el botón se redibuja); ahora vuelve al panel de la vista.
+- El cronograma mostraba los estados con su identificador interno («en-curso») y «1 vez/veces»; ahora con texto legible y plural correcto.
 
 Defectos encontrados y corregidos:
 - Phaser capturaba las flechas y W/A/S/D en toda la ventana: en una lista desplegable las flechas movían al personaje en lugar de cambiar de opción. Ahora no hay captura global y el movimiento se ignora con el foco en listas y campos de texto.

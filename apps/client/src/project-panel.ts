@@ -1,5 +1,5 @@
 import {
-  isNextTo, missionDefFromState,
+  daysBetween, isNextTo, isOverdue, localDay, missionDefFromState,
   type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
   type StructureState, type WorldConfig,
 } from "@juego/shared";
@@ -78,6 +78,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
   let lastTools: number | undefined;
   const heading = byId("proyecto-titulo");
   const status = byId("proyecto-estado");
+  const dueText = byId("proyecto-fecha");
   const tasks = byId<HTMLUListElement>("proyecto-tareas");
   const contributors = byId<HTMLUListElement>("proyecto-aportes");
   const activity = byId<HTMLOListElement>("proyecto-actividad");
@@ -189,6 +190,12 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         if (lastStatus && lastStatus !== state.status && state.status === "completado") say(`¡Proyecto ${project.name} completado!`);
       }
       if (closed) status.textContent = `Cerrado por ${state.closedBy}: ya no admite aportes. ${status.textContent}`;
+      // Fecha objetivo (F1b): solo lectura; se replanifica desde el panel de proyectos.
+      const today = localDay();
+      const finished = state.status === "completado" || state.status === "construido";
+      dueText.textContent = !state.dueDate ? "sin fecha"
+        : isOverdue(state.dueDate, finished, today) ? `${state.dueDate} — VENCIDO hace ${-daysBetween(today, state.dueDate)} días`
+          : finished ? state.dueDate : `${state.dueDate} (faltan ${daysBetween(today, state.dueDate)} días)`;
       lastStatus = state.status;
 
       // Construir (Q156): visible con el proyecto listo; el servidor decide.
