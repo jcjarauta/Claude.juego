@@ -11,7 +11,7 @@
 // No forma parte de `npm.cmd test`; se ejecuta con `npm.cmd run soak`.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { isNextTo, MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
+import { addDays, isNextTo, localDay, MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
 import { openStore } from "../apps/server/src/store.ts";
 import { joinPanel, joinWorld, sleep, startServer, tempDb, waitFor, type TestPanel, type TestPlayer } from "../apps/server/test/helpers.ts";
 
@@ -32,13 +32,16 @@ const viewers: { room: TestPlayer["room"] }[] = [...bots, panel];
 // Proyecto y misión creados desde el panel (F1a): sin tocar la configuración ni reiniciar.
 const POZO = "Pozo de la aldea";
 panel.room.send(MESSAGE.createProject, {
-  requestId: randomUUID(), name: POZO, description: "Creado por el soak.", requiresApproval: false,
-  tasks: [{ title: "Madera para el brocal", resource: "madera", required: 30 }, { title: "Piedra para el pozo", resource: "piedra", required: 20 }],
+  requestId: randomUUID(), name: POZO, description: "Creado por el soak.", requiresApproval: false, dueDate: addDays(localDay(), 30),
+  tasks: [{ title: "Madera para el brocal", resource: "madera", required: 30, dueDate: addDays(localDay(), 20) }, { title: "Piedra para el pozo", resource: "piedra", required: 20 }],
 });
 await waitFor(() => [...panel.room.state.projects.values()].some((p) => p.name === POZO), 5000);
 const pozoId = [...panel.room.state.projects.entries()].find(([, p]) => p.name === POZO)![0];
 panel.room.send(MESSAGE.createMission, { requestId: randomUUID(), name: "Agua para la aldea", description: "", objective: { kind: "project-completed", project: pozoId } });
 await waitFor(() => [...panel.room.state.missions.values()].some((m) => m.name === "Agua para la aldea"), 5000);
+// F1b: una replanificación con motivo.
+panel.room.send(MESSAGE.reschedule, { requestId: randomUUID(), projectId: pozoId, dueDate: addDays(localDay(), 45), reason: "Soak: ampliamos el plazo" });
+await waitFor(() => panel.room.state.projects.get(pozoId)!.reschedules === 1, 5000);
 
 let running = true;
 let paused = false;
@@ -168,7 +171,7 @@ function fullSnapshot(viewer: { room: TestPlayer["room"] }): string {
   const structures = [...state.structures.entries()].map(([id, s]) => `${id}:${s.built}:${s.builtBy}`).sort().join(";");
   const missions = [...state.missions.entries()].map(([id, m]) => `${id}:${m.status}:${m.completedBy}`).sort().join(";");
   const projects = [...state.projects.entries()].map(([id, p]) =>
-    `${id}:${p.status}:${p.phase}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}`).sort().join(",")}`);
+    `${id}:${p.status}:${p.phase}:${p.dueDate}/${p.reschedules}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}`).sort().join(",")}`);
   return `${players.join(" ")} | ${nodes} | ${community} | ${projects.join(" ")} | ${structures} | ${missions}`;
 }
 
@@ -210,7 +213,7 @@ const projectSummary = project ? (() => {
     mission: config.missions[0] ? state.missions.get(config.missions[0].id)?.status : null,
     tools: recipe ? state.community.get(recipe.output.item) ?? 0 : null,
     tasks: Object.fromEntries([...p.tasks.entries()].map(([id, t]) => [id, `${t.status}${t.reviewedBy ? ` (${t.reviewedBy})` : ""}`])),
-    pozo: { status: state.projects.get(pozoId)?.status, progress: Object.fromEntries(state.projects.get(pozoId)?.progress.entries() ?? []) },
+    pozo: { status: state.projects.get(pozoId)?.status, dueDate: state.projects.get(pozoId)?.dueDate, reschedules: state.projects.get(pozoId)?.reschedules, progress: Object.fromEntries(state.projects.get(pozoId)?.progress.entries() ?? []) },
     missions: Object.fromEntries([...state.missions.values()].map((m) => [m.name, m.status])),
   };
 })() : null;
