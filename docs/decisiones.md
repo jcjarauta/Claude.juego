@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q189 (BORRADOR)
+# Registro de decisiones — Q001 a Q194 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -192,6 +192,11 @@
 | Q187 | Construcciones | Definiciones inmutables (como Q172); cerrar el proyecto de un solar sin construir lo retira del mapa; un edificio construido no se retira en esta etapa. Aprobado con el plan de F2a | VERIFICADO (decisión); F2a |
 | Q188 | Construcciones | Límites: 10 construcciones, 20 objetos y 20 recetas creados en el panel; solar de 1–5 casillas por lado; recetas de 1–4 entradas. Aprobado con el plan de F2a | VERIFICADO (decisión); F2a |
 | Q189 | Trabajo | CLAUDE.md actualizado con el estado posterior al MVP y la sección «Entorno y pruebas»; permisos para `npm.cmd test/typecheck/build`. Aprobado con el plan de F2a | VERIFICADO (decisión); AHORA |
+| Q190 | Producción | Las entradas de una receta pueden ser recursos u objetos del almacén común; no se admiten ciclos (salidas y subproductos incluidos); el servidor rechaza el ciclo con su camino. Aprobado con el plan de F2b | VERIFICADO (decisión); F2b |
+| Q191 | Producción | Una receta es una acción (verbo, ≤ 20 caracteres, «Fabricar» por omisión) en un edificio principal junto al que se está, con edificios extra que solo deben estar construidos en cualquier lugar. Aprobado con el plan de F2b | VERIFICADO (decisión); F2b |
+| Q192 | Producción | Una receta puede dejar subproductos además de su salida principal; la fabricación es instantánea y el tiempo de fabricación queda como evolución futura. Aprobado con el plan de F2b | VERIFICADO (decisión); F2b |
+| Q193 | Construcciones | Los límites de construcción (entradas, cantidades, subproductos, edificios extra, número de construcciones, objetos y recetas, lado del solar) son configurables en `buildLimits` de `content/world.json`, con valores por omisión y techos duros en el código; se aplican a lo nuevo, no a lo ya creado. Sustituye a las cifras fijas de Q188. Aprobado con el plan de F2b | VERIFICADO (decisión); F2b |
+| Q194 | Construcciones | Los nombres de objetos y recetas creados en el panel no se repiten (sin distinguir mayúsculas ni acentos; los objetos, tampoco con los recursos). Pedido por la persona responsable al probar F2a | VERIFICADO (decisión); F2b |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

@@ -41,6 +41,7 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-23 | Comentarios | Número y último en vivo; validación; hilo por HTTP con token; persiste |
 | TP-24 | Construcciones desde el panel | Solo la administración; solares válidos (no fuera del mapa, nodos, aparición ni solapes); solar visible para todos; aportar, construir junto al solar, bloqueo y misión; cerrar sin construir lo retira; persiste |
 | TP-25 | Objetos y recetas desde el panel | Objeto y receta creados con permiso y validación; fabricar exige edificio construido, cercanía y materiales; misión de objetos nuevos; auditoría cuadrada |
+| TP-26 | Cadenas de producción | Objeto como entrada; subproductos; verbo; edificio extra exigido (`faltan-edificios`); ciclo rechazado con su camino; límites configurables; misión con el objeto final; persiste; auditoría cuadrada |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
