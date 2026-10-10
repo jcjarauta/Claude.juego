@@ -291,6 +291,23 @@ Defectos encontrados y corregidos durante la verificación:
 - Al crear las listas dinámicas, una referencia anticipada impedía arrancar el panel; corregido al verificarlo en el navegador.
 - Tras crear una receta, los campos numéricos del formulario quedaban vacíos al reiniciarlo (los valores iniciales no eran los de `reset()`; venía de F2a). Ahora hay una sola función `el()` compartida que los fija.
 
+### F2c — 2026-10-10 (rama `f2c-habilidades`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | Validación de habilidad (niveles, nombres repetidos, receta de práctica conocida y abierta); `requiresSkills` (existente, nivel válido, repetida, máximo); `missingSkills` y su texto; práctica (umbral exacto, nivel máximo, cuentas previas); crear y conceder (solo administración, solo sube, motivos); enseñar (un nivel por debajo del maestro, un nivel cada vez, cercanía, conexión); límites `skills`, `skillLevels`, `recipeSkills`; habilidades de serie en `world.json`; cadenas con habilidades | OK |
+| TP-27 | `npm.cmd test` | «Molinero» creada en el panel con 3 niveles; sin permiso → `sin-permiso`; definiciones inválidas y nombre repetido rechazados; receta que exige Oficial; sin la habilidad → `falta-habilidad` sin gastar nada; practicar sube Aprendiz, Oficial y Maestro (progreso sincronizado); enseñar: sin nivel, lejos, oferta repetida, quien no es el destinatario, rechazo, aceptación (un nivel cada vez) y tope «un nivel por debajo del maestro»; conceder a una cuenta desconectada, sin permiso, a una cuenta inexistente y sin bajar de nivel; niveles y cuentas de práctica persisten tras SIGKILL; auditoría cuadrada | OK |
+| Migración v9 → v10 | `npm.cmd test` | Datos conservados y copia `*.v9.bak` | OK |
+| Navegador | Navegador integrado, servidor y base temporales | Habilidad con niveles que se añaden (contador «n de máximo»); recetas de práctica ofrecidas solo las abiertas; receta con «Añadir habilidad» (habilidad y nivel mínimo; error si falta el nivel); conceder (cuenta inexistente rechazada con motivo, concesión confirmada, repetida rechazada); la vista de cadenas dice «con habilidad Molinero (Oficial)»; vista «Habilidades»; panel del juego «Tus habilidades» con el nivel, «Falta: …» y la ayuda de enseñar | OK |
+| Contraste | Medición por script en el juego | Habilidades, ayuda, botón y etiquetas: mínimo 10,87:1 | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea la cadena, la habilidad «Molinero del soak» y «Moler fino» (exige Oficial); 173 comprobaciones, 0 divergencias, convergencia máx. 2 ms; los cuatro bots ganaron el nivel Aprendiz practicando; auditoría cuadrada (harina producida 42 = consumida 42; pan 21; herramienta 5; madera 120 = 33 + 87; piedra 80 = 48 + 32; fibra 100 = 85 + 15). Ningún bot llegó a Oficial en este soak: ese camino (y «Moler fino») lo cubre TP-27 | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 164 de 164 | OK |
+| Prueba del usuario | Persona responsable | Pendiente | — |
+
+Totales F2c: `npm.cmd test` 164 de 164.
+
+Observación: la enseñanza entre dos sesiones se verifica en TP-27 (servidor); en el navegador integrado solo hay una sesión, así que la interfaz de ofertas (aceptar y rechazar) queda para tu prueba.
+
 Defectos encontrados en la prueba del usuario y corregidos:
 - Al crear un objeto o una receta, la confirmación solo salía en la línea de avisos de la cabecera; ahora aparece junto al formulario, con la lista de objetos existentes.
 - Se podían crear objetos (y recetas) con el mismo nombre; el servidor los rechaza ahora sin distinguir mayúsculas ni acentos (los objetos también contra los nombres de recursos). Los duplicados ya creados en bases de prueba permanecen (las definiciones son inmutables, Q187).
