@@ -136,7 +136,8 @@ test("conceder: solo la administración, cuenta existente, nivel válido y solo 
   assert.deepEqual(checkGrantSkill({ ...input, actor: "bea", payload: { skill: "molinero", level: 1 } }), { ok: false, reason: "sin-permiso" });
   assert.equal(checkGrantSkill({ ...input, account: undefined, payload: { skill: "molinero", level: 1 } }).ok, false, "sin cuenta");
   for (const payload of [{ skill: "panadero", level: 1 }, { skill: "molinero", level: 0 }, { skill: "molinero", level: 4 }, { skill: "molinero", level: 1.5 }]) {
-    assert.deepEqual(checkGrantSkill({ ...input, payload }), { ok: false, reason: "solicitud-invalida" }, JSON.stringify(payload));
+    const r = checkGrantSkill({ ...input, payload });
+    assert.ok(!r.ok && r.reason === "solicitud-invalida" && r.details?.length, JSON.stringify(payload));
   }
   const same = checkGrantSkill({ ...input, currentLevel: 2, payload: { skill: "molinero", level: 2 } });
   assert.ok(!same.ok && same.reason === "definicion-invalida");

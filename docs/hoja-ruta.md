@@ -29,6 +29,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | F1c | Responsables, dependencias y comentarios (RF-020 a RF-022) | F1b | Un proyecto con dependencias se juega en orden; responsables y comentarios en vivo y persistentes — **CERRADA** 2026-10-10 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 | F2a | Editor de construcciones: edificios con solar, objetos y recetas desde el panel (RF-023, RF-024; FUT-04 en pequeño) | F1c | Una construcción, un objeto y una receta creados en el panel se construyen y fabrican en el mundo y persisten — **CERRADA** 2026-10-10 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 | F2b | Cadenas de producción: entradas de objetos, verbo, edificios extra, subproductos, límites configurables y vista de cadenas (RF-025) | F2a | Una cadena de dos edificios con objeto intermedio y subproducto se crea en el panel, se construye y se fabrica, y persiste — **CERRADA** 2026-10-10 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
+| F2c | Habilidades: niveles que se practican, se conceden o se enseñan; recetas que las exigen (RF-026) | F2b | Una habilidad creada en el panel se gana por las tres vías y abre una receta que la exige, y persiste — **HECHA en `f2c-habilidades`**; pendiente: tu prueba y fusión |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -97,4 +98,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** plan de F2c (habilidades) por preguntas. Quedan planteadas F2c (habilidades; una receta podrá exigir varias, con filas «Añadir habilidad» como las entradas), F2d (espacio de conversación fijo: Guía y canal común) y F2e (jugadores simulados).
+**NEXT:** prueba de F2c por la persona responsable y fusión; después, plan de F2d por preguntas. Quedan planteadas F2d (espacio de conversación fijo: Guía y canal común) y F2e (jugadores simulados).

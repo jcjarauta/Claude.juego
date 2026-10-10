@@ -114,8 +114,10 @@ export function checkGrantSkill(input: GrantSkillInput): CreateResult<{ target: 
   if (!authorize(actor, "create-project", { admins })) return { ok: false, reason: "sin-permiso" };
   const raw = isRecord(payload) ? payload : {};
   const def = typeof raw.skill === "string" ? skills.get(raw.skill) : undefined;
-  if (!account || !def || !Number.isInteger(raw.level) || (raw.level as number) < 1 || (raw.level as number) > def.levels.length) {
-    return { ok: false, reason: "solicitud-invalida" };
+  if (!account) return { ok: false, reason: "solicitud-invalida", details: ["No hay ninguna cuenta con ese nombre."] };
+  if (!def) return { ok: false, reason: "solicitud-invalida", details: ["Elige una habilidad."] };
+  if (!Number.isInteger(raw.level) || (raw.level as number) < 1 || (raw.level as number) > def.levels.length) {
+    return { ok: false, reason: "solicitud-invalida", details: [`Elige un nivel de 1 a ${def.levels.length}.`] };
   }
   const level = raw.level as number;
   if (level <= currentLevel) {
