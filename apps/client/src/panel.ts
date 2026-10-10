@@ -7,7 +7,7 @@ import {
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
 import { createBoard } from "./views/board.ts";
-import { blockers, visibleTask, type ViewContext } from "./views/common.ts";
+import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
 import { createChains } from "./views/cadenas.ts";
 import { createMetrics } from "./views/metrics.ts";
@@ -26,14 +26,6 @@ const byId = <T extends HTMLElement = HTMLElement>(id: string) => {
   if (!el) throw new Error(`Falta el elemento #${id}`);
   return el as T;
 };
-
-/** Crea un elemento con propiedades (id, className, type, value…) e hijos. */
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  Object.assign(node, props);
-  node.append(...children);
-  return node;
-}
 
 const time = (at: number) => new Date(at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 

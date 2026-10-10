@@ -5,17 +5,11 @@ import {
 } from "@juego/shared";
 import type { Room } from "@colyseus/sdk";
 import { newRequestId } from "./request-id.ts";
+import { el } from "./views/common.ts";
 import { createMinimap } from "./views/minimap.ts";
 
 // Formularios de administración del panel (F1a, FUT-05, Q171–Q174): crear proyectos y misiones
 // sin programar. El servidor valida todo; aquí solo se ayuda a rellenar y se muestran sus motivos.
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  Object.assign(node, props);
-  node.append(...children);
-  return node;
-}
 
 let fieldCount = 0;
 /** Campo con etiqueta asociada y ayuda opcional. */
