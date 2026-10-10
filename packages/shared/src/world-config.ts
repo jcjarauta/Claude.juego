@@ -235,6 +235,91 @@ export function makeId(name: string, suffix: string): string {
   return `${slug || "p"}-${suffix.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 6) || "0"}`;
 }
 
+/** Límites de las construcciones, objetos y recetas creados desde el panel (F2a, Q188). */
+export const BUILD_LIMITS = { constructions: 10, items: 20, recipes: 20, side: 5, recipeInputs: 4, inputAmount: 100 } as const;
+
+export interface PlacementContext {
+  width: number;
+  height: number;
+  /** Motivo (texto completo) por el que una casilla no se puede ocupar, o undefined si está libre. */
+  occupied: (x: number, y: number) => string | undefined;
+}
+
+/** Problemas de un solar: fuera del mapa o casillas ocupadas (nodos, aparición, otros solares). Vacío = cabe. */
+export function footprintProblems(rect: { x?: unknown; y?: unknown; width?: unknown; height?: unknown }, ctx: PlacementContext, maxSide: number): string[] {
+  const { x, y, width, height } = rect;
+  if (!isInt(width, 1, maxSide) || !isInt(height, 1, maxSide) || !isInt(x, 0, ctx.width - 1) || !isInt(y, 0, ctx.height - 1)
+    || x + width > ctx.width || y + height > ctx.height) {
+    return [`fuera del mapa o de tamaño no válido (de 1 a ${maxSide} casillas por lado, dentro de ${ctx.width}×${ctx.height})`];
+  }
+  const problems: string[] = [];
+  for (let cx = x; cx < x + width; cx++) {
+    for (let cy = y; cy < y + height; cy++) {
+      const reason = ctx.occupied(cx, cy);
+      if (reason && !problems.includes(reason)) problems.push(reason);
+    }
+  }
+  return problems;
+}
+
+export interface StructureValidationContext {
+  placement: PlacementContext;
+  projectIds: ReadonlySet<string>;
+  maxSide: number;
+  where: string;
+}
+
+/** Valida una definición de estructura (configuración o panel). */
+export function validateStructureDef(st: unknown, { placement, projectIds, maxSide, where }: StructureValidationContext): string[] {
+  if (!isObject(st) || typeof st.id !== "string" || !ID.test(st.id)) return [`${where}: id inválido`];
+  const errors: string[] = [];
+  const at = `${where} "${st.id}"`;
+  if (!isText(st.name, 60)) errors.push(`${at}: name obligatorio (máximo 60)`);
+  if (typeof st.projectId !== "string" || !projectIds.has(st.projectId)) errors.push(`${at}: proyecto desconocido "${String(st.projectId)}"`);
+  if (typeof st.color !== "string" || !COLOR.test(st.color)) errors.push(`${at}: color debe ser #rrggbb`);
+  for (const problem of footprintProblems(st, placement, maxSide)) errors.push(`${at}: ${problem}`);
+  return errors;
+}
+
+/** Valida una definición de objeto fabricable (Q157): id único y distinto de los recursos. */
+export function validateItemDef(it: unknown, { itemIds, resourceIds, where }: { itemIds: ReadonlySet<string>; resourceIds: ReadonlySet<string>; where: string }): string[] {
+  if (!isObject(it) || typeof it.id !== "string" || !ID.test(it.id)) return [`${where}: id inválido`];
+  const errors: string[] = [];
+  if (itemIds.has(it.id) || resourceIds.has(it.id)) errors.push(`items: id duplicado o igual a un recurso "${it.id}"`);
+  if (!isText(it.name, 60)) errors.push(`${where} "${it.id}": name obligatorio (máximo 60)`);
+  return errors;
+}
+
+export interface RecipeValidationContext {
+  resourceIds: ReadonlySet<string>;
+  itemIds: ReadonlySet<string>;
+  structureIds: ReadonlySet<string>;
+  limits: "config" | "panel";
+  where: string;
+}
+
+/** Valida una receta (configuración o panel): entradas (recursos) del almacén común y un objeto de salida. */
+export function validateRecipeDef(r: unknown, { resourceIds, itemIds, structureIds, limits, where }: RecipeValidationContext): string[] {
+  if (!isObject(r) || typeof r.id !== "string" || !ID.test(r.id)) return [`${where}: id inválido`];
+  const errors: string[] = [];
+  const at = `${where} "${r.id}"`;
+  const panel = limits === "panel";
+  if (!isText(r.name, 60)) errors.push(`${at}: name obligatorio (máximo 60)`);
+  if (typeof r.structureId !== "string" || !structureIds.has(r.structureId)) errors.push(`${at}: estructura desconocida "${String(r.structureId)}"`);
+  if (!isObject(r.inputs) || Object.keys(r.inputs).length === 0) errors.push(`${at}: inputs obligatorio`);
+  else {
+    if (panel && Object.keys(r.inputs).length > BUILD_LIMITS.recipeInputs) errors.push(`${at}: inputs admite como máximo ${BUILD_LIMITS.recipeInputs} recursos`);
+    const max = panel ? BUILD_LIMITS.inputAmount : 1000;
+    for (const [res, amount] of Object.entries(r.inputs)) {
+      if (!resourceIds.has(res)) errors.push(`${at}: recurso desconocido "${res}"`);
+      if (!isInt(amount, 1, max)) errors.push(`${at}: cantidad de "${res}" debe ser un entero 1–${max}`);
+    }
+  }
+  if (!isObject(r.output) || typeof r.output.item !== "string" || !itemIds.has(r.output.item)) errors.push(`${at}: objeto de salida desconocido`);
+  else if (!isInt(r.output.amount, 1, 100)) errors.push(`${at}: output.amount debe ser un entero 1–100`);
+  return errors;
+}
+
 export function validateWorldConfig(input: unknown): ValidationResult {
   const errors: string[] = [];
   const fail = (msg: string) => errors.push(msg);
@@ -317,48 +402,33 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const structureIds = new Set<string>();
   if (!Array.isArray(structures)) fail("structures debe ser una lista");
   else structures.forEach((st, i) => {
-    if (!isObject(st) || typeof st.id !== "string" || !ID.test(st.id)) return fail(`structures[${i}]: id inválido`);
-    if (structureIds.has(st.id)) fail(`structures: id duplicado "${st.id}"`);
-    structureIds.add(st.id);
-    if (typeof st.name !== "string" || !st.name) fail(`structures[${i}] "${st.id}": name obligatorio`);
-    if (typeof st.projectId !== "string" || !projectIds.has(st.projectId)) fail(`structures[${i}] "${st.id}": proyecto desconocido "${String(st.projectId)}"`);
-    if (typeof st.color !== "string" || !COLOR.test(st.color)) fail(`structures[${i}] "${st.id}": color debe ser #rrggbb`);
-    if (!isInt(st.width, 1, 20) || !isInt(st.height, 1, 20) || !inside(st.x, st.y)
-      || (st.x as number) + st.width > width || (st.y as number) + st.height > height) {
-      return fail(`structures[${i}] "${st.id}": fuera del mapa`);
+    if (isObject(st) && typeof st.id === "string" && ID.test(st.id)) {
+      if (structureIds.has(st.id)) fail(`structures: id duplicado "${st.id}"`);
+      structureIds.add(st.id);
     }
-    for (let x = st.x as number; x < (st.x as number) + st.width; x++) {
-      for (let y = st.y as number; y < (st.y as number) + st.height; y++) {
-        if (nodeCells.has(`${x},${y}`)) fail(`structures[${i}] "${st.id}": la casilla ${x},${y} la ocupa un nodo`);
-        if (isObject(spawn) && spawn.x === x && spawn.y === y) fail(`structures[${i}] "${st.id}": cubre el punto de aparición`);
-      }
-    }
+    const placement: PlacementContext = {
+      width, height,
+      occupied: (x, y) => nodeCells.has(`${x},${y}`) ? `la casilla ${x},${y} la ocupa un nodo`
+        : isObject(spawn) && spawn.x === x && spawn.y === y ? "cubre el punto de aparición" : undefined,
+    };
+    for (const e of validateStructureDef(st, { placement, projectIds, maxSide: 20, where: `structures[${i}]` })) fail(e);
   });
 
   const itemIds = new Set<string>();
   if (!Array.isArray(items)) fail("items debe ser una lista");
   else items.forEach((it, i) => {
-    if (!isObject(it) || typeof it.id !== "string" || !ID.test(it.id)) return fail(`items[${i}]: id inválido`);
-    if (itemIds.has(it.id) || resourceIds.has(it.id)) fail(`items: id duplicado o igual a un recurso "${it.id}"`);
-    itemIds.add(it.id);
-    if (typeof it.name !== "string" || !it.name) fail(`items[${i}] "${it.id}": name obligatorio`);
+    for (const e of validateItemDef(it, { itemIds, resourceIds, where: `items[${i}]` })) fail(e);
+    if (isObject(it) && typeof it.id === "string" && ID.test(it.id)) itemIds.add(it.id);
   });
 
   const recipeIds = new Set<string>();
   if (!Array.isArray(recipes)) fail("recipes debe ser una lista");
   else recipes.forEach((r, i) => {
-    if (!isObject(r) || typeof r.id !== "string" || !ID.test(r.id)) return fail(`recipes[${i}]: id inválido`);
-    if (recipeIds.has(r.id)) fail(`recipes: id duplicado "${r.id}"`);
-    recipeIds.add(r.id);
-    if (typeof r.name !== "string" || !r.name) fail(`recipes[${i}] "${r.id}": name obligatorio`);
-    if (typeof r.structureId !== "string" || !structureIds.has(r.structureId)) fail(`recipes[${i}] "${r.id}": estructura desconocida "${String(r.structureId)}"`);
-    if (!isObject(r.inputs) || Object.keys(r.inputs).length === 0) fail(`recipes[${i}] "${r.id}": inputs obligatorio`);
-    else for (const [res, amount] of Object.entries(r.inputs)) {
-      if (!resourceIds.has(res)) fail(`recipes[${i}] "${r.id}": recurso desconocido "${res}"`);
-      if (!isInt(amount, 1, 1000)) fail(`recipes[${i}] "${r.id}": cantidad de "${res}" debe ser un entero 1–1000`);
+    if (isObject(r) && typeof r.id === "string" && ID.test(r.id)) {
+      if (recipeIds.has(r.id)) fail(`recipes: id duplicado "${r.id}"`);
+      recipeIds.add(r.id);
     }
-    if (!isObject(r.output) || typeof r.output.item !== "string" || !itemIds.has(r.output.item)) fail(`recipes[${i}] "${r.id}": objeto de salida desconocido`);
-    else if (!isInt(r.output.amount, 1, 100)) fail(`recipes[${i}] "${r.id}": output.amount debe ser un entero 1–100`);
+    for (const e of validateRecipeDef(r, { resourceIds, itemIds, structureIds, limits: "config", where: `recipes[${i}]` })) fail(e);
   });
 
   const missionIds = new Set<string>();

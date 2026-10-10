@@ -21,6 +21,9 @@ export const MESSAGE = {
   closeProject: "close-project",
   createMission: "create-mission",
   reschedule: "reschedule",
+  createConstruction: "create-construction",
+  createItem: "create-item",
+  createRecipe: "create-recipe",
   assign: "assign",
   unassign: "unassign",
   comment: "comment",
@@ -189,6 +192,32 @@ export interface RescheduleMessage {
   reason: string;
 }
 
+/** Crear una construcción desde el panel (F2a, Q186): un proyecto con su solar en el mapa. */
+export interface CreateConstructionMessage extends CreateProjectMessage {
+  /** Esquina superior izquierda del solar y su tamaño (1–5 casillas por lado). */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Color del edificio «#rrggbb». */
+  color: string;
+}
+
+export interface CreateItemMessage {
+  requestId: string;
+  name: string;
+}
+
+export interface CreateRecipeMessage {
+  requestId: string;
+  name: string;
+  /** Edificio (id de estructura) donde se fabrica. */
+  structureId: string;
+  /** Recursos del almacén común (1–4) y cantidades. */
+  inputs: Record<string, number>;
+  output: { item: string; amount: number };
+}
+
 /** Apuntar o quitar a un responsable de una tarea (F1c, Q181). */
 export interface AssignMessage {
   requestId: string;
@@ -284,7 +313,10 @@ export type RejectReason =
   | "motivo-invalido"
   | "tarea-bloqueada"
   | "comentario-invalido"
-  | "demasiados-responsables";
+  | "demasiados-responsables"
+  | "demasiadas-construcciones"
+  | "demasiados-objetos"
+  | "demasiadas-recetas";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -334,6 +366,9 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "tarea-bloqueada": "Esa tarea está bloqueada: antes hay que terminar las tareas de las que depende.",
   "comentario-invalido": "Escribe un comentario de 1 a 500 caracteres.",
   "demasiados-responsables": "Esa tarea ya tiene 3 responsables.",
+  "demasiadas-construcciones": "Hay demasiadas construcciones creadas desde el panel (máximo 10).",
+  "demasiados-objetos": "Hay demasiados objetos creados desde el panel (máximo 20).",
+  "demasiadas-recetas": "Hay demasiadas recetas creadas desde el panel (máximo 20).",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;
