@@ -76,6 +76,15 @@
     .indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
     .indicador { border: 1px solid #3a4652; border-radius: 6px; padding: 8px 12px; background: #1b2128; }
     .indicador progress { width: 100%; accent-color: #ffd166; }
+    /* F1c */
+    .casilla { font-weight: 400; margin-left: 16px; }
+    .bloqueada { color: #ff9b85; font-weight: 600; }
+    .hilo { border: 1px solid #ffd166; border-radius: 6px; padding: 8px 14px; margin: 16px 0; max-width: 720px; }
+    .comentarios { padding-left: 20px; display: grid; gap: 6px; }
+    .asignar { max-width: 420px; }
+    .critica { stroke: #f2f2f2; stroke-width: 3; }
+    .dependencia { stroke: #9fd8ff; stroke-width: 1.5; fill: none; }
+    .depende label { margin-right: 12px; }
   </style>
 </head>
 <body>
@@ -109,7 +118,8 @@
       <p id="rechazo" class="error" role="alert"></p>
       <div id="vistas" class="vistas">
         <p class="selector"><label for="vista-proyecto">Proyecto</label>
-          <select id="vista-proyecto"><option value="">Todos los proyectos</option></select></p>
+          <select id="vista-proyecto"><option value="">Todos los proyectos</option></select>
+          <label class="casilla"><input type="checkbox" id="mis-tareas"> Solo mis tareas (lista y tablero)</label></p>
         <div role="tablist" aria-label="Vistas de gestión" class="pestanas">
           <button type="button" role="tab" id="tab-lista" aria-controls="vista-lista" aria-selected="true">Lista</button>
           <button type="button" role="tab" id="tab-tablero" aria-controls="vista-tablero" aria-selected="false" tabindex="-1">Tablero</button>

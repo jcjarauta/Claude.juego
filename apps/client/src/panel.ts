@@ -7,10 +7,11 @@ import {
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
 import { createBoard } from "./views/board.ts";
-import type { ViewContext } from "./views/common.ts";
+import { blockers, visibleTask, type ViewContext } from "./views/common.ts";
+import { createComments } from "./views/comments.ts";
 import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
-import { isOverdue, localDay, type RescheduleMessage } from "@juego/shared";
+import { isOverdue, localDay, type AssignMessage, type RescheduleMessage } from "@juego/shared";
 import { newRequestId } from "./request-id.ts";
 
 // Panel profesional (M5b, RF-015): lista accesible de proyectos y tareas sobre el mismo
@@ -57,7 +58,7 @@ async function join(token: string): Promise<PanelRoom> {
 }
 
 /** Tabla de tareas y formulario de revisión de un proyecto. Los elementos se crean una vez (no se pierde el foco). */
-function createProjectView(container: HTMLElement, config: WorldConfig, project: ProjectDef, room: PanelRoom, me: string, announce: (text: string) => void) {
+function createProjectView(container: HTMLElement, config: WorldConfig, project: ProjectDef, room: PanelRoom, me: string, announce: (text: string) => void, ctx: ViewContext) {
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const coordinator = authorize(me, "review", project);
   const admin = authorize(me, "close-project", { admins: config.admins });
@@ -94,13 +95,16 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
   const tbody = el("tbody");
   const table = el("table", {},
     el("caption", {}, `Tareas de ${project.name}`),
-    el("thead", {}, el("tr", {}, ...["Tarea", "Criterio de aceptación", "Progreso", "Estado", "Evidencias (aportes)", "Revisión", "Aportar"]
+    el("thead", {}, el("tr", {}, ...["Tarea", "Criterio de aceptación", "Progreso", "Estado", "Evidencias (aportes)", "Revisión", "Aportar", "Responsables y comentarios"]
       .map((h) => { const th = el("th", {}, h); th.scope = "col"; return th; }))),
     tbody,
   );
   section.append(el("div", { className: "tabla" }, table));
 
-  interface Row { progress: HTMLProgressElement; progressText: HTMLElement; status: HTMLElement; evidence: HTMLElement; review: HTMLElement; buttons: HTMLButtonElement[] }
+  interface Row {
+    tr: HTMLTableRowElement; progress: HTMLProgressElement; progressText: HTMLElement; status: HTMLElement; evidence: HTMLElement; review: HTMLElement;
+    buttons: HTMLButtonElement[]; assignees: HTMLElement; toggle: HTMLButtonElement; talk: HTMLButtonElement;
+  }
   const rows = new Map<string, Row>();
   const contribute = (task: TaskDef, from: ContributionSource, amount: number) => {
     const message: ContributeMessage = { requestId: newRequestId(), projectId: project.id, taskId: task.id, from, amount };
@@ -121,12 +125,20 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
       };
       return button;
     });
-    const row = { progress, progressText, status: el("span"), evidence: el("span"), review: el("span"), buttons };
-    rows.set(task.id, row);
+    // F1c: responsables (apuntarse o quitarse) y comentarios.
+    const toggle = el("button", { type: "button" });
+    toggle.onclick = () => ctx.assign(project.id, task.id, me, toggle.dataset.mine !== "true");
+    const talk = el("button", { type: "button" });
+    talk.onclick = () => ctx.openComments(project.id, task.id, `${task.title} (${project.name})`, talk);
     const th = el("th", {}, task.title, el("br"), el("code", {}, task.id));
     th.scope = "row";
-    tbody.append(el("tr", {}, th, el("td", {}, task.acceptance), el("td", {}, progress, el("br"), progressText),
-      el("td", {}, row.status), el("td", {}, row.evidence), el("td", {}, row.review), el("td", {}, ...buttons)));
+    const tr = el("tr", {});
+    const row = { tr, progress, progressText, status: el("span"), evidence: el("span"), review: el("span"), buttons, assignees: el("span"), toggle, talk };
+    rows.set(task.id, row);
+    tr.append(th, el("td", {}, task.acceptance), el("td", {}, progress, el("br"), progressText),
+      el("td", {}, row.status), el("td", {}, row.evidence), el("td", {}, row.review), el("td", {}, ...buttons),
+      el("td", {}, row.assignees, el("br"), toggle, " ", talk));
+    tbody.append(tr);
   }
 
   // Revisión (solo coordinadores, Q161).
@@ -159,6 +171,25 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
     room.send(MESSAGE.review, message);
     note.value = "";
   };
+  // Asignar responsables (coordinación o administración, Q181).
+  if (coordinator || authorize(me, "create-project", { admins: config.admins })) {
+    const assignTask = el("select", { id: `asignar-tarea-${project.id}` });
+    for (const task of project.tasks) assignTask.append(el("option", { value: task.id, textContent: task.title }));
+    const assignName = el("input", { id: `asignar-nombre-${project.id}`, maxLength: 20, autocomplete: "off" });
+    const add = el("button", { type: "submit", textContent: "Asignar" });
+    const remove = el("button", { type: "button", textContent: "Quitar" });
+    const assignForm = el("form", { className: "asignar" },
+      el("label", { htmlFor: assignTask.id }, "Tarea"), assignTask,
+      el("label", { htmlFor: assignName.id }, "Nombre de la cuenta"), assignName,
+      el("p", {}, add, " ", remove));
+    assignForm.setAttribute("aria-labelledby", `asignar-${project.id}`);
+    assignForm.onsubmit = (event) => {
+      event.preventDefault();
+      if (assignName.value.trim()) ctx.assign(project.id, assignTask.value, assignName.value.trim(), true);
+    };
+    remove.onclick = () => { if (assignName.value.trim()) ctx.assign(project.id, assignTask.value, assignName.value.trim(), false); };
+    section.append(el("h3", { id: `asignar-${project.id}` }, "Asignar responsables"), assignForm);
+  }
   section.append(el("h3", { id: reviewHeadingId }, "Revisar una tarea"));
   if (coordinator) {
     form.setAttribute("aria-labelledby", reviewHeadingId);
@@ -204,6 +235,20 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
         row.progressText.textContent = `${done}/${task.required} ${name}`;
         const st = taskState?.status ?? "pendiente";
         row.status.textContent = st === "completada" && !state.requiresApproval ? "Completada" : STATUS_TEXT[st] ?? st;
+        const blocked = blockers(state, task.id);
+        if (blocked.length) row.status.textContent += ` · BLOQUEADA por: ${blocked.join(", ")}`;
+        // F1c: «Mis tareas», responsables y comentarios.
+        row.tr.hidden = !visibleTask(ctx, state, task.id);
+        const assignees = [...(taskState?.assignees ?? [])];
+        row.assignees.textContent = assignees.length ? `Responsables: ${assignees.join(", ")}` : "Sin responsables";
+        const mine = assignees.includes(me);
+        const finished = st === "aprobada" || (st === "completada" && !state.requiresApproval);
+        row.toggle.dataset.mine = String(mine);
+        row.toggle.textContent = mine ? "Quitarme" : "Apuntarme";
+        row.toggle.setAttribute("aria-label", `${mine ? "Quitarme de" : "Apuntarme a"} «${task.title}»`);
+        row.toggle.hidden = finished || closed || (!mine && assignees.length >= 3);
+        row.talk.textContent = `Comentarios (${taskState?.comments ?? 0})`;
+        row.talk.setAttribute("aria-label", `Comentarios de «${task.title}» (${taskState?.comments ?? 0})`);
         row.status.className = `estado-${st}`;
         const evidence = [...state.contributors.entries()]
           .map(([who, totals]) => [who, totals.totals.get(task.resource) ?? 0] as const)
@@ -221,7 +266,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
           const fromPlayer = button.dataset.from === "player";
           button.hidden = fromPlayer && !own; // el inventario propio solo se ve con el personaje en el mundo
           const balance = fromPlayer ? own?.inventory.get(task.resource) ?? 0 : room.state.community.get(task.resource) ?? 0;
-          const available = closed ? 0 : Math.min(balance, remaining);
+          const available = closed || blocked.length ? 0 : Math.min(balance, remaining);
           button.dataset.available = String(available);
           button.setAttribute("aria-disabled", String(available === 0));
           button.textContent = `${fromPlayer ? "Desde tu inventario" : "Desde la comunidad"} (${available})`;
@@ -284,7 +329,16 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
       const message: RescheduleMessage = { requestId: newRequestId(), projectId, ...(taskId ? { taskId } : {}), dueDate, reason };
       room.send(MESSAGE.reschedule, message);
     },
+    assign: (projectId, taskId, who, assign) => {
+      const message: AssignMessage = { requestId: newRequestId(), projectId, taskId, name: who };
+      room.send(assign ? MESSAGE.assign : MESSAGE.unassign, message);
+    },
+    openComments: (projectId, taskId, title, opener) => comments.open(projectId, taskId, title, opener),
+    mine: () => mineOnly.checked,
   };
+  const mineOnly = byId<HTMLInputElement>("mis-tareas");
+  mineOnly.onchange = () => render();
+  const comments = createComments(byId("panel"), room, announce);
   const board = createBoard(byId("vista-tablero"), ctx);
   const timeline = createTimeline(byId("vista-cronograma"), ctx);
   const metrics = createMetrics(byId("vista-indicadores"), ctx);
@@ -335,7 +389,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
     const ordered = [...room.state.projects.entries()].sort(([, a], [, b]) => a.createdAt - b.createdAt);
     for (const [id, projectState] of ordered) {
       if (!views.has(id) && projectState.tasks.size > 0) {
-        views.set(id, createProjectView(container, config, projectDefFromState(id, projectState), room, name, announce));
+        views.set(id, createProjectView(container, config, projectDefFromState(id, projectState), room, name, announce, ctx));
       }
     }
     for (const view of views.values()) view.render();
@@ -355,6 +409,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
     board.render();
     timeline.render();
     metrics.render();
+    comments.render();
     // Al entrar, el foco va al primer proyecto en cuanto aparece (TP-11).
     if (!focused && views.size) {
       focused = true;

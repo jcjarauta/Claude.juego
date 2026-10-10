@@ -68,7 +68,23 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   );
   projectForm.setAttribute("aria-labelledby", "nuevo-proyecto-titulo");
 
-  interface TaskRow { li: HTMLLIElement; resource: HTMLSelectElement; title: HTMLInputElement; required: HTMLInputElement; acceptance: HTMLInputElement; due: HTMLInputElement }
+  interface TaskRow {
+    li: HTMLLIElement; resource: HTMLSelectElement; title: HTMLInputElement; required: HTMLInputElement; acceptance: HTMLInputElement; due: HTMLInputElement;
+    /** «Depende de» (F1c): una casilla por cada otra tarea del formulario. */
+    deps: HTMLFieldSetElement;
+  }
+  /** Rehace las casillas «Depende de» de cada fila según los recursos de las demás (conserva lo marcado). */
+  function refreshDeps() {
+    rows.forEach((row, i) => {
+      const checked = new Set([...row.deps.querySelectorAll<HTMLInputElement>("input:checked")].map((c) => c.value));
+      const others = rows.filter((r) => r !== row);
+      row.deps.replaceChildren(el("legend", {}, `La tarea ${i + 1} depende de (opcional)`),
+        ...(others.length ? others.map((o) => {
+          const name = o.resource.selectedOptions[0]?.textContent ?? o.resource.value;
+          return el("label", {}, el("input", { type: "checkbox", value: o.resource.value, checked: checked.has(o.resource.value) }), ` ${o.title.value.trim() || `Aportar ${name.toLowerCase()}`}`);
+        }) : [el("span", { className: "ayuda" }, "Añade otra tarea para poder encadenarlas.")]));
+    });
+  }
   const rows: TaskRow[] = [];
   function addTaskRow() {
     if (rows.length >= Math.min(PANEL_LIMITS.tasks, resources.length)) return;
@@ -81,21 +97,26 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     const required = el("input", { type: "number", min: "1", max: String(PANEL_LIMITS.required), value: "5", inputMode: "numeric" });
     const acceptance = el("input", { maxLength: PANEL_LIMITS.acceptance, autocomplete: "off" });
     const due = el("input", { type: "date" });
+    const deps = el("fieldset", { className: "depende" });
     const remove = el("button", { type: "button", textContent: `Quitar la tarea ${n}` });
     const li = el("li", { className: "tarea-nueva" },
       field(`Recurso de la tarea ${n}`, resource), field(`Título de la tarea ${n}`, title),
       field(`Cantidad de la tarea ${n}`, required, `De 1 a ${PANEL_LIMITS.required}.`),
       field(`Criterio de aceptación de la tarea ${n}`, acceptance, "Opcional; por defecto «Aportar N de recurso»."),
-      field(`Fecha objetivo de la tarea ${n}`, due, "Opcional."), remove);
-    const row = { li, resource, title, required, acceptance, due };
+      field(`Fecha objetivo de la tarea ${n}`, due, "Opcional."), deps, remove);
+    const row = { li, resource, title, required, acceptance, due, deps };
+    resource.addEventListener("change", refreshDeps);
+    title.addEventListener("change", refreshDeps);
     remove.onclick = () => {
       rows.splice(rows.indexOf(row), 1);
       li.remove();
+      refreshDeps();
       addTask.setAttribute("aria-disabled", "false");
       addTask.focus();
     };
     rows.push(row);
     taskList.append(li);
+    refreshDeps();
     addTask.setAttribute("aria-disabled", String(rows.length >= Math.min(PANEL_LIMITS.tasks, resources.length)));
   }
   addTask.onclick = () => {
@@ -115,6 +136,10 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       required: Number(r.required.value),
       ...(r.acceptance.value.trim() ? { acceptance: r.acceptance.value.trim() } : {}),
       ...(r.due.value ? { dueDate: r.due.value } : {}),
+      ...(() => {
+        const deps = [...r.deps.querySelectorAll<HTMLInputElement>("input:checked")].map((c) => c.value);
+        return deps.length ? { dependsOn: deps } : {};
+      })(),
     }));
     const list = coordinators.value.split(",").map((s) => s.trim()).filter(Boolean);
     const message: CreateProjectMessage = {
