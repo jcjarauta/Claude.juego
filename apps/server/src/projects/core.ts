@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import {
   authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateConstruction, checkCreateItem, checkCreateMission,
-  checkCreateProject, checkCreateRecipe, checkReschedule, checkReview, isTaskDone, isValidRequestId, missionSatisfied, projectStatus, taskStatus,
-  type ContributionSource, type ItemDef, type MissionDef, type ProjectDef, type RecipeDef, type RejectReason, type ReviewDecision, type StructureDef,
-  type WorldConfig,
+  checkCreateProject, checkCreateRecipe, checkCreateSkill, checkGrantSkill, checkReschedule, checkReview, isTaskDone, isValidRequestId, levelAfterCraft,
+  missionSatisfied, projectStatus, taskStatus,
+  type ContributionSource, type ItemDef, type MissionDef, type ProjectDef, type RecipeDef, type RejectReason, type ReviewDecision, type SkillDef,
+  type StructureDef, type WorldConfig,
 } from "@juego/shared";
 import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
 
@@ -76,6 +77,19 @@ export interface RecipeEntry {
   origin: "configuracion" | "panel";
 }
 
+export interface SkillEntry {
+  def: SkillDef;
+  origin: "configuracion" | "panel";
+}
+
+/** Un nivel ganado (por práctica, concesión o enseñanza) en una transacción. */
+export interface SkillGained {
+  player: string;
+  skill: string;
+  level: number;
+  source: "practica" | "concesion" | "ensenanza";
+}
+
 export interface MissionEntry {
   def: MissionDef;
   origin: "configuracion" | "panel";
@@ -146,6 +160,10 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   const recipes = new Map<string, RecipeEntry>();
   for (const def of config.recipes) recipes.set(def.id, { def, origin: "configuracion" });
   for (const row of store.getRecipeDefs()) recipes.set(row.def.id, { def: row.def, origin: "panel" });
+  const skills = new Map<string, SkillEntry>();
+  for (const def of config.skills) skills.set(def.id, { def, origin: "configuracion" });
+  for (const row of store.getSkillDefs()) skills.set(row.def.id, { def: row.def, origin: "panel" });
+  const skillDefs = () => new Map([...skills.values()].map((e) => [e.def.id, e.def]));
   const activeStructures = () => [...structures.values()].filter((e) => !e.retiredAt);
 
   const resourceIds = new Set(config.resources.map((r) => r.id));
@@ -268,6 +286,96 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     structureEntries: () => [...structures.values()],
     itemEntries: () => [...items.values()],
     recipeEntries: () => [...recipes.values()],
+    skillEntries: () => [...skills.values()],
+    skillById: (id: unknown) => (typeof id === "string" ? skills.get(id)?.def : undefined),
+    skillDefs,
+
+    /** Nivel de una persona en cada habilidad y veces que ha fabricado cada receta (F2c). */
+    skillsOf: (player: string) => store.getPlayerSkills(player),
+    craftCountsOf: (player: string) => store.getCraftCounts(player),
+
+    /** Crear una habilidad desde el panel (F2c, Q195). */
+    createSkill(actor: string, payload: unknown): Outcome<SkillEntry> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<SkillEntry> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkCreateSkill({
+          actor, admins: config.admins, payload, recipes: new Map([...recipes.values()].map((e) => [e.def.id, e.def])), existingIds: new Set(skills.keys()),
+          takenNames: [...skills.values()].map((e) => e.def.name), created: [...skills.values()].filter((e) => e.origin === "panel").length, limits, idSuffix: suffix(),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        store.addSkillDef(check.def, actor, at);
+        store.event("skill-created", actor, requestId, { skill: check.def });
+        return { kind: "done", value: { def: check.def, origin: "panel" } };
+      });
+      if (outcome.kind === "done") skills.set(outcome.value.def.id, outcome.value);
+      return outcome;
+    },
+
+    /** Conceder un nivel (administración, F2c, Q197): solo sube. */
+    grantSkill(actor: string, payload: unknown): Outcome<SkillGained> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      return store.transaction((): Outcome<SkillGained> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const account = typeof message.name === "string" ? store.getAccountByName(message.name) : undefined;
+        const skillId = typeof message.skill === "string" ? message.skill : "";
+        const check = checkGrantSkill({
+          actor, admins: config.admins, payload, skills: skillDefs(), account: account?.name,
+          currentLevel: account ? store.getPlayerSkills(account.name)[skillId] ?? 0 : 0,
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        const { target, skill, level } = check.def;
+        store.setPlayerSkill(target, skill, level, "concesion", at);
+        store.event("skill-granted", actor, requestId, { player: target, skill, level });
+        return { kind: "done", value: { player: target, skill, level, source: "concesion" } };
+      });
+    },
+
+    /**
+     * Enseñanza aceptada (F2c, Q198): sube a `learner` al nivel `toLevel` si el maestro sigue teniendo al menos uno más
+     * y la persona aún está justo un nivel por debajo. La cercanía y la conexión las comprueba la sala (sin esperas entre medias).
+     */
+    teach(learner: string, requestId: string, teacher: string, skillId: string, toLevel: number): Outcome<SkillGained> {
+      const at = Date.now();
+      return store.transaction((): Outcome<SkillGained> => {
+        if (store.hasRequest(learner, requestId)) return { kind: "duplicate" };
+        const def = skills.get(skillId)?.def;
+        const teacherLevel = store.getPlayerSkills(teacher)[skillId] ?? 0;
+        const learnerLevel = store.getPlayerSkills(learner)[skillId] ?? 0;
+        if (!def || learnerLevel + 1 !== toLevel || toLevel > def.levels.length || toLevel > teacherLevel - 1) {
+          return { kind: "rejected", reason: "oferta-invalida", details: ["La oferta ya no es válida: han cambiado los niveles."] };
+        }
+        store.setPlayerSkill(learner, skillId, toLevel, "ensenanza", at);
+        store.event("skill-taught", learner, requestId, { teacher, skill: skillId, level: toLevel });
+        return { kind: "done", value: { player: learner, skill: skillId, level: toLevel, source: "ensenanza" } };
+      });
+    },
+
+    /**
+     * Cuenta una fabricación para practicar (F2c, Q196) y devuelve los niveles ganados. Debe llamarse dentro de la
+     * transacción de `craft`, para que cuente solo si la fabricación se confirma.
+     */
+    recordPractice(player: string, recipeId: string): SkillGained[] {
+      store.incCraftCount(player, recipeId);
+      const counts = store.getCraftCounts(player);
+      const levels = store.getPlayerSkills(player);
+      const gained: SkillGained[] = [];
+      for (const { def } of skills.values()) {
+        const current = levels[def.id] ?? 0;
+        const next = levelAfterCraft(def, current, recipeId, (r) => counts[r] ?? 0);
+        if (next <= current) continue;
+        store.setPlayerSkill(player, def.id, next, "practica", Date.now());
+        store.event("skill-level", player, null, { skill: def.id, level: next, recipe: recipeId });
+        gained.push({ player, skill: def.id, level: next, source: "practica" });
+      }
+      return gained;
+    },
 
     /**
      * Crear una construcción desde el panel (F2a, Q186): un proyecto y su estructura con solar,
@@ -344,7 +452,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const check = checkCreateRecipe({
           actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), structureIds: new Set(activeStructures().map((e) => e.def.id)),
           created: [...recipes.values()].filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()),
-          takenNames: [...recipes.values()].map((e) => e.def.name), recipes: [...recipes.values()].map((e) => e.def), entryName, limits, idSuffix: suffix(),
+          takenNames: [...recipes.values()].map((e) => e.def.name), recipes: [...recipes.values()].map((e) => e.def), entryName, limits, skills: skillDefs(), idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addRecipeDef(check.def, actor, at);

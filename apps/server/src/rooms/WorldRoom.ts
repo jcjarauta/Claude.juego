@@ -1,16 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { Room, type Client } from "@colyseus/core";
 import {
-  applyMove, checkBuild, checkCollect, checkCraft, checkTransfer, recipeProducts, Contribution, ContributorTotals, isValidName,
+  applyMove, checkBuild, checkCollect, checkCraft, checkTeach, checkTransfer, recipeProducts, Contribution, ContributorTotals, isValidName,
   isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, Player, ProjectState, regenerate,
-  ItemState, RecipeState, StructureState, TaskState, taskStatus, VIEWS, WorldState,
+  ItemState, RecipeState, SkillLevelState, SkillState, StructureState, TaskState, taskStatus, TEACH_OFFER_MS, TEACH_PER_MINUTE, VIEWS, WorldState,
   type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
-  type StructureDef, type View,
+  type StructureDef, type TeachOfferedMessage, type TeachResultMessage, type View,
 } from "@juego/shared";
 import type { Account } from "../accounts.ts";
 import { log } from "../log.ts";
 import {
   createProjectCore, RECENT_CONTRIBUTIONS, type ItemEntry, type MissionCompleted, type MissionEntry, type ProjectCore, type ProjectEntry,
-  type RecipeEntry, type StructureEntry,
+  type RecipeEntry, type SkillEntry, type SkillGained, type StructureEntry,
 } from "../projects/core.ts";
 import { createRateLimiter } from "../rate-limit.ts";
 import { COMMUNITY, playerScope, type Store } from "../store.ts";
@@ -55,6 +56,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private lastLimitLog = new Map<string, number>();
   /** Paneles profesionales conectados (M5b): sessionId → nombre. No tienen personaje. */
   private panels = new Map<string, string>();
+  /** Ofertas de enseñanza pendientes (F2c, Q198): en memoria, caducan solas y se pierden al reiniciar sin consecuencias. */
+  private offers = new Map<string, { id: string; from: string; to: string; skill: string; level: number; expiresAt: number; timer: { clear(): void } }>();
+  private teachLog = new Map<string, number[]>();
   /** Plazos de reconexión abiertos por sessionId, para poder cancelarlos. */
   private pendingReconnections = new Map<string, ReturnType<Room["allowReconnection"]>>();
 
@@ -83,6 +87,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const entry of this.core.itemEntries()) this.loadItem(entry);
     for (const entry of this.core.structureEntries()) if (!entry.retiredAt) this.loadStructure(entry);
     for (const entry of this.core.recipeEntries()) this.loadRecipe(entry);
+    for (const entry of this.core.skillEntries()) this.loadSkill(entry);
     for (const entry of this.core.missionEntries()) this.loadMission(entry);
     for (const entry of this.core.projectEntries()) this.loadProject(entry);
 
@@ -130,6 +135,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const [resource, amount] of Object.entries(this.store.getInventory(playerScope(name)))) {
       player.inventory.set(resource, amount);
     }
+    for (const [skill, level] of Object.entries(this.core.skillsOf(name))) player.skills.set(skill, level);
+    const counts = this.core.craftCountsOf(name);
+    for (const recipe of this.practiceRecipes()) if (counts[recipe]) player.crafts.set(recipe, counts[recipe]!);
     this.store.transaction(() => {
       this.store.putPlayer(name, player.x, player.y);
       this.store.event("join", name, null, null);
@@ -172,6 +180,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     const player = this.state.players.get(client.sessionId);
     if (player) {
+      this.cancelOffersOf(player.name);
       this.savePlayer(client.sessionId);
       this.store.transaction(() => {
         this.store.event("leave", player.name, null, null);
@@ -499,10 +508,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
         const stock = (id: string) => this.store.getAmount(COMMUNITY, id);
         const builtIds = new Set(this.store.getStructures().map((s) => s.id));
+        const levels = this.core.skillsOf(player.name);
         const check = checkCraft({
           recipe, structure, position: player, stock,
           structureBuilt: Boolean(structure && builtIds.has(structure.id)),
           extraBuildings: (recipe?.alsoNeeds ?? []).map((id) => ({ id, name: this.core.structureById(id)?.name ?? id, built: builtIds.has(id) })),
+          skills: this.core.skillDefs(), skillLevel: (id) => levels[id] ?? 0,
         });
         if (!check.ok) return { kind: "rejected" as const, reason: check.reason, details: check.details };
         const { inputs } = check.recipe;
@@ -512,16 +523,101 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.store.event("craft", player.name, requestId, {
           recipe: check.recipe.id, consumed: inputs, produced: Object.fromEntries(products.map((p) => [p.item, p.amount])),
         });
+        // Practicar (F2c, Q196): la fabricación cuenta y puede subir de nivel, en la misma transacción.
+        const gained = this.core.recordPractice(player.name, check.recipe.id);
         // La misión se completa en la misma transacción que la fabricación que la cumple.
         const missions = this.core.completeMissions(player.name, now);
         const touched = [...Object.keys(inputs), ...products.map((p) => p.item)];
-        return { kind: "done" as const, community: touched.map((id) => [id, stock(id)] as const), missions };
+        return { kind: "done" as const, community: touched.map((id) => [id, stock(id)] as const), missions, gained, recipe: check.recipe.id };
       }));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
 
       for (const [id, amount] of outcome.community) this.state.community.set(id, amount);
       this.applyMissions(outcome.missions);
+      const counts = this.core.craftCountsOf(player.name);
+      if (counts[outcome.recipe] && this.practiceRecipes().has(outcome.recipe)) player.crafts.set(outcome.recipe, counts[outcome.recipe]!);
+      for (const g of outcome.gained) this.applySkillGain(g);
+    },
+
+    /** Crear una habilidad (F2c, solo administración). */
+    [MESSAGE.createSkill]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.createSkill(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.loadSkill(outcome.value);
+    },
+
+    /** Conceder un nivel de una habilidad (F2c, solo administración; solo sube). */
+    [MESSAGE.grantSkill]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.grantSkill(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.applySkillGain(outcome.value);
+    },
+
+    /** Ofrecer enseñar una habilidad a alguien cercano (F2c, Q198). */
+    [MESSAGE.teachOffer]: (client: Client, payload: unknown) => {
+      const teacher = this.characterOf(client);
+      if (!teacher || !this.withinLimit(client)) return;
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId) || typeof message.to !== "string" || typeof message.skill !== "string") return this.reject(client, "solicitud-invalida");
+      const now = Date.now();
+      const recent = (this.teachLog.get(teacher.name) ?? []).filter((t) => now - t < 60_000);
+      const learner = this.playerByName(message.to);
+      const skill = this.core.skillById(message.skill);
+      const check = checkTeach({
+        teacher: teacher.name, learner: message.to, skill,
+        teacherLevel: this.core.skillsOf(teacher.name)[message.skill] ?? 0,
+        learnerLevel: learner ? this.core.skillsOf(learner.name)[message.skill] ?? 0 : 0,
+        teacherAt: teacher, learnerAt: learner, bothConnected: Boolean(learner?.connected),
+      });
+      if (!check.ok) return this.reject(client, check.reason, check.details);
+      const duplicate = [...this.offers.values()].some((o) => o.from === teacher.name && o.to === learner!.name && o.skill === message.skill);
+      if (duplicate) return this.reject(client, "oferta-invalida", ["Ya hay una oferta pendiente para esa persona."]);
+      // Solo cuentan las ofertas válidas (Q198): 3 por minuto y maestro.
+      if (recent.length >= TEACH_PER_MINUTE) return this.reject(client, "demasiadas-solicitudes");
+      this.teachLog.set(teacher.name, [...recent, now]);
+      const offer = {
+        id: randomUUID(), from: teacher.name, to: learner!.name, skill: message.skill, level: check.toLevel, expiresAt: now + TEACH_OFFER_MS,
+        timer: this.clock.setTimeout(() => this.closeOffer(offer.id, "caducada"), TEACH_OFFER_MS),
+      };
+      this.offers.set(offer.id, offer);
+      const note: TeachOfferedMessage = { offerId: offer.id, from: offer.from, skill: offer.skill, level: offer.level, expiresAt: offer.expiresAt };
+      this.clientOf(offer.to)?.send(MESSAGE.teachOffered, note);
+    },
+
+    /** Aceptar o rechazar una oferta de enseñanza (F2c, Q198): al aceptar se revalida todo. */
+    [MESSAGE.teachRespond]: (client: Client, payload: unknown) => {
+      const learner = this.characterOf(client);
+      if (!learner || !this.withinLimit(client)) return;
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId) || typeof message.offerId !== "string" || typeof message.accept !== "boolean") return this.reject(client, "solicitud-invalida");
+      const offer = this.offers.get(message.offerId);
+      if (!offer || offer.to !== learner.name) return this.reject(client, "oferta-invalida", ["Esa oferta ya no existe."]);
+      if (!message.accept) return this.closeOffer(offer.id, "rechazada");
+      const teacher = this.playerByName(offer.from);
+      const check = checkTeach({
+        teacher: offer.from, learner: learner.name, skill: this.core.skillById(offer.skill),
+        teacherLevel: this.core.skillsOf(offer.from)[offer.skill] ?? 0, learnerLevel: this.core.skillsOf(learner.name)[offer.skill] ?? 0,
+        teacherAt: teacher, learnerAt: learner, bothConnected: Boolean(teacher?.connected && learner.connected),
+      });
+      if (!check.ok || check.toLevel !== offer.level) {
+        this.closeOffer(offer.id, "anulada");
+        return this.reject(client, "oferta-invalida", check.ok ? ["La oferta ya no es válida: han cambiado los niveles."] : check.details);
+      }
+      const outcome = this.safely(client, () => this.core.teach(learner.name, message.requestId as string, offer.from, offer.skill, offer.level));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") {
+        this.closeOffer(offer.id, "anulada");
+        return this.reject(client, outcome.reason, outcome.details);
+      }
+      this.applySkillGain(outcome.value);
+      this.closeOffer(offer.id, "aceptada");
     },
 
     "*": (client: Client) => this.reject(client, "mensaje-desconocido"),
@@ -556,6 +652,48 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     const player = this.state.players.get(client.sessionId);
     return player?.connected ? player : undefined;
+  }
+
+  /** Sesión de una persona conectada con personaje. */
+  private clientOf(name: string): Client | undefined {
+    for (const [sessionId, p] of this.state.players) {
+      if (p.name === name && p.connected) return this.clients.find((c) => c.sessionId === sessionId);
+    }
+    return undefined;
+  }
+
+  /** Cierra una oferta de enseñanza y avisa a las dos personas (F2c). */
+  private closeOffer(id: string, status: TeachResultMessage["status"]) {
+    const offer = this.offers.get(id);
+    if (!offer) return;
+    offer.timer.clear();
+    this.offers.delete(id);
+    const note: TeachResultMessage = { offerId: id, from: offer.from, to: offer.to, skill: offer.skill, level: offer.level, status };
+    this.clientOf(offer.from)?.send(MESSAGE.teachResult, note);
+    this.clientOf(offer.to)?.send(MESSAGE.teachResult, note);
+  }
+
+  private cancelOffersOf(name: string) {
+    for (const offer of [...this.offers.values()]) if (offer.from === name || offer.to === name) this.closeOffer(offer.id, "anulada");
+  }
+
+  /** Recetas con las que se practica algún nivel (sus cuentas se sincronizan en el estado del personaje). */
+  private practiceRecipes(): Set<string> {
+    return new Set(this.core.skillEntries().flatMap((e) => e.def.levels.map((l) => l.practice.recipe)));
+  }
+
+  /** Refleja en el estado un nivel ganado por una persona conectada. */
+  private applySkillGain(g: SkillGained) {
+    const player = this.playerByName(g.player);
+    if (player) player.skills.set(g.skill, g.level);
+    log("info", "habilidad", { player: g.player, skill: g.skill, level: g.level, source: g.source });
+  }
+
+  private loadSkill({ def, origin }: SkillEntry) {
+    const state = new SkillState();
+    Object.assign(state, { name: def.name, description: def.description, origin });
+    for (const l of def.levels) state.levels.push(Object.assign(new SkillLevelState(), { name: l.name, recipe: l.practice.recipe, times: l.practice.times }));
+    this.state.skills.set(def.id, state);
   }
 
   private playerByName(name: string): Player | undefined {
@@ -607,6 +745,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, verb: def.verb ?? "", origin });
     for (const [resource, amount] of Object.entries(def.inputs)) state.inputs.set(resource, amount);
     for (const id of def.alsoNeeds ?? []) state.alsoNeeds.push(id);
+    for (const { skill, level } of def.requiresSkills ?? []) state.requiresSkills.set(skill, level);
     for (const { item, amount } of def.byproducts ?? []) state.byproducts.set(item, amount);
     this.state.recipes.set(def.id, state);
   }

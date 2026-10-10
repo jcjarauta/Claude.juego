@@ -462,8 +462,8 @@ export interface SkillValidationContext {
 }
 
 /**
- * Valida una habilidad (configuración o panel): niveles con nombre y receta de práctica conocida. La receta de
- * práctica del nivel k no puede exigir esta habilidad a un nivel ≥ k (no se podría ganar nunca; Q196).
+ * Valida una habilidad (configuración o panel): niveles con nombre y receta de práctica conocida. Las recetas de práctica
+ * son abiertas: no pueden exigir esta habilidad (una receta no puede nombrar una habilidad que aún no existe, Q196).
  */
 export function validateSkillDef(sk: unknown, { recipes, limits, buildLimits, where }: SkillValidationContext): string[] {
   if (!isObject(sk) || typeof sk.id !== "string" || !ID.test(sk.id)) return [`${where}: id inválido`];
@@ -486,8 +486,7 @@ export function validateSkillDef(sk: unknown, { recipes, limits, buildLimits, wh
     const p = lv.practice;
     if (!isObject(p) || typeof p.recipe !== "string" || !recipes.has(p.recipe)) return errors.push(`${lw}: la receta de práctica es desconocida`);
     if (!isInt(p.times, 1, 1000)) errors.push(`${lw}: practice.times debe ser un entero 1–1000`);
-    const needs = recipes.get(p.recipe)!.requiresSkills?.find((q) => q.skill === sk.id && q.level >= i + 1);
-    if (needs) errors.push(`${lw}: la receta de práctica exige esta habilidad al nivel ${needs.level}; no se podría ganar nunca`);
+    if (recipes.get(p.recipe)!.requiresSkills?.some((q) => q.skill === sk.id)) errors.push(`${lw}: la receta de práctica no puede exigir esta misma habilidad (debe poder hacerla quien aún no la tiene)`);
   });
   return errors;
 }

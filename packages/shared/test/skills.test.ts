@@ -14,7 +14,9 @@ const recipe = (id: string, over: Partial<RecipeDef> = {}): RecipeDef => ({
 });
 const recipes = new Map<string, RecipeDef>([
   ["moler-a-mano", recipe("moler-a-mano")],
-  ["moler", recipe("moler", { requiresSkills: [{ skill: "molinero", level: 1 }] })],
+  ["moler", recipe("moler")],
+  ["moler-grueso", recipe("moler-grueso")],
+  ["moler-oficio", recipe("moler-oficio", { requiresSkills: [{ skill: "molinero", level: 1 }] })],
   ["moler-fino", recipe("moler-fino", { requiresSkills: [{ skill: "molinero", level: 2 }] })],
 ]);
 const molinero: SkillDef = {
@@ -22,7 +24,7 @@ const molinero: SkillDef = {
   levels: [
     { name: "Aprendiz", practice: { recipe: "moler-a-mano", times: 3 } },
     { name: "Oficial", practice: { recipe: "moler", times: 3 } },
-    { name: "Maestro", practice: { recipe: "moler-fino", times: 2 } },
+    { name: "Maestro", practice: { recipe: "moler-grueso", times: 2 } },
   ],
 };
 const skills = new Map([["molinero", molinero]]);
@@ -40,11 +42,12 @@ test("validar habilidad: niveles, nombres y receta de práctica", () => {
   assert.match(skillErrors({ ...molinero, name: "" }), /name obligatorio/);
 });
 
-test("la receta de práctica de un nivel no puede exigir ese nivel (no se ganaría nunca)", () => {
-  // «moler» exige molinero 1: sirve para practicar el nivel 2 (se tiene el 1), no el nivel 1.
-  assert.match(skillErrors({ ...molinero, levels: [{ name: "A", practice: { recipe: "moler", times: 1 } }] }), /exige esta habilidad al nivel 1/);
+test("las recetas de práctica son abiertas: no pueden exigir la propia habilidad", () => {
+  assert.match(skillErrors({ ...molinero, levels: [{ name: "A", practice: { recipe: "moler-oficio", times: 1 } }] }), /no puede exigir esta misma habilidad/);
   assert.match(skillErrors({ ...molinero, levels: [
-    { name: "A", practice: { recipe: "moler-a-mano", times: 1 } }, { name: "B", practice: { recipe: "moler-fino", times: 1 } }] }), /exige esta habilidad al nivel 2/);
+    { name: "A", practice: { recipe: "moler-a-mano", times: 1 } }, { name: "B", practice: { recipe: "moler-fino", times: 1 } }] }), /no puede exigir esta misma habilidad/);
+  // Exigir otra habilidad sí está permitido.
+  assert.equal(skillErrors({ ...molinero, id: "panadero", levels: [{ name: "A", practice: { recipe: "moler-oficio", times: 1 } }] }), "");
 });
 
 test("receta con habilidades: existe, nivel válido, sin repetir y como máximo el límite", () => {
@@ -76,7 +79,7 @@ test("qué falta: texto de cada habilidad y de lo que exige una receta", () => {
 
 test("fabricar: sin el nivel pedido → falta-habilidad con detalle; con él, se sigue", () => {
   const structure = { id: "molino", name: "Molino", projectId: "p", x: 5, y: 5, width: 2, height: 2, color: "#aa5500" };
-  const base = { recipe: recipes.get("moler")!, structure, structureBuilt: true, position: { x: 4, y: 5 }, stock: () => 9, skills };
+  const base = { recipe: recipes.get("moler-oficio")!, structure, structureBuilt: true, position: { x: 4, y: 5 }, stock: () => 9, skills };
   assert.deepEqual(checkCraft({ ...base, skillLevel: () => 0 }), { ok: false, reason: "falta-habilidad", details: ["Te falta la habilidad Molinero (Aprendiz); no la tienes."] });
   assert.equal(checkCraft({ ...base, skillLevel: () => 1 }).ok, true);
   assert.equal(checkCraft({ ...base, recipe: recipes.get("moler-a-mano")!, skillLevel: () => 0 }).ok, true, "sin requisitos no se exige nada");
@@ -94,9 +97,9 @@ test("practicar: umbral exacto, cada nivel con su receta y varios niveles de gol
   assert.equal(craft("moler", 1), 1);
   assert.equal(craft("moler", 1), 1);
   assert.equal(craft("moler", 1), 2, "la tercera con «moler» sube al nivel 2");
-  assert.equal(craft("moler-fino", 2), 2);
-  assert.equal(craft("moler-fino", 2), 3);
-  assert.equal(craft("moler-fino", 3), 3, "nivel máximo");
+  assert.equal(craft("moler-grueso", 2), 2);
+  assert.equal(craft("moler-grueso", 2), 3);
+  assert.equal(craft("moler-grueso", 3), 3, "nivel máximo");
   // Con cuentas previas, un ascenso puede arrastrar el siguiente.
   const prior: Record<string, number> = { "moler-a-mano": 3, moler: 3 };
   assert.equal(levelAfterCraft(molinero, 0, "moler-a-mano", (r) => prior[r] ?? 0), 2, "las cuentas ya hechas cuentan");
@@ -179,7 +182,7 @@ test("crear receta con habilidades y configuración del mundo con habilidades de
   w.skills = [{ id: "herrero", name: "Herrero", description: "", levels: [{ name: "Aprendiz", practice: { recipe: "forjar", times: 2 } }] }];
   const impossible = validateWorldConfig(w);
   assert.ok(!impossible.ok);
-  assert.match(impossible.errors.join(" | "), /no se podría ganar nunca/);
+  assert.match(impossible.errors.join(" | "), /no puede exigir esta misma habilidad/);
   w.recipes[w.recipes.length - 1]!.requiresSkills = [{ skill: "fantasma", level: 1 }];
   assert.match(String((validateWorldConfig(w) as { errors: string[] }).errors), /habilidad desconocida/);
 });

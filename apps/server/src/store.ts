@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import type { ItemDef, MissionDef, ProjectDef, RecipeDef, StructureDef } from "@juego/shared";
+import type { ItemDef, MissionDef, ProjectDef, RecipeDef, SkillDef, StructureDef } from "@juego/shared";
 
 // Persistencia del mundo (ADR-002): SQLite con escritura previa a la confirmación.
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -194,6 +194,30 @@ export const MIGRATIONS: Record<number, string> = {
       created_at INTEGER NOT NULL
     );
   `,
+  // F2c: habilidades con niveles (definiciones inmutables, Q195), nivel de cada persona (solo sube) y veces que
+  // ha fabricado cada receta (para practicar, Q196).
+  10: `
+    CREATE TABLE skill_def (
+      id TEXT PRIMARY KEY,
+      definition TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE player_skill (
+      player TEXT NOT NULL,
+      skill TEXT NOT NULL,
+      level INTEGER NOT NULL CHECK (level >= 1),
+      source TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (player, skill)
+    );
+    CREATE TABLE craft_count (
+      player TEXT NOT NULL,
+      recipe TEXT NOT NULL,
+      n INTEGER NOT NULL CHECK (n >= 0),
+      PRIMARY KEY (player, recipe)
+    );
+  `,
 };
 
 export function openStore(path: string) {
@@ -288,6 +312,14 @@ export function openStore(path: string) {
     addItemDef: db.prepare("INSERT INTO item_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     getRecipeDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM recipe_def ORDER BY created_at, id"),
     addRecipeDef: db.prepare("INSERT INTO recipe_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
+    getSkillDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM skill_def ORDER BY created_at, id"),
+    addSkillDef: db.prepare("INSERT INTO skill_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
+    getPlayerSkills: db.prepare("SELECT skill, level FROM player_skill WHERE player = ?"),
+    setPlayerSkill: db.prepare(`INSERT INTO player_skill (player, skill, level, source, at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (player, skill) DO UPDATE SET level = excluded.level, source = excluded.source, at = excluded.at WHERE excluded.level > player_skill.level`),
+    getCraftCounts: db.prepare("SELECT recipe, n FROM craft_count WHERE player = ?"),
+    incCraftCount: db.prepare(`INSERT INTO craft_count (player, recipe, n) VALUES (?, ?, 1)
+      ON CONFLICT (player, recipe) DO UPDATE SET n = n + 1`),
     getMissionDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM mission_def ORDER BY created_at, id"),
     addMissionDef: db.prepare("INSERT INTO mission_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
@@ -476,6 +508,29 @@ export function openStore(path: string) {
     },
     addRecipeDef(def: RecipeDef, by: string, at: number) {
       q.addRecipeDef.run(def.id, JSON.stringify(def), by, at);
+    },
+    getSkillDefs(): { def: SkillDef; createdBy: string; createdAt: number }[] {
+      return (q.getSkillDefs.all() as { definition: string; createdBy: string; createdAt: number }[])
+        .map((r) => ({ def: JSON.parse(r.definition) as SkillDef, createdBy: r.createdBy, createdAt: Number(r.createdAt) }));
+    },
+    addSkillDef(def: SkillDef, by: string, at: number) {
+      q.addSkillDef.run(def.id, JSON.stringify(def), by, at);
+    },
+    /** Nivel de una persona en cada habilidad que tiene (F2c). */
+    getPlayerSkills(player: string): Record<string, number> {
+      return Object.fromEntries((q.getPlayerSkills.all(player) as { skill: string; level: number }[]).map((r) => [r.skill, Number(r.level)]));
+    },
+    /** Fija el nivel; solo sube (un nivel igual o menor no cambia nada). Devuelve si cambió. */
+    setPlayerSkill(player: string, skill: string, level: number, source: string, at: number): boolean {
+      return Number(q.setPlayerSkill.run(player, skill, level, source, at).changes) === 1;
+    },
+    /** Veces que una persona ha fabricado cada receta (F2c). */
+    getCraftCounts(player: string): Record<string, number> {
+      return Object.fromEntries((q.getCraftCounts.all(player) as { recipe: string; n: number }[]).map((r) => [r.recipe, Number(r.n)]));
+    },
+    /** Cuenta una fabricación de la receta para esa persona. */
+    incCraftCount(player: string, recipe: string) {
+      q.incCraftCount.run(player, recipe);
     },
     getMissionDefs(): { def: MissionDef; createdBy: string; createdAt: number }[] {
       return (q.getMissionDefs.all() as { definition: string; createdBy: string; createdAt: number }[])
