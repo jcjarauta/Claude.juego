@@ -83,7 +83,7 @@ test("crear receta: edificio, 1–4 entradas, objeto de salida y límites", () =
     [{ structureId: "castillo" }, /estructura desconocida/],
     [{ inputs: {} }, /inputs obligatorio/],
     [{ inputs: { madera: 1, piedra: 1, fibra: 1, oro: 1, cal: 1 } }, /como máximo 4/],
-    [{ inputs: { hierro: 1 } }, /recurso desconocido "hierro"/],
+    [{ inputs: { hierro: 1 } }, /entrada desconocida "hierro"/],
     [{ inputs: { madera: 101 } }, /entero 1–100/],
     [{ inputs: { madera: 0 } }, /entero 1–100/],
     [{ output: { item: "pan", amount: 1 } }, /objeto de salida desconocido/],

@@ -139,13 +139,19 @@ export const ItemState = schema({
 }, "ItemState");
 export type ItemState = SchemaType<typeof ItemState>;
 
-/** Receta (F2a): entradas del almacén común y objeto de salida. */
+/** Receta (F2a, F2b): entradas del almacén común (recursos u objetos), salida principal y subproductos. */
 export const RecipeState = schema({
   name: t.string(),
   structureId: t.string(),
   inputs: t.map("uint16"),
   outputItem: t.string(),
-  outputAmount: t.uint8(),
+  outputAmount: t.uint16(),
+  /** Acción («moler»); vacío = «Fabricar». */
+  verb: t.string(),
+  /** Otros edificios que deben estar construidos. */
+  alsoNeeds: t.array("string"),
+  /** Subproductos: objeto → cantidad. */
+  byproducts: t.map("uint16"),
   origin: t.string(),
 }, "RecipeState");
 export type RecipeState = SchemaType<typeof RecipeState>;
@@ -198,5 +204,10 @@ export function itemDefFromState(id: string, i: ItemState): ItemDef {
 }
 
 export function recipeDefFromState(id: string, r: RecipeState): RecipeDef {
-  return { id, name: r.name, structureId: r.structureId, inputs: Object.fromEntries(r.inputs.entries()), output: { item: r.outputItem, amount: r.outputAmount } };
+  return {
+    id, name: r.name, structureId: r.structureId, inputs: Object.fromEntries(r.inputs.entries()), output: { item: r.outputItem, amount: r.outputAmount },
+    ...(r.verb ? { verb: r.verb } : {}),
+    ...(r.alsoNeeds.length ? { alsoNeeds: [...r.alsoNeeds] } : {}),
+    ...(r.byproducts.size ? { byproducts: [...r.byproducts.entries()].map(([item, amount]) => ({ item, amount })) } : {}),
+  };
 }

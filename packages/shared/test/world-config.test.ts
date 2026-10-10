@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { validateWorldConfig, createWorldIndex, type WorldConfig } from "../src/index.ts";
+import { validateWorldConfig, createWorldIndex, DEFAULT_BUILD_LIMITS, type WorldConfig } from "../src/index.ts";
 
 const base = (): WorldConfig => ({
   map: { width: 10, height: 8, tileSize: 32, defaultZoneName: "Camino", defaultColor: "#333333" },
@@ -13,6 +13,7 @@ const base = (): WorldConfig => ({
   session: { reconnectSeconds: 10 },
   community: { id: "aldea", name: "Aldea" },
   admins: ["ana"],
+  buildLimits: { ...DEFAULT_BUILD_LIMITS },
   projects: [{
     id: "construir-taller", name: "Construir taller", description: "",
     tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20, acceptance: "Aportar 20 de madera" }],
@@ -129,7 +130,7 @@ test("rechaza estructuras, objetos, recetas y misiones mal definidos", () => {
   assert.match(errors, /la casilla 3,3 la ocupa un nodo/);
   assert.match(errors, /"fuera": fuera del mapa/);
   assert.match(errors, /igual a un recurso "madera"/);
-  assert.match(errors, /recurso desconocido "oro"/);
+  assert.match(errors, /entrada desconocida "oro"/);
   assert.match(errors, /objeto de salida desconocido/);
   assert.match(errors, /objective debe ser/);
 });

@@ -1,6 +1,6 @@
 import { Room, type Client } from "@colyseus/core";
 import {
-  applyMove, checkBuild, checkCollect, checkCraft, checkTransfer, Contribution, ContributorTotals, isValidName,
+  applyMove, checkBuild, checkCollect, checkCraft, checkTransfer, recipeProducts, Contribution, ContributorTotals, isValidName,
   isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, Player, ProjectState, regenerate,
   ItemState, RecipeState, StructureState, TaskState, taskStatus, VIEWS, WorldState,
   type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
@@ -498,22 +498,27 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const outcome = this.safely(client, () => this.store.transaction(() => {
         if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
         const stock = (id: string) => this.store.getAmount(COMMUNITY, id);
+        const builtIds = new Set(this.store.getStructures().map((s) => s.id));
         const check = checkCraft({
           recipe, structure, position: player, stock,
-          structureBuilt: Boolean(structure && this.store.getStructures().some((s) => s.id === structure.id)),
+          structureBuilt: Boolean(structure && builtIds.has(structure.id)),
+          extraBuildings: (recipe?.alsoNeeds ?? []).map((id) => ({ id, name: this.core.structureById(id)?.name ?? id, built: builtIds.has(id) })),
         });
-        if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
-        const { inputs, output } = check.recipe;
+        if (!check.ok) return { kind: "rejected" as const, reason: check.reason, details: check.details };
+        const { inputs } = check.recipe;
+        const products = recipeProducts(check.recipe);
         for (const [resource, amount] of Object.entries(inputs)) this.store.addAmount(COMMUNITY, resource, -amount);
-        this.store.addAmount(COMMUNITY, output.item, output.amount);
-        this.store.event("craft", player.name, requestId, { recipe: check.recipe.id, consumed: inputs, produced: { [output.item]: output.amount } });
+        for (const { item, amount } of products) this.store.addAmount(COMMUNITY, item, amount);
+        this.store.event("craft", player.name, requestId, {
+          recipe: check.recipe.id, consumed: inputs, produced: Object.fromEntries(products.map((p) => [p.item, p.amount])),
+        });
         // La misión se completa en la misma transacción que la fabricación que la cumple.
         const missions = this.core.completeMissions(player.name, now);
-        const touched = [...Object.keys(inputs), output.item];
+        const touched = [...Object.keys(inputs), ...products.map((p) => p.item)];
         return { kind: "done" as const, community: touched.map((id) => [id, stock(id)] as const), missions };
       }));
       if (!outcome || outcome.kind === "duplicate") return;
-      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
 
       for (const [id, amount] of outcome.community) this.state.community.set(id, amount);
       this.applyMissions(outcome.missions);
@@ -599,8 +604,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   private loadRecipe({ def, origin }: RecipeEntry) {
     const state = new RecipeState();
-    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, origin });
+    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, verb: def.verb ?? "", origin });
     for (const [resource, amount] of Object.entries(def.inputs)) state.inputs.set(resource, amount);
+    for (const id of def.alsoNeeds ?? []) state.alsoNeeds.push(id);
+    for (const { item, amount } of def.byproducts ?? []) state.byproducts.set(item, amount);
     this.state.recipes.set(def.id, state);
   }
 
