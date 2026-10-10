@@ -89,12 +89,17 @@ export interface RecipeDef {
   output: { item: string; amount: number };
 }
 
+/** Objetivos de misión (Q144, Q174): objeto en el almacén común o proyecto completado. */
+export type MissionObjective =
+  | { kind: "item-in-community"; item: string; amount: number }
+  | { kind: "project-completed"; project: string };
+export const MISSION_OBJECTIVE_KINDS = ["item-in-community", "project-completed"] as const;
+
 export interface MissionDef {
   id: string;
   name: string;
   description: string;
-  /** Único tipo del MVP; otros llegarán como configuración (Q144). */
-  objective: { kind: "item-in-community"; item: string; amount: number };
+  objective: MissionObjective;
 }
 
 export interface WorldConfig {
@@ -110,6 +115,8 @@ export interface WorldConfig {
   /** Segundos que se conserva a un jugador tras un corte inesperado antes de retirarlo. */
   session: { reconnectSeconds: number };
   community: { id: string; name: string };
+  /** Cuentas con rol de administración: crean proyectos y misiones desde el panel (Q171). Por defecto, ninguna. */
+  admins: string[];
   projects: ProjectDef[];
   structures: StructureDef[];
   items: ItemDef[];
@@ -130,13 +137,101 @@ const ID = /^[a-z0-9-]{1,40}$/;
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isInt = (v: unknown, min: number, max = Number.MAX_SAFE_INTEGER): v is number =>
   Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
+const isText = (v: unknown, max: number, required = true): v is string =>
+  typeof v === "string" && v.length <= max && (!required || v.trim().length > 0);
+
+/** Límites de los proyectos y misiones creados desde el panel (F1a). */
+export const PANEL_LIMITS = { name: 60, description: 500, tasks: 8, required: 1000, acceptance: 200, openProjects: 20, coordinators: 10 } as const;
+
+export interface ProjectValidationContext {
+  resourceIds: ReadonlySet<string>;
+  /** "config": content/world.json; "panel": límites más estrictos (PANEL_LIMITS). */
+  limits: "config" | "panel";
+  /** Prefijo de los mensajes de error. */
+  where: string;
+}
+
+/** Valida una definición de proyecto (configuración o panel) y devuelve la lista de errores. */
+export function validateProjectDef(p: unknown, { resourceIds, limits, where }: ProjectValidationContext): string[] {
+  const errors: string[] = [];
+  const fail = (msg: string) => errors.push(msg);
+  const panel = limits === "panel";
+  if (!isObject(p) || typeof p.id !== "string" || !ID.test(p.id)) return [`${where}: id inválido`];
+  const at = `${where} "${p.id}"`;
+  if (!isText(p.name, panel ? PANEL_LIMITS.name : 200)) fail(`${at}: name obligatorio${panel ? ` (máximo ${PANEL_LIMITS.name})` : ""}`);
+  if (!isText(p.description, panel ? PANEL_LIMITS.description : 2000, false)) fail(`${at}: description debe ser texto${panel ? ` (máximo ${PANEL_LIMITS.description})` : ""}`);
+  const maxTasks = panel ? PANEL_LIMITS.tasks : 50;
+  if (!Array.isArray(p.tasks) || p.tasks.length === 0 || p.tasks.length > maxTasks) {
+    fail(`${at}: tasks debe ser una lista de 1 a ${maxTasks} tareas`);
+    return errors;
+  }
+  const taskIds = new Set<string>();
+  const taskResources = new Set<string>();
+  p.tasks.forEach((t, j) => {
+    const tw = `${where}.tasks[${j}]`;
+    if (!isObject(t) || typeof t.id !== "string" || !ID.test(t.id)) return fail(`${tw}: id inválido`);
+    if (taskIds.has(t.id)) fail(`${tw}: id duplicado "${t.id}"`);
+    taskIds.add(t.id);
+    if (!isText(t.title, panel ? PANEL_LIMITS.name : 200)) fail(`${tw}: title obligatorio`);
+    if (typeof t.resource !== "string" || !resourceIds.has(t.resource)) fail(`${tw}: recurso desconocido "${String(t.resource)}"`);
+    else if (taskResources.has(t.resource)) fail(`${tw}: el recurso "${t.resource}" ya lo usa otra tarea del proyecto`);
+    else taskResources.add(t.resource);
+    if (!isInt(t.required, 1, panel ? PANEL_LIMITS.required : 10000)) fail(`${tw}: required debe ser un entero 1–${panel ? PANEL_LIMITS.required : 10000}`);
+    if (t.acceptance !== undefined && !isText(t.acceptance, PANEL_LIMITS.acceptance)) {
+      fail(`${tw}: acceptance debe ser un texto de 1–${PANEL_LIMITS.acceptance} caracteres`);
+    }
+  });
+  if (p.reality !== undefined) {
+    if (!REALITIES.includes(p.reality as Reality)) fail(`${at}: reality debe ser ${REALITIES.join(", ")}`);
+    else if (!MVP_REALITIES.includes(p.reality as Reality)) fail(`${at}: en el MVP solo se admiten proyectos VIRTUAL (AUD-05)`);
+  }
+  if (p.coordinators !== undefined && (!Array.isArray(p.coordinators) || !p.coordinators.every(isValidName)
+    || (panel && p.coordinators.length > PANEL_LIMITS.coordinators))) {
+    fail(`${at}: coordinators debe ser una lista de nombres válidos`);
+  }
+  if (p.buildRequiresApproval !== undefined && typeof p.buildRequiresApproval !== "boolean") {
+    fail(`${at}: buildRequiresApproval debe ser true o false`);
+  }
+  return errors;
+}
+
+export interface MissionValidationContext {
+  itemIds: ReadonlySet<string>;
+  projectIds: ReadonlySet<string>;
+  where: string;
+}
+
+/** Valida una definición de misión (configuración o panel) y devuelve la lista de errores. */
+export function validateMissionDef(m: unknown, { itemIds, projectIds, where }: MissionValidationContext): string[] {
+  if (!isObject(m) || typeof m.id !== "string" || !ID.test(m.id)) return [`${where}: id inválido`];
+  const errors: string[] = [];
+  const at = `${where} "${m.id}"`;
+  if (!isText(m.name, PANEL_LIMITS.name)) errors.push(`${at}: name obligatorio (máximo ${PANEL_LIMITS.name})`);
+  if (!isText(m.description, PANEL_LIMITS.description, false)) errors.push(`${at}: description debe ser texto (máximo ${PANEL_LIMITS.description})`);
+  const o = m.objective;
+  const valid = isObject(o) && (
+    (o.kind === "item-in-community" && typeof o.item === "string" && itemIds.has(o.item) && isInt(o.amount, 1, 1000))
+    || (o.kind === "project-completed" && typeof o.project === "string" && projectIds.has(o.project) && Object.keys(o).length === 2)
+  );
+  if (!valid) {
+    errors.push(`${at}: objective debe ser { kind: "item-in-community", item conocido, amount 1–1000 } o { kind: "project-completed", project conocido }`);
+  }
+  return errors;
+}
+
+/** Identificador estable a partir de un nombre: minúsculas sin acentos, guiones y un sufijo aleatorio. */
+export function makeId(name: string, suffix: string): string {
+  const slug = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30).replace(/-+$/, "");
+  return `${slug || "p"}-${suffix.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 6) || "0"}`;
+}
 
 export function validateWorldConfig(input: unknown): ValidationResult {
   const errors: string[] = [];
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, admins, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -198,40 +293,15 @@ export function validateWorldConfig(input: unknown): ValidationResult {
     fail("community: id y name obligatorios");
   }
 
+  if (admins !== undefined && (!Array.isArray(admins) || !admins.every(isValidName))) fail("admins debe ser una lista de nombres válidos");
+
   const projectIds = new Set<string>();
   if (!Array.isArray(projects)) fail("projects debe ser una lista");
   else projects.forEach((p, i) => {
-    if (!isObject(p) || typeof p.id !== "string" || !ID.test(p.id)) return fail(`projects[${i}]: id inválido`);
-    if (projectIds.has(p.id)) fail(`projects: id duplicado "${p.id}"`);
-    projectIds.add(p.id);
-    if (typeof p.name !== "string" || !p.name) fail(`projects[${i}] "${p.id}": name obligatorio`);
-    if (typeof p.description !== "string") fail(`projects[${i}] "${p.id}": description debe ser texto`);
-    if (!Array.isArray(p.tasks) || p.tasks.length === 0) return fail(`projects[${i}] "${p.id}": tasks debe ser una lista no vacía`);
-    const taskIds = new Set<string>();
-    const taskResources = new Set<string>();
-    p.tasks.forEach((t, j) => {
-      const where = `projects[${i}].tasks[${j}]`;
-      if (!isObject(t) || typeof t.id !== "string" || !ID.test(t.id)) return fail(`${where}: id inválido`);
-      if (taskIds.has(t.id)) fail(`${where}: id duplicado "${t.id}"`);
-      taskIds.add(t.id);
-      if (typeof t.title !== "string" || !t.title) fail(`${where}: title obligatorio`);
-      if (typeof t.resource !== "string" || !resourceIds.has(t.resource)) fail(`${where}: recurso desconocido "${String(t.resource)}"`);
-      else if (taskResources.has(t.resource)) fail(`${where}: el recurso "${t.resource}" ya lo usa otra tarea del proyecto`);
-      else taskResources.add(t.resource);
-      if (!isInt(t.required, 1, 10000)) fail(`${where}: required debe ser un entero 1–10000`);
-      if (t.acceptance !== undefined && (typeof t.acceptance !== "string" || !t.acceptance.trim() || t.acceptance.length > 200)) {
-        fail(`${where}: acceptance debe ser un texto de 1–200 caracteres`);
-      }
-    });
-    if (p.reality !== undefined) {
-      if (!REALITIES.includes(p.reality as Reality)) fail(`projects[${i}] "${p.id}": reality debe ser ${REALITIES.join(", ")}`);
-      else if (!MVP_REALITIES.includes(p.reality as Reality)) fail(`projects[${i}] "${p.id}": en el MVP solo se admiten proyectos VIRTUAL (AUD-05)`);
-    }
-    if (p.coordinators !== undefined && (!Array.isArray(p.coordinators) || !p.coordinators.every(isValidName))) {
-      fail(`projects[${i}] "${p.id}": coordinators debe ser una lista de nombres válidos`);
-    }
-    if (p.buildRequiresApproval !== undefined && typeof p.buildRequiresApproval !== "boolean") {
-      fail(`projects[${i}] "${p.id}": buildRequiresApproval debe ser true o false`);
+    for (const e of validateProjectDef(p, { resourceIds, limits: "config", where: `projects[${i}]` })) fail(e);
+    if (isObject(p) && typeof p.id === "string") {
+      if (projectIds.has(p.id)) fail(`projects: id duplicado "${p.id}"`);
+      projectIds.add(p.id);
     }
   });
 
@@ -285,14 +355,10 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const missionIds = new Set<string>();
   if (!Array.isArray(missions)) fail("missions debe ser una lista");
   else missions.forEach((m, i) => {
-    if (!isObject(m) || typeof m.id !== "string" || !ID.test(m.id)) return fail(`missions[${i}]: id inválido`);
-    if (missionIds.has(m.id)) fail(`missions: id duplicado "${m.id}"`);
-    missionIds.add(m.id);
-    if (typeof m.name !== "string" || !m.name) fail(`missions[${i}] "${m.id}": name obligatorio`);
-    if (typeof m.description !== "string") fail(`missions[${i}] "${m.id}": description debe ser texto`);
-    const o = m.objective;
-    if (!isObject(o) || o.kind !== "item-in-community" || typeof o.item !== "string" || !itemIds.has(o.item) || !isInt(o.amount, 1, 1000)) {
-      fail(`missions[${i}] "${m.id}": objective debe ser { kind: "item-in-community", item conocido, amount 1–1000 }`);
+    for (const e of validateMissionDef(m, { itemIds, projectIds, where: `missions[${i}]` })) fail(e);
+    if (isObject(m) && typeof m.id === "string") {
+      if (missionIds.has(m.id)) fail(`missions: id duplicado "${m.id}"`);
+      missionIds.add(m.id);
     }
   });
 
@@ -308,13 +374,19 @@ function withDefaults(config: WorldConfig): WorldConfig {
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   return {
     ...config,
-    projects: config.projects.map((p) => ({
-      ...p,
-      reality: p.reality ?? "VIRTUAL",
-      coordinators: p.coordinators ?? [],
-      buildRequiresApproval: p.buildRequiresApproval ?? false,
-      tasks: p.tasks.map((t) => ({ ...t, acceptance: t.acceptance ?? `Aportar ${t.required} de ${resourceName.get(t.resource) ?? t.resource}` })),
-    })),
+    admins: config.admins ?? [],
+    projects: config.projects.map((p) => withProjectDefaults(p, resourceName)),
+  };
+}
+
+/** Valores por defecto de un proyecto (realidad, coordinadores, aprobación y criterio de cada tarea). */
+export function withProjectDefaults(p: ProjectDef, resourceName: ReadonlyMap<string, string>): ProjectDef {
+  return {
+    ...p,
+    reality: p.reality ?? "VIRTUAL",
+    coordinators: p.coordinators ?? [],
+    buildRequiresApproval: p.buildRequiresApproval ?? false,
+    tasks: p.tasks.map((t) => ({ ...t, acceptance: t.acceptance ?? `Aportar ${t.required} de ${resourceName.get(t.resource) ?? t.resource}` })),
   };
 }
 

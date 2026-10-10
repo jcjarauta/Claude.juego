@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { createAccounts, LOCK_AFTER_FAILURES, LOCK_MS, SESSION_MS, tokenHash } from "../src/accounts.ts";
 import { createRateLimiter } from "../src/rate-limit.ts";
-import { MIGRATIONS, openStore, playerScope } from "../src/store.ts";
+import { MIGRATIONS, openStore, playerScope, SCHEMA_VERSION } from "../src/store.ts";
 import { tempDb } from "./helpers.ts";
 
 // Contraseña de prueba generada aquí; solo existe en bases temporales.
@@ -81,7 +81,7 @@ test("migración v4 → v5: conserva los datos y crea cuentas y sesiones; los no
   v4.close();
 
   const store = openStore(path);
-  assert.equal(store.schemaVersion(), 5);
+  assert.equal(store.schemaVersion(), SCHEMA_VERSION);
   assert.ok(existsSync(`${path}.v4.bak`));
   const accounts = createAccounts(store);
   const ana = await accounts.register({ name: "ana", password: PASSWORD, adult: true });

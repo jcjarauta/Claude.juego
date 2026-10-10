@@ -1,14 +1,16 @@
 import { Room, type Client } from "@colyseus/core";
 import {
   applyMove, checkBuild, checkCollect, checkCraft, checkTransfer, Contribution, ContributorTotals, isValidName,
-  isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, missionSatisfied, Player, ProjectState, regenerate,
+  isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, Player, ProjectState, regenerate,
   StructureState, TaskState, taskStatus, VIEWS, WorldState,
   type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
   type StructureDef, type View,
 } from "@juego/shared";
 import type { Account } from "../accounts.ts";
 import { log } from "../log.ts";
-import { createProjectCore, RECENT_CONTRIBUTIONS, type ProjectCore } from "../projects/core.ts";
+import {
+  createProjectCore, RECENT_CONTRIBUTIONS, type MissionCompleted, type MissionEntry, type ProjectCore, type ProjectEntry,
+} from "../projects/core.ts";
 import { createRateLimiter } from "../rate-limit.ts";
 import { COMMUNITY, playerScope, type Store } from "../store.ts";
 import { getAccounts, getStore, getWorld, type World } from "../world.ts";
@@ -83,14 +85,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.state.structures.set(def.id, new StructureState({ built: Boolean(row), builtBy: row?.builtBy ?? "", builtAt: row?.builtAt ?? 0 }));
       if (row) this.blockFootprint(def);
     }
-    const completed = new Map(this.store.getMissions().map((m) => [m.id, m]));
-    for (const def of config.missions) {
-      const row = completed.get(def.id);
-      this.state.missions.set(def.id, new MissionState({
-        status: row ? "completada" : "pendiente", completedBy: row?.completedBy ?? "", completedAt: row?.completedAt ?? 0,
-      }));
-    }
-    for (const project of config.projects) this.loadProject(project);
+    for (const entry of this.core.missionEntries()) this.loadMission(entry);
+    for (const entry of this.core.projectEntries()) this.loadProject(entry);
 
     const tickMs = Math.max(50, Math.min(1000, Math.floor(config.regenIntervalMs / 4)));
     this.clock.setInterval(() => this.regenTick(), tickMs);
@@ -296,7 +292,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
 
-      // Confirmado: origen, progreso, quién aportó, actividad y estado del proyecto y de sus tareas.
+      // Confirmado: origen, progreso, quién aportó, actividad, estado del proyecto y de sus tareas, y misiones.
       const done = outcome.value;
       if (done.from === "player") this.playerByName(actor)?.inventory.set(done.resource, done.sourceAmount);
       else this.state.community.set(done.resource, done.sourceAmount);
@@ -314,6 +310,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       while (projectState.recent.length > RECENT_CONTRIBUTIONS) projectState.recent.shift();
       this.refreshTasks(done.project, projectState);
       projectState.status = this.projectStatusOf(done.project, projectState);
+      this.applyMissions(done.missions);
     },
 
     /** Revisar una tarea completada: solo coordinadores, desde el mundo o el panel (M5b, Q161). */
@@ -331,6 +328,42 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       taskState.reviewedAt = done.reviewedAt;
       taskState.note = done.note;
       this.refreshTasks(done.project, projectState);
+      projectState.status = this.projectStatusOf(done.project, projectState);
+      this.applyMissions(done.missions);
+    },
+
+    /** Crear un proyecto desde el panel (F1a, solo administración). */
+    [MESSAGE.createProject]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.createProject(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.loadProject(outcome.value);
+      log("info", "proyecto-creado", { project: outcome.value.def.id });
+    },
+
+    /** Cerrar un proyecto del panel (F1a, solo administración). */
+    [MESSAGE.closeProject]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.closeProject(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+      const projectState = this.state.projects.get(outcome.value.def.id)!;
+      projectState.phase = "cerrado";
+      projectState.closedBy = outcome.value.closedBy;
+    },
+
+    /** Crear una misión desde el panel (F1a, Q174, solo administración). */
+    [MESSAGE.createMission]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.createMission(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.loadMission(outcome.value.entry);
+      this.applyMissions(outcome.value.completed);
     },
 
     /** El cliente pide sus novedades cuando está listo para mostrarlas (una vez por sesión). */
@@ -369,7 +402,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         const consumed = this.core.consumeForBuild(project);
         this.store.addStructure(check.structure.id, player.name, now);
         this.store.event("build", player.name, requestId, { structure: check.structure.id, project: project.id, consumed });
-        return { kind: "done" as const, structure: check.structure, project };
+        // Una misión «proyecto completado» del taller se cumple al construirlo (Q174).
+        return { kind: "done" as const, structure: check.structure, project, missions: this.core.completeMissions(player.name, now) };
       }));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
@@ -381,6 +415,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       structureState.builtAt = now;
       const projectState = this.state.projects.get(outcome.project.id);
       if (projectState) projectState.status = this.projectStatusOf(outcome.project, projectState);
+      this.applyMissions(outcome.missions);
     },
 
     /** Fabricar en una estructura con materiales del almacén común; completa misiones (RF-008, Q157, Q158). */
@@ -408,25 +443,15 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.store.addAmount(COMMUNITY, output.item, output.amount);
         this.store.event("craft", player.name, requestId, { recipe: check.recipe.id, consumed: inputs, produced: { [output.item]: output.amount } });
         // La misión se completa en la misma transacción que la fabricación que la cumple.
-        const already = new Set(this.store.getMissions().map((m) => m.id));
-        const completedNow = config.missions.filter((m) => !already.has(m.id) && missionSatisfied(m, stock));
-        for (const mission of completedNow) {
-          this.store.completeMission(mission.id, player.name, now);
-          this.store.event("mission-complete", player.name, null, { mission: mission.id });
-        }
+        const missions = this.core.completeMissions(player.name, now);
         const touched = [...Object.keys(inputs), output.item];
-        return { kind: "done" as const, community: touched.map((id) => [id, stock(id)] as const), completedNow };
+        return { kind: "done" as const, community: touched.map((id) => [id, stock(id)] as const), missions };
       }));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
 
       for (const [id, amount] of outcome.community) this.state.community.set(id, amount);
-      for (const mission of outcome.completedNow) {
-        const missionState = this.state.missions.get(mission.id)!;
-        missionState.status = "completada";
-        missionState.completedBy = player.name;
-        missionState.completedAt = now;
-      }
+      this.applyMissions(outcome.missions);
     },
 
     "*": (client: Client) => this.reject(client, "mensaje-desconocido"),
@@ -489,10 +514,38 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     return this.core.status(project, (r) => projectState.progress.get(r) ?? 0, built);
   }
 
-  /** Estado sincronizado de un proyecto a partir de la instantánea del núcleo. */
-  private loadProject(project: ProjectDef) {
+  /** Misiones completadas confirmadas: pasan al estado sincronizado. */
+  private applyMissions(completed: MissionCompleted[]) {
+    for (const { mission, by, at } of completed) {
+      const missionState = this.state.missions.get(mission.id);
+      if (!missionState) continue;
+      missionState.status = "completada";
+      missionState.completedBy = by;
+      missionState.completedAt = at;
+    }
+  }
+
+  /** Estado sincronizado de una misión, con su definición (F1a). */
+  private loadMission({ def, origin, createdBy }: MissionEntry) {
+    const row = this.store.getMissions().find((m) => m.id === def.id);
+    const o = def.objective;
+    this.state.missions.set(def.id, new MissionState({
+      name: def.name, description: def.description, objectiveKind: o.kind,
+      objectiveTarget: o.kind === "project-completed" ? o.project : o.item,
+      objectiveAmount: o.kind === "item-in-community" ? o.amount : 0,
+      origin, createdBy,
+      status: row ? "completada" : "pendiente", completedBy: row?.completedBy ?? "", completedAt: row?.completedAt ?? 0,
+    }));
+  }
+
+  /** Estado sincronizado de un proyecto: definición y la instantánea del núcleo. */
+  private loadProject({ def: project, origin, createdBy, createdAt, closedBy, closedAt }: ProjectEntry) {
     const snapshot = this.core.snapshot(project);
     const projectState = new ProjectState();
+    Object.assign(projectState, {
+      name: project.name, description: project.description, origin, createdBy, createdAt,
+      phase: closedAt ? "cerrado" : "abierto", closedBy, requiresApproval: project.buildRequiresApproval,
+    });
     for (const [resource, amount] of Object.entries(snapshot.progress)) projectState.progress.set(resource, amount);
     for (const [name, byResource] of Object.entries(snapshot.contributors)) {
       const totals = new ContributorTotals();
@@ -505,6 +558,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const task of project.tasks) {
       const review = snapshot.reviews[task.id];
       projectState.tasks.set(task.id, new TaskState({
+        title: task.title, resource: task.resource, required: task.required, acceptance: task.acceptance,
         status: "", decision: review?.decision ?? "", reviewedBy: review?.reviewedBy ?? "",
         reviewedAt: review?.reviewedAt ?? 0, note: review?.note ?? "",
       }));
@@ -572,8 +626,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
   }
 
-  private reject(client: Client, reason: RejectReason) {
-    const message: RejectedMessage = { reason };
+  private reject(client: Client, reason: RejectReason, details?: string[]) {
+    const message: RejectedMessage = details?.length ? { reason, details } : { reason };
     client.send(MESSAGE.rejected, message);
   }
 }
