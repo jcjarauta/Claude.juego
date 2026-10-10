@@ -5,3 +5,4 @@ export * from "./state.ts";
 export * from "./resources.ts";
 export * from "./projects.ts";
 export * from "./crafting.ts";
+export * from "./management.ts";

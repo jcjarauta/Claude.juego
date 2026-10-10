@@ -91,13 +91,17 @@ export function checkCreateProject(input: CreateProjectInput): CreateResult<Proj
   if (existingIds.has(id)) return { ok: false, reason: "solicitud-invalida" };
   const tasks = Array.isArray(raw.tasks)
     ? raw.tasks.map((t) => (isRecord(t)
-      ? { id: typeof t.resource === "string" ? t.resource : "", title: trimmed(t.title), resource: t.resource, required: t.required, acceptance: t.acceptance === "" ? undefined : trimmed(t.acceptance) }
+      ? {
+        id: typeof t.resource === "string" ? t.resource : "", title: trimmed(t.title), resource: t.resource, required: t.required,
+        acceptance: t.acceptance === "" ? undefined : trimmed(t.acceptance), ...(t.dueDate ? { dueDate: t.dueDate } : {}),
+      }
       : t))
     : raw.tasks;
   const coordinators = raw.coordinators === undefined ? [actor] : Array.isArray(raw.coordinators) ? [...new Set(raw.coordinators.map(trimmed))] : raw.coordinators;
   const candidate = {
     id, name, description: trimmed(raw.description ?? ""), tasks, reality: "VIRTUAL", coordinators,
     buildRequiresApproval: raw.requiresApproval ?? false,
+    ...(raw.dueDate ? { dueDate: raw.dueDate } : {}),
   };
   const errors = validateProjectDef(candidate, { resourceIds, limits: "panel", where: "proyecto" });
   if (errors.length) return { ok: false, reason: "definicion-invalida", details: errors };

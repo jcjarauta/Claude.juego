@@ -2,6 +2,7 @@
 // El servidor la valida al arrancar y el cliente la recibe ya validada.
 
 import { isValidName } from "./contracts.ts";
+import { dueDateErrors } from "./management.ts";
 
 export const RESOURCE_SHAPES = ["triangle", "square", "diamond", "circle"] as const;
 export type ResourceShape = (typeof RESOURCE_SHAPES)[number];
@@ -39,6 +40,8 @@ export interface TaskDef {
   required: number;
   /** Criterio de aceptación legible; el verificable es resource + required. Por defecto «Aportar N de X». */
   acceptance: string;
+  /** Fecha objetivo opcional «AAAA-MM-DD» (F1b, Q176); no posterior a la del proyecto. */
+  dueDate?: string;
 }
 
 /** Clasificación de realidad de un proyecto (CLAUDE.md §9, AUD-05). */
@@ -60,6 +63,8 @@ export interface ProjectDef {
   coordinators: string[];
   /** Si es true, construir exige todas las tareas aprobadas (Q162). Por defecto false. */
   buildRequiresApproval: boolean;
+  /** Fecha objetivo opcional «AAAA-MM-DD» (F1b, Q176). */
+  dueDate?: string;
 }
 
 /** Estructura que se levanta al completar un proyecto (M5). */
@@ -192,6 +197,7 @@ export function validateProjectDef(p: unknown, { resourceIds, limits, where }: P
   if (p.buildRequiresApproval !== undefined && typeof p.buildRequiresApproval !== "boolean") {
     fail(`${at}: buildRequiresApproval debe ser true o false`);
   }
+  for (const e of dueDateErrors(p, where)) fail(e);
   return errors;
 }
 

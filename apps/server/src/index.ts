@@ -9,6 +9,8 @@ import { log } from "./log.ts";
 import { WorldRoom } from "./rooms/WorldRoom.ts";
 import { mkdirSync } from "node:fs";
 import { openStore } from "./store.ts";
+import { createProjectCore } from "./projects/core.ts";
+import { createRateLimiter } from "./rate-limit.ts";
 import { loadWorld, setAccounts, setStore } from "./world.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -34,10 +36,14 @@ const store = openStore(dbPath);
 setStore(store);
 const accounts = createAccounts(store);
 setAccounts(accounts);
+/** Una consulta de historia por segundo y cuenta (con margen de 2 seguidas). */
+const historyLimiter = createRateLimiter(2, 1);
 
 // Lo mínimo que se usa de la petición y la respuesta de Express (llega como dependencia de Colyseus, sin tipos).
 interface HttpRequest extends AsyncIterable<Buffer> {
   body?: unknown;
+  params?: Record<string, string>;
+  headers: Record<string, string | string[] | undefined>;
 }
 
 interface HttpResponse {
@@ -111,6 +117,18 @@ const server = defineServer({
     // Cuentas locales (M6, RF-003).
     app.post("/api/registro", accountEndpoint("registro", (b) => accounts.register({ name: b.name, password: b.password, adult: b.adult })));
     app.post("/api/sesion", accountEndpoint("inicio-sesion", (b) => accounts.login({ name: b.name, password: b.password })));
+    // Historia de un proyecto para las gráficas (F1b, Q179): token en la cabecera, nunca en la URL.
+    app.get("/api/proyectos/:id/historia", (req: HttpRequest, res: HttpResponse) => {
+      const header = req.headers.authorization;
+      const token = typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : undefined;
+      const account = accounts.verify(token);
+      if (!account) return res.status(401).json({ error: "sesion-invalida" });
+      if (!historyLimiter.take(account.id, Date.now())) return res.status(429).json({ error: "demasiadas-solicitudes" });
+      // Lectura: un núcleo propio sobre el mismo almacén (sin escritura, sin estado de sala).
+      const history = createProjectCore(store, world.config).history(req.params?.id ?? "");
+      if (!history) return res.status(404).json({ error: "proyecto-desconocido" });
+      return res.json(history);
+    });
     app.post("/api/salir", async (req: HttpRequest, res: HttpResponse) => {
       try {
         accounts.logout((await readJson(req)).token);
