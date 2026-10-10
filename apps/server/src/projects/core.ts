@@ -318,6 +318,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateItem({
           actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(),
+          takenNames: [...[...items.values()].map((e) => e.def.name), ...config.resources.map((r) => r.name)],
           created: [...items.values()].filter((e) => e.origin === "panel").length, idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
@@ -339,7 +340,8 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateRecipe({
           actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), structureIds: new Set(activeStructures().map((e) => e.def.id)),
-          created: [...recipes.values()].filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()), idSuffix: suffix(),
+          created: [...recipes.values()].filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()),
+          takenNames: [...recipes.values()].map((e) => e.def.name), idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addRecipeDef(check.def, actor, at);

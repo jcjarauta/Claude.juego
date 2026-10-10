@@ -264,9 +264,13 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 127 de 127.
 | Contraste | — | Formularios y minimapa nuevos sin medir | NO VERIFICADO |
 | Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea «Molino del soak», «Harina del soak» y la receta «Moler»; los bots construyen y fabrican en cualquier edificio; 173 comprobaciones, 0 divergencias, convergencia máx. 1 ms; molino construido, 11 de harina; auditoría cuadrada (madera 120 = 50 + 70; piedra 77 = 25 + 52; fibra 100 = 73 + 27; herramienta 11; harina 11) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 134 de 134 | OK |
-| Prueba del usuario | Persona responsable | Pendiente | — |
+| Prueba del usuario | Persona responsable, 2026-10-10 | Encontró dos defectos (sin confirmación visible al crear un objeto; objetos duplicados); corregidos. «ya está probado»; fusión y subida autorizadas | OK |
 
-Totales F2a: `npm.cmd test` 134 de 134.
+Totales F2a: `npm.cmd test` 135 de 135.
+
+Defectos encontrados en la prueba del usuario y corregidos:
+- Al crear un objeto o una receta, la confirmación solo salía en la línea de avisos de la cabecera; ahora aparece junto al formulario, con la lista de objetos existentes.
+- Se podían crear objetos (y recetas) con el mismo nombre; el servidor los rechaza ahora sin distinguir mayúsculas ni acentos (los objetos también contra los nombres de recursos). Los duplicados ya creados en bases de prueba permanecen (las definiciones son inmutables, Q187).
 
 Defectos encontrados y corregidos:
 - En la tabla del cronograma, las columnas nuevas no coincidían con sus encabezados.

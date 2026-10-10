@@ -69,12 +69,19 @@ export function checkCreateConstruction(input: CreateConstructionInput): CreateR
   return { ok: true, def: { project: project.def, structure: structure as StructureDef } };
 }
 
+/** Nombre sin mayúsculas, acentos ni espacios sobrantes, para detectar repetidos. */
+export function nameKey(name: string): string {
+  return name.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export interface CreateItemInput {
   actor: string;
   admins: readonly string[];
   payload: unknown;
   resourceIds: ReadonlySet<string>;
   itemIds: ReadonlySet<string>;
+  /** Nombres de los objetos y recursos que ya existen: no se admite otro igual (sin distinguir mayúsculas ni acentos). */
+  takenNames?: readonly string[];
   /** Objetos creados desde el panel. */
   created: number;
   idSuffix: string;
@@ -82,13 +89,14 @@ export interface CreateItemInput {
 
 /** Crear un objeto fabricable (Q157, F2a): solo nombre; vive en el almacén común. */
 export function checkCreateItem(input: CreateItemInput): CreateResult<ItemDef> {
-  const { actor, admins, payload, resourceIds, itemIds, created, idSuffix } = input;
+  const { actor, admins, payload, resourceIds, itemIds, takenNames = [], created, idSuffix } = input;
   if (!authorize(actor, "create-project", { admins })) return { ok: false, reason: "sin-permiso" };
   if (created >= BUILD_LIMITS.items) return { ok: false, reason: "demasiados-objetos" };
   const raw = isRecord(payload) ? payload : {};
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   const def = { id: makeId(name, idSuffix), name };
   const errors = validateItemDef(def, { itemIds, resourceIds, where: "objeto" });
+  if (name && takenNames.some((n) => nameKey(n) === nameKey(name))) errors.push(`ya existe un objeto o recurso llamado «${name}»`);
   if (errors.length) return { ok: false, reason: "definicion-invalida", details: errors };
   return { ok: true, def };
 }
@@ -104,12 +112,14 @@ export interface CreateRecipeInput {
   /** Recetas creadas desde el panel. */
   created: number;
   existingIds: ReadonlySet<string>;
+  /** Nombres de las recetas que ya existen: no se admite otra igual. */
+  takenNames?: readonly string[];
   idSuffix: string;
 }
 
 /** Crear una receta (F2a): 1–4 recursos del almacén común → un objeto, en un edificio. */
 export function checkCreateRecipe(input: CreateRecipeInput): CreateResult<RecipeDef> {
-  const { actor, admins, payload, resourceIds, itemIds, structureIds, created, existingIds, idSuffix } = input;
+  const { actor, admins, payload, resourceIds, itemIds, structureIds, created, existingIds, takenNames = [], idSuffix } = input;
   if (!authorize(actor, "create-project", { admins })) return { ok: false, reason: "sin-permiso" };
   if (created >= BUILD_LIMITS.recipes) return { ok: false, reason: "demasiadas-recetas" };
   const raw = isRecord(payload) ? payload : {};
@@ -119,6 +129,7 @@ export function checkCreateRecipe(input: CreateRecipeInput): CreateResult<Recipe
   const output = isRecord(raw.output) ? { item: raw.output.item, amount: raw.output.amount } : raw.output;
   const def = { id, name, structureId: raw.structureId, inputs: raw.inputs, output };
   const errors = validateRecipeDef(def, { resourceIds, itemIds, structureIds, limits: "panel", where: "receta" });
+  if (name && takenNames.some((n) => nameKey(n) === nameKey(name))) errors.push(`ya existe una receta llamada «${name}»`);
   if (errors.length) return { ok: false, reason: "definicion-invalida", details: errors };
   return { ok: true, def: def as unknown as RecipeDef };
 }

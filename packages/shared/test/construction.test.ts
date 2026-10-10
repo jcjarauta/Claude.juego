@@ -99,3 +99,20 @@ test("crear receta: edificio, 1–4 entradas, objeto de salida y límites", () =
   assert.deepEqual(validateRecipeDef({ id: "r", name: "R", structureId: "taller", inputs: { madera: 500 }, output: { item: "harina", amount: 1 } },
     { resourceIds: input.resourceIds, itemIds: input.itemIds, structureIds: input.structureIds, limits: "config", where: "recipes[0]" }), []);
 });
+
+test("crear objeto y receta: no se admiten nombres repetidos (sin mayúsculas ni acentos)", () => {
+  const input = { actor: "admin", admins: ["admin"], resourceIds: new Set(["madera"]), itemIds: new Set(["harina-x1"]), takenNames: ["Harina", "Madera"], created: 1, idSuffix: "x2" };
+  for (const name of ["Harina", " harina ", "HARINA", "Madera", "Hárina"]) {
+    const bad = checkCreateItem({ ...input, payload: { name } });
+    assert.ok(!bad.ok && bad.reason === "definicion-invalida", name);
+    assert.match(String(bad.details), /ya existe un objeto o recurso/);
+  }
+  assert.ok(checkCreateItem({ ...input, payload: { name: "Pan" } }).ok);
+  const recipe = checkCreateRecipe({
+    actor: "admin", admins: ["admin"], resourceIds: new Set(["madera"]), itemIds: new Set(["harina-x1"]), structureIds: new Set(["taller"]),
+    created: 0, existingIds: new Set<string>(), takenNames: ["Moler"], idSuffix: "r2",
+    payload: { name: "moler", structureId: "taller", inputs: { madera: 1 }, output: { item: "harina-x1", amount: 1 } },
+  });
+  assert.ok(!recipe.ok && recipe.reason === "definicion-invalida");
+  assert.match(String(recipe.details), /ya existe una receta/);
+});
