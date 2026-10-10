@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  createWorldIndex, MESSAGE, projectDefFromState, REJECT_TEXT,
+  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, structureDefFromState,
   type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
   type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TransferMessage, type WorldConfig, type WorldIndex,
   type WorldState,
@@ -209,13 +209,21 @@ export class WorldScene extends Phaser.Scene {
 
   private refreshStructures() {
     const t = this.tile;
-    for (const def of this.config.structures) {
+    // Solares y edificios del estado (F2a): también los creados desde el panel; los retirados desaparecen.
+    for (const [id, view] of [...this.structureViews]) {
+      if (this.room.state.structures.has(id)) continue;
+      view.graphics.destroy();
+      view.label.destroy();
+      this.structureViews.delete(id);
+    }
+    for (const [id, structure] of this.room.state.structures) {
+      const def = structureDefFromState(id, structure);
       let view = this.structureViews.get(def.id);
       if (!view) {
         view = { graphics: this.add.graphics(), label: this.add.text(0, 0, "", { fontSize: "12px", color: "#ffffff", backgroundColor: "#00000099", padding: { x: 3, y: 1 } }).setOrigin(0.5), built: undefined };
         this.structureViews.set(def.id, view);
       }
-      const built = Boolean(this.room.state.structures.get(def.id)?.built);
+      const built = structure.built;
       if (view.built === built) continue;
       view.built = built;
       const { graphics, label } = view;
@@ -302,19 +310,23 @@ export class WorldScene extends Phaser.Scene {
     const row = (amount: (id: string) => number) => this.config.resources.map((r) => ({ id: r.id, name: r.name, amount: amount(r.id) }));
     this.hud.setInventory(row((id) => me.inventory.get(id) ?? 0), this.config.inventoryMax, (resource, amount) => this.deposit(resource, amount));
     const communityRows = [...row((id) => state.community.get(id) ?? 0),
-      ...this.config.items.map((i) => ({ id: i.id, name: i.name, amount: state.community.get(i.id) ?? 0 }))];
+      ...[...state.items.entries()].map(([id, i]) => ({ id, name: i.name, amount: state.community.get(id) ?? 0 }))];
     this.hud.setCommunity(communityRows, state.communityName);
 
     const projectId = this.selectedProject;
     const projectState = projectId ? state.projects.get(projectId) : undefined;
     if (this.projectPanel && projectId && projectState) {
-      const structureDef = this.config.structures.find((s) => s.projectId === projectId);
+      const structureEntry = [...state.structures.entries()].find(([, s]) => s.projectId === projectId);
+      const structureDef = structureEntry && structureDefFromState(structureEntry[0], structureEntry[1]);
       this.projectPanel.render({
         state: projectState,
+        structureDef,
+        recipes: structureDef ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureDef.id).map(([id, r]) => recipeDefFromState(id, r)) : [],
+        itemName: (id) => state.items.get(id)?.name.toLowerCase() ?? id,
         held: (resource) => me.inventory.get(resource) ?? 0,
         community: (resource) => state.community.get(resource) ?? 0,
         ownName: me.name,
-        structure: structureDef && state.structures.get(structureDef.id),
+        structure: structureEntry?.[1],
         missions: [...state.missions.entries()],
         projectName: (id) => state.projects.get(id)?.name ?? id,
         position: { x: me.x, y: me.y },

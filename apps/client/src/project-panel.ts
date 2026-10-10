@@ -1,7 +1,7 @@
 import {
   blockedBy, daysBetween, isNextTo, isOverdue, isTaskDone, localDay, missionDefFromState,
   type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
-  type StructureState, type WorldConfig,
+  type RecipeDef, type StructureDef, type StructureState, type WorldConfig,
 } from "@juego/shared";
 
 // Panel del proyecto (RF-006, RF-010, RF-013), fuera del canvas y accesible: barras <progress>
@@ -32,6 +32,11 @@ const seenMissions = new Map<string, string>();
 export interface PanelInput {
   state: ProjectState;
   structure: StructureState | undefined;
+  /** Definición del edificio del proyecto y sus recetas, del estado (F2a: también las creadas desde el panel). */
+  structureDef: StructureDef | undefined;
+  recipes: RecipeDef[];
+  /** Nombre en minúsculas de un objeto por id. */
+  itemName: (id: string) => string;
   /** Todas las misiones (F1a: también las creadas desde el panel). */
   missions: [string, MissionState][];
   /** Nombre de un proyecto por id (para describir los objetivos de las misiones). */
@@ -51,31 +56,22 @@ export interface PanelActions {
 
 export function createProjectPanel(config: WorldConfig, project: ProjectDef, actions: PanelActions) {
   const onContribute = actions.contribute;
-  const structureDef = config.structures.find((s) => s.projectId === project.id);
-  const recipeDef = structureDef && config.recipes.find((r) => r.structureId === structureDef.id);
-  const itemName = new Map(config.items.map((i) => [i.id, i.name.toLowerCase()]));
   const buildBox = byId("construir");
   const buildButton = byId<HTMLButtonElement>("construir-boton");
   const buildHelp = byId("construir-ayuda");
   const workshop = byId("taller");
   const workshopBuilt = byId("taller-construido");
-  const recipeText = byId("taller-receta");
-  const craftButton = byId<HTMLButtonElement>("taller-fabricar");
-  const craftHelp = byId("taller-ayuda");
+  const recipeBox = byId("taller-recetas");
+  const recipeBlocks = new Map<string, { text: HTMLElement; button: HTMLButtonElement; help: HTMLElement }>();
+  let recipeSignature = "";
+  let currentStructureId = "";
   const missionList = byId<HTMLUListElement>("misiones");
   buildBox.hidden = true;
   workshop.hidden = true;
-  if (structureDef) {
-    buildButton.textContent = `Construir: ${structureDef.name}`;
-    buildButton.onclick = () => { if (buildButton.getAttribute("aria-disabled") !== "true") actions.build(structureDef.id); };
-    byId("taller-titulo").textContent = structureDef.name;
-  }
-  if (recipeDef) {
-    craftButton.textContent = `Fabricar: ${recipeDef.name}`;
-    craftButton.onclick = () => { if (craftButton.getAttribute("aria-disabled") !== "true") actions.craft(recipeDef.id); };
-  }
+  buildButton.onclick = () => { if (buildButton.getAttribute("aria-disabled") !== "true" && currentStructureId) actions.build(currentStructureId); };
+  recipeBox.replaceChildren();
   let lastBuilt: boolean | undefined;
-  let lastTools: number | undefined;
+  const lastStock = new Map<string, number>();
   const heading = byId("proyecto-titulo");
   const status = byId("proyecto-estado");
   const dueText = byId("proyecto-fecha");
@@ -143,7 +139,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
       heading.focus();
     },
 
-    render({ state, held, community, ownName, structure, missions, projectName, position }: PanelInput) {
+    render({ state, held, community, ownName, structure, structureDef, recipes, itemName, missions, projectName, position }: PanelInput) {
       const closed = state.phase === "cerrado";
       // Avisos de este repintado: se leen juntos para que uno no tape a otro (aportes, misiones…).
       const messages: string[] = [];
@@ -209,6 +205,9 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
 
       // Construir (Q156): visible con el proyecto listo; el servidor decide.
       if (structureDef) {
+        currentStructureId = structureDef.id;
+        buildButton.textContent = `Construir: ${structureDef.name}`;
+        byId("taller-titulo").textContent = structureDef.name;
         buildBox.hidden = !ready || built;
         const near = isNextTo(position, structureDef);
         buildButton.setAttribute("aria-disabled", String(!near));
@@ -228,18 +227,42 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
 
       // Taller y receta (Q157).
       workshop.hidden = !built;
-      if (built && structureDef && recipeDef && structure) {
+      if (built && structureDef && structure) {
         workshopBuilt.textContent = `Construido por ${structure.builtBy} a las ${time(structure.builtAt)}.`;
-        const parts = Object.entries(recipeDef.inputs).map(([r, n]) => `${n} de ${resourceName.get(r) ?? r} (hay ${community(r)})`);
-        recipeText.textContent = `Receta: ${parts.join(", ")} del almacén de la comunidad → ${recipeDef.output.amount} ${itemName.get(recipeDef.output.item) ?? recipeDef.output.item}.`;
-        const enough = Object.entries(recipeDef.inputs).every(([r, n]) => community(r) >= n);
-        const near = isNextTo(position, structureDef);
-        craftButton.setAttribute("aria-disabled", String(!enough || !near));
-        craftHelp.textContent = !near ? `Acércate al ${structureDef.name.toLowerCase()} para fabricar.`
-          : enough ? "Todo listo para fabricar." : "Faltan materiales en el almacén de la comunidad: depositad lo necesario.";
-        const tools = community(recipeDef.output.item);
-        if (lastTools !== undefined && tools > lastTools) say(`Se ha fabricado ${tools - lastTools} ${itemName.get(recipeDef.output.item) ?? ""}.`);
-        lastTools = tools;
+        // Un bloque por receta del edificio; se rehacen si cambian las recetas (F2a).
+        const signature = recipes.map((r) => r.id).join(",");
+        if (signature !== recipeSignature) {
+          recipeSignature = signature;
+          recipeBlocks.clear();
+          recipeBox.replaceChildren(...(recipes.length ? recipes.map((recipe) => {
+            const text = document.createElement("p");
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = `Fabricar: ${recipe.name}`;
+            button.onclick = () => { if (button.getAttribute("aria-disabled") !== "true") actions.craft(recipe.id); };
+            const help = document.createElement("p");
+            help.className = "ayuda";
+            recipeBlocks.set(recipe.id, { text, button, help });
+            const block = document.createElement("div");
+            block.append(text, button, help);
+            return block;
+          }) : [Object.assign(document.createElement("p"), { className: "ayuda", textContent: "Este edificio todavía no tiene recetas." })]));
+        }
+        for (const recipe of recipes) {
+          const block = recipeBlocks.get(recipe.id);
+          if (!block) continue;
+          const parts = Object.entries(recipe.inputs).map(([r, n]) => `${n} de ${resourceName.get(r) ?? r} (hay ${community(r)})`);
+          block.text.textContent = `Receta «${recipe.name}»: ${parts.join(", ")} del almacén de la comunidad → ${recipe.output.amount} ${itemName(recipe.output.item)}.`;
+          const enough = Object.entries(recipe.inputs).every(([r, n]) => community(r) >= n);
+          const near = isNextTo(position, structureDef);
+          block.button.setAttribute("aria-disabled", String(!enough || !near));
+          block.help.textContent = !near ? `Acércate al ${structureDef.name.toLowerCase()} para fabricar.`
+            : enough ? "Todo listo para fabricar." : "Faltan materiales en el almacén de la comunidad: depositad lo necesario.";
+          const stock = community(recipe.output.item);
+          const before = lastStock.get(recipe.output.item);
+          if (before !== undefined && stock > before) say(`Se ha fabricado ${stock - before} ${itemName(recipe.output.item)}.`);
+          lastStock.set(recipe.output.item, stock);
+        }
       }
 
       // Misiones (Q158, Q174): todas, también las creadas desde el panel.
@@ -247,7 +270,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         const def = missionDefFromState(id, mission);
         const goal = def.objective.kind === "project-completed"
           ? `completar «${projectName(def.objective.project)}»`
-          : `${def.objective.amount} ${itemName.get(def.objective.item) ?? def.objective.item} en el almacén`;
+          : `${def.objective.amount} ${itemName(def.objective.item)} en el almacén`;
         const li = document.createElement("li");
         li.textContent = mission.status === "completada"
           ? `${def.name} (${goal}): completada por ${mission.completedBy} a las ${time(mission.completedAt)}. ¡Enhorabuena a toda la comunidad!`

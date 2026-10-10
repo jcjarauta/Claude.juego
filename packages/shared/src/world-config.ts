@@ -259,7 +259,8 @@ export function footprintProblems(rect: { x?: unknown; y?: unknown; width?: unkn
       if (reason && !problems.includes(reason)) problems.push(reason);
     }
   }
-  return problems;
+  // Con muchas casillas ocupadas se resumen: los dos primeros motivos y cuántos más hay.
+  return problems.length > 2 ? [...problems.slice(0, 2), `y otras ${problems.length - 2} casillas ocupadas`] : problems;
 }
 
 export interface StructureValidationContext {
