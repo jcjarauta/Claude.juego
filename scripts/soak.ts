@@ -93,6 +93,20 @@ await createAndWait(() => panel.room.send(MESSAGE.createRecipe, {
   requestId: randomUUID(), name: "Hornear", structureId: hornoId, verb: "hornear", alsoNeeds: [molinoId], inputs: { [harinaId]: 2 },
   output: { item: panId, amount: 1 },
 }), () => named(panel.room.state.recipes, "Hornear"));
+// F2c: una habilidad con dos niveles que se practican con recetas abiertas, y una receta que exige el segundo.
+await createAndWait(() => panel.room.send(MESSAGE.createRecipe, {
+  requestId: randomUUID(), name: "Moler a mano", structureId: molinoId, verb: "moler a mano", inputs: { madera: 1 }, output: { item: harinaId, amount: 1 },
+}), () => named(panel.room.state.recipes, "Moler a mano"));
+const molerId = named(panel.room.state.recipes, "Moler")!;
+const molerAManoId = named(panel.room.state.recipes, "Moler a mano")!;
+const molineroId = await createAndWait(() => panel.room.send(MESSAGE.createSkill, {
+  requestId: randomUUID(), name: "Molinero del soak", description: "",
+  levels: [{ name: "Aprendiz", recipe: molerAManoId, times: 2 }, { name: "Oficial", recipe: molerId, times: 2 }],
+}), () => named(panel.room.state.skills, "Molinero del soak"));
+await createAndWait(() => panel.room.send(MESSAGE.createRecipe, {
+  requestId: randomUUID(), name: "Moler fino", structureId: molinoId, verb: "moler fino", inputs: { madera: 1 }, output: { item: salvadoId, amount: 1 },
+  requiresSkills: [{ skill: molineroId, level: 2 }],
+}), () => named(panel.room.state.recipes, "Moler fino"));
 
 let running = true;
 let paused = false;
@@ -117,11 +131,14 @@ async function act(bot: TestPlayer) {
   for (const [structureId, st] of state.structures) {
     const projectState = state.projects.get(st.projectId);
     const ready = projectState?.status === "listo" && projectState.phase !== "cerrado";
-    const recipeEntry = st.built
-      ? [...state.recipes.entries()].find(([, r]) => r.structureId === structureId
+    // Entre las recetas posibles se elige una al azar (también las que practican una habilidad, F2c).
+    const eligible = st.built
+      ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureId
         && [...r.alsoNeeds].every((id) => state.structures.get(id)?.built)
+        && [...r.requiresSkills.entries()].every(([skill, level]) => (me.skills.get(skill) ?? 0) >= level)
         && [...r.inputs.entries()].every(([res, n]) => (state.community.get(res) ?? 0) >= n))
-      : undefined;
+      : [];
+    const recipeEntry = eligible[Math.floor(Math.random() * eligible.length)];
     if (!(ready && !st.built) && !recipeEntry) continue;
     const footprint = { x: st.x, y: st.y, width: st.width, height: st.height };
     if (isNextTo(me, footprint)) {
@@ -223,7 +240,7 @@ const workers = [...bots.map(async (bot) => {
 function fullSnapshot(viewer: { room: TestPlayer["room"] }): string {
   const { state } = viewer.room;
   const players = [...state.players.values()]
-    .map((p) => `${p.name}@${p.x},${p.y}${p.connected ? "" : "(desc)"}[${[...p.inventory.entries()].sort().join(";")}]`)
+    .map((p) => `${p.name}@${p.x},${p.y}${p.connected ? "" : "(desc)"}[${[...p.inventory.entries()].sort().join(";")}]{${[...p.skills.entries()].sort().join(";")}}`)
     .sort();
   const nodes = [...state.nodes.entries()].sort().join(";");
   const community = [...state.community.entries()].sort().join(";");
@@ -272,6 +289,7 @@ const projectSummary = project ? (() => {
     mission: config.missions[0] ? state.missions.get(config.missions[0].id)?.status : null,
     tools: recipe ? state.community.get(recipe.output.item) ?? 0 : null,
     molino: { built: state.structures.get(molinoId)?.built, status: state.projects.get(molinoId)?.status, harina: state.community.get(harinaId) ?? 0, salvado: state.community.get(salvadoId) ?? 0 },
+    habilidad: Object.fromEntries([...state.players.values()].map((p) => [p.name, p.skills.get(molineroId) ?? 0])),
     horno: { built: state.structures.get(hornoId)?.built, status: state.projects.get(hornoId)?.status, pan: state.community.get(panId) ?? 0 },
     tasks: Object.fromEntries([...p.tasks.entries()].map(([id, t]) => [id, `${t.status}${t.reviewedBy ? ` (${t.reviewedBy})` : ""}`])),
     pozo: { status: state.projects.get(pozoId)?.status, dueDate: state.projects.get(pozoId)?.dueDate, reschedules: state.projects.get(pozoId)?.reschedules, progress: Object.fromEntries(state.projects.get(pozoId)?.progress.entries() ?? []) },
