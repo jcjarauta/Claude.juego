@@ -34,6 +34,8 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-16 | Revisar tareas con y sin rol, completas e incompletas | Solo la coordinación revisa tareas completas; nota obligatoria; decisión y evidencia persisten; aprobación obligatoria configurable |
 | TP-17 | Crear, jugar y cerrar proyectos desde el panel | Solo la administración crea y cierra; definiciones inválidas rechazadas con detalle; todos lo ven al momento; se completa con aportes; cerrado no admite aportes; límite de abiertos |
 | TP-18 | Misión configurable «proyecto completado» | Se completa en la misma transacción que el aporte o la aprobación que completa el proyecto, con autor; persiste tras caída |
+| TP-19 | Fechas objetivo y replanificación | Fechas válidas al crear; replanificar solo con permiso, motivo y fechas coherentes; historial con evento; persiste tras caída |
+| TP-20 | Historia para gráficas | Solo con sesión (token en la cabecera); serie por día igual a los aportes; replanificaciones; límite de frecuencia; rendimiento con 50 000 aportes |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |

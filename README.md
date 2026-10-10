@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fase F1a (proyectos y misiones configurables) cerrada.
+**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores: F1a cerrada; F1b (vistas de gestión) hecha en rama.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -34,7 +34,7 @@ npm.cmd start
 
 Abre `http://127.0.0.1:2567`. La primera vez elige «Crear una cuenta nueva» (nombre, contraseña de 8 a 128 caracteres y declaración de mayoría de edad); después basta con «Entrar». La sesión dura 30 días en ese navegador; «Salir de la cuenta» la cierra.
 
-**Panel de proyectos:** `http://127.0.0.1:2567/panel` (o el enlace del panel del proyecto). Muestra tareas, criterios, evidencias y revisiones del mismo estado que el mundo, sin crear personaje. Para aprobar o rechazar tareas hay que entrar con una cuenta cuyo nombre esté en `coordinators` del proyecto. La **administración** (lista `admins` de `content/world.json`, por defecto `coordinacion`) ve además los formularios «Nuevo proyecto» y «Nueva misión» y puede cerrar proyectos creados en el panel; los jugadores eligen el proyecto en el panel del juego (P).
+**Panel de proyectos:** `http://127.0.0.1:2567/panel` (o el enlace del panel del proyecto). Muestra tareas, criterios, evidencias y revisiones del mismo estado que el mundo, sin crear personaje. Para aprobar o rechazar tareas hay que entrar con una cuenta cuyo nombre esté en `coordinators` del proyecto. La **administración** (lista `admins` de `content/world.json`, por defecto `coordinacion`) ve además los formularios «Nuevo proyecto» y «Nueva misión» y puede cerrar proyectos creados en el panel; los jugadores eligen el proyecto en el panel del juego (P). Las pestañas **Tablero**, **Cronograma** e **Indicadores** del panel muestran los mismos datos de otra forma (flechas para cambiar de pestaña); la coordinación aprueba desde las tarjetas y replanifica fechas desde el cronograma.
 
 **Red local (2–4 jugadores):** en PowerShell, `$env:HOST="0.0.0.0"; npm.cmd start`. Windows pedirá permiso de firewall para Node: concédelo solo para redes privadas. Los demás abren `http://<IP-del-PC>:2567` (la IP aparece con `ipconfig`, en «Dirección IPv4» del adaptador conectado a la red local).
 
@@ -66,6 +66,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). F1a cerrada: la administración crea proyectos y misiones desde el panel sin programar ni reiniciar.
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). F1a cerrada: la administración crea proyectos y misiones desde el panel sin programar ni reiniciar. F1b hecha en la rama `f1b-vistas-gestion`: el panel tiene pestañas Lista, Tablero, Cronograma e Indicadores, y los proyectos admiten fechas objetivo y replanificación con motivo. Pendiente: tu prueba y la fusión.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.
