@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores F1a (proyectos configurables) y F1b (vistas de gestión) cerradas.
+**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores F1a y F1b cerradas; F1c (responsables, dependencias y comentarios) hecha en rama.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -66,6 +66,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). F1a cerrada: la administración crea proyectos y misiones desde el panel sin programar ni reiniciar. F1b cerrada: el panel tiene pestañas Lista, Tablero, Cronograma e Indicadores, y los proyectos admiten fechas objetivo y replanificación con motivo.
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). F1a cerrada: la administración crea proyectos y misiones desde el panel sin programar ni reiniciar. F1b cerrada: el panel tiene pestañas Lista, Tablero, Cronograma e Indicadores, y los proyectos admiten fechas objetivo y replanificación con motivo. F1c hecha en la rama `f1c-responsables-dependencias`: responsables por tarea, dependencias que bloquean aportes hasta terminar los requisitos (con cadena crítica en el cronograma) y comentarios por tarea. Pendiente: tu prueba y la fusión.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

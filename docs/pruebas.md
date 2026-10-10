@@ -36,6 +36,9 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-18 | Misión configurable «proyecto completado» | Se completa en la misma transacción que el aporte o la aprobación que completa el proyecto, con autor; persiste tras caída |
 | TP-19 | Fechas objetivo y replanificación | Fechas válidas al crear; replanificar solo con permiso, motivo y fechas coherentes; historial con evento; persiste tras caída |
 | TP-20 | Historia para gráficas | Solo con sesión (token en la cabecera); serie por día igual a los aportes; replanificaciones; límite de frecuencia; rendimiento con 50 000 aportes |
+| TP-21 | Responsables | La coordinación asigna; cada cual se apunta o se quita; sin rol no se asigna a otros; máximo 3; persiste |
+| TP-22 | Dependencias | Ciclos rechazados; aporte a tarea bloqueada sin efecto; desbloqueo al terminar el requisito (y al aprobarlo si se exige); fechas coherentes al replanificar |
+| TP-23 | Comentarios | Número y último en vivo; validación; hilo por HTTP con token; persiste |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
