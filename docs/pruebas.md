@@ -39,6 +39,8 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-21 | Responsables | La coordinación asigna; cada cual se apunta o se quita; sin rol no se asigna a otros; máximo 3; persiste |
 | TP-22 | Dependencias | Ciclos rechazados; aporte a tarea bloqueada sin efecto; desbloqueo al terminar el requisito (y al aprobarlo si se exige); fechas coherentes al replanificar |
 | TP-23 | Comentarios | Número y último en vivo; validación; hilo por HTTP con token; persiste |
+| TP-24 | Construcciones desde el panel | Solo la administración; solares válidos (no fuera del mapa, nodos, aparición ni solapes); solar visible para todos; aportar, construir junto al solar, bloqueo y misión; cerrar sin construir lo retira; persiste |
+| TP-25 | Objetos y recetas desde el panel | Objeto y receta creados con permiso y validación; fabricar exige edificio construido, cercanía y materiales; misión de objetos nuevos; auditoría cuadrada |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
