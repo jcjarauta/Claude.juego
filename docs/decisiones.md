@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q185 (BORRADOR)
+# Registro de decisiones — Q001 a Q189 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -188,6 +188,10 @@
 | Q183 | Gestión | Cadena crítica = la cadena más larga de tareas pendientes encadenadas por dependencias (aproximación sin duraciones). Aprobado con el plan de F1c | VERIFICADO (decisión); F1c |
 | Q184 | Gestión | Comentarios por tarea como traza (no se editan ni se borran); hilo por HTTP con token en la cabecera; el estado sincronizado lleva el número y el último. Aprobado con el plan de F1c | VERIFICADO (decisión); F1c |
 | Q185 | Gestión | Fase F1c (responsables, dependencias y comentarios) elegida por la persona responsable tras F1b | VERIFICADO (decisión); F1c |
+| Q186 | Construcciones | La administración crea estructuras (con su proyecto y solar en el mapa), objetos y recetas desde el panel, con la misma validación que la configuración. Aprobado con el plan de F2a | VERIFICADO (decisión); F2a |
+| Q187 | Construcciones | Definiciones inmutables (como Q172); cerrar el proyecto de un solar sin construir lo retira del mapa; un edificio construido no se retira en esta etapa. Aprobado con el plan de F2a | VERIFICADO (decisión); F2a |
+| Q188 | Construcciones | Límites: 10 construcciones, 20 objetos y 20 recetas creados en el panel; solar de 1–5 casillas por lado; recetas de 1–4 entradas. Aprobado con el plan de F2a | VERIFICADO (decisión); F2a |
+| Q189 | Trabajo | CLAUDE.md actualizado con el estado posterior al MVP y la sección «Entorno y pruebas»; permisos para `npm.cmd test/typecheck/build`. Aprobado con el plan de F2a | VERIFICADO (decisión); AHORA |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

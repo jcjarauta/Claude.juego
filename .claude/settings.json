@@ -10,7 +10,13 @@
       "Bash(npm test *)",
       "Bash(npm run test *)",
       "Bash(npm run lint *)",
-      "Bash(npm run typecheck *)"
+      "Bash(npm run typecheck *)",
+      "Bash(npm.cmd test *)",
+      "Bash(npm.cmd test)",
+      "Bash(npm.cmd run typecheck *)",
+      "Bash(npm.cmd run typecheck)",
+      "Bash(npm.cmd run build *)",
+      "Bash(npm.cmd run build)"
     ],
     "ask": [
       "Bash(npm install *)",
