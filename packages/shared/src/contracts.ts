@@ -17,6 +17,9 @@ export const MESSAGE = {
   build: "build",
   craft: "craft",
   review: "review",
+  createProject: "create-project",
+  closeProject: "close-project",
+  createMission: "create-mission",
   rejected: "rejected",
 } as const;
 
@@ -144,6 +147,40 @@ export const REVIEW_DECISIONS = ["aprobada", "rechazada"] as const;
 export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
 export const NOTE_MAX = 500;
 
+/** Tarea de un proyecto creado desde el panel (F1a): una por recurso. */
+export interface NewTask {
+  title: string;
+  resource: string;
+  required: number;
+  /** Criterio legible; por defecto «Aportar N de X». */
+  acceptance?: string;
+}
+
+/** Crear un proyecto desde el panel (solo administración, Q171). Queda publicado e inmutable (Q172). */
+export interface CreateProjectMessage {
+  requestId: string;
+  name: string;
+  description: string;
+  tasks: NewTask[];
+  /** Por defecto, quien lo crea. */
+  coordinators?: string[];
+  /** Completar exige todas las tareas aprobadas. */
+  requiresApproval?: boolean;
+}
+
+export interface CloseProjectMessage {
+  requestId: string;
+  projectId: string;
+}
+
+/** Crear una misión desde el panel (Q174). */
+export interface CreateMissionMessage {
+  requestId: string;
+  name: string;
+  description: string;
+  objective: { kind: "project-completed"; project: string } | { kind: "item-in-community"; item: string; amount: number };
+}
+
 export interface ReviewMessage {
   requestId: string;
   projectId: string;
@@ -183,10 +220,18 @@ export type RejectReason =
   | "nota-invalida"
   | "sin-personaje"
   | "tareas-sin-aprobar"
-  | "demasiadas-solicitudes";
+  | "demasiadas-solicitudes"
+  | "proyecto-desconocido"
+  | "proyecto-cerrado"
+  | "proyecto-de-serie"
+  | "demasiados-proyectos"
+  | "demasiadas-misiones"
+  | "definicion-invalida";
 
 export interface RejectedMessage {
   reason: RejectReason;
+  /** Detalle legible (p. ej. qué campos de una definición no son válidos). */
+  details?: string[];
 }
 
 export const REJECT_TEXT: Record<RejectReason, string> = {
@@ -220,6 +265,12 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "sin-personaje": "Desde el panel no se puede actuar en el mundo; entra con tu personaje.",
   "tareas-sin-aprobar": "Un coordinador debe aprobar todas las tareas antes de construir.",
   "demasiadas-solicitudes": "Demasiadas acciones seguidas; espera un momento.",
+  "proyecto-desconocido": "Ese proyecto no existe.",
+  "proyecto-cerrado": "Ese proyecto está cerrado: ya no admite aportes.",
+  "proyecto-de-serie": "Los proyectos de la configuración del mundo no se cierran desde el panel.",
+  "demasiados-proyectos": "Hay demasiados proyectos abiertos (máximo 20). Cierra alguno antes de crear otro.",
+  "demasiadas-misiones": "Hay demasiadas misiones (máximo 50).",
+  "definicion-invalida": "La definición no es válida; revisa los campos indicados.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

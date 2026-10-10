@@ -1,13 +1,13 @@
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  createWorldIndex, MESSAGE, REJECT_TEXT,
+  createWorldIndex, MESSAGE, projectDefFromState, REJECT_TEXT,
   type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
   type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TransferMessage, type WorldConfig, type WorldIndex,
   type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
-import { createProjectPanel, type ProjectPanel } from "./project-panel.ts";
+import { createProjectPanel, type PanelActions, type ProjectPanel } from "./project-panel.ts";
 import { newRequestId } from "./request-id.ts";
 
 export type WorldRoom = Room<unknown, WorldState>;
@@ -49,8 +49,12 @@ const hex = (color: string) => Number.parseInt(color.slice(1), 16);
 
 const isTextInput = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
+/** Controles donde las flechas y las letras tienen su propio uso (lista desplegable, texto): no mueven al personaje. */
+const isEditable = (target: EventTarget | null) =>
+  target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+
 const isFormControl = (target: EventTarget | null) =>
-  target instanceof HTMLButtonElement || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+  target instanceof HTMLButtonElement || isEditable(target);
 
 interface NodeViewObjects {
   shape: Phaser.GameObjects.Graphics;
@@ -70,6 +74,9 @@ export class WorldScene extends Phaser.Scene {
   /** Última acción propia que reduce el inventario: decide cómo se anuncia la bajada. */
   private lastOwnAction: "deposit" | "contribute" | undefined;
   private projectPanel: ProjectPanel | undefined;
+  /** Proyecto que se ve en el panel (F1a: hay varios; por defecto, el primero de la configuración). */
+  private selectedProject: string | undefined;
+  private projectOptions = "";
   /** Dibujo de cada estructura: contorno del solar o edificio construido. */
   private structureViews = new Map<string, { graphics: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; built: boolean | undefined }>();
   private keys = new Map<Direction, Phaser.Input.Keyboard.Key[]>();
@@ -107,18 +114,18 @@ export class WorldScene extends Phaser.Scene {
       this.refreshPlayerList();
     });
 
-    // Panel del proyecto (el primero de la configuración en el MVP).
-    const project = this.config.projects[0];
-    if (project) {
-      this.projectPanel = createProjectPanel(this.config, project, {
-        contribute: (projectId, taskId, from, amount) => this.contribute(projectId, taskId, from, amount),
-        build: (structureId) => this.room.send(MESSAGE.build, { requestId: newRequestId(), structureId } satisfies BuildMessage),
-        craft: (recipeId) => this.room.send(MESSAGE.craft, { requestId: newRequestId(), recipeId } satisfies CraftMessage),
-      });
-      // Las novedades se piden ahora que el manejador está registrado (RF-013).
-      this.room.onMessage(MESSAGE.news, (news: NewsMessage) => this.projectPanel?.showNews(news));
-      this.room.send(MESSAGE.news, {});
-    }
+    // Panel del proyecto: por defecto el primero de la configuración; el selector cambia de proyecto (F1a).
+    this.selectedProject = this.config.projects[0]?.id ?? [...this.room.state.projects.keys()][0];
+    const selector = document.getElementById("proyecto-selector") as HTMLSelectElement;
+    selector.onchange = () => {
+      this.selectedProject = selector.value;
+      this.openProjectPanel();
+      this.refreshResources();
+    };
+    this.openProjectPanel();
+    // Las novedades se piden ahora que el manejador está registrado (RF-013).
+    this.room.onMessage(MESSAGE.news, (news: NewsMessage) => this.projectPanel?.showNews(news));
+    this.room.send(MESSAGE.news, {});
 
     // Nodos, inventarios y proyecto se refrescan con cada lote de cambios del servidor.
     this.room.onStateChange(() => this.refreshResources());
@@ -131,13 +138,15 @@ export class WorldScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error("Teclado no disponible");
     for (const [dir, codes] of Object.entries(KEY_CODES) as [Direction, string[]][]) {
-      this.keys.set(dir, codes.map((code) => keyboard.addKey(code)));
+      // Sin captura global: Phaser no debe impedir las flechas en listas desplegables ni campos (TP-11).
+      this.keys.set(dir, codes.map((code) => keyboard.addKey(code, false)));
     }
     // Pulsaciones escuchadas directamente en la ventana: Phaser las agrupa por fotograma y, si
     // los fotogramas se ralentizan (pestaña o panel en segundo plano), se reordenarían o perderían.
     // Phaser se mantiene solo para la tecla mantenida (isDown en update).
     const onKeyDown = (event: KeyboardEvent) => {
-      const dir = CODE_TO_DIRECTION[event.code];
+      const dir = isEditable(event.target) ? undefined : CODE_TO_DIRECTION[event.code];
+      if (dir) event.preventDefault(); // que las flechas no desplacen la página
       // Un toque se envía al momento si el ritmo lo permite; si no, queda pendiente para el bucle.
       if (dir && !this.trySendMove(dir, performance.now())) this.pending = dir;
       // Con el foco en un botón, Espacio pulsa el botón y no recolecta.
@@ -165,7 +174,7 @@ export class WorldScene extends Phaser.Scene {
     // Mismo reloj que en keydown (performance.now) para que el intervalo mínimo sea coherente.
     const time = performance.now();
     let dir = this.pending;
-    if (!dir) {
+    if (!dir && !isEditable(document.activeElement)) {
       for (const [held, keys] of this.keys) {
         if (keys.some((k) => k.isDown)) { dir = held; break; }
       }
@@ -235,9 +244,40 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private panelActions: PanelActions = {
+    contribute: (projectId, taskId, from, amount) => this.contribute(projectId, taskId, from, amount),
+    build: (structureId) => this.room.send(MESSAGE.build, { requestId: newRequestId(), structureId } satisfies BuildMessage),
+    craft: (recipeId) => this.room.send(MESSAGE.craft, { requestId: newRequestId(), recipeId } satisfies CraftMessage),
+  };
+
+  /** Crea el panel del proyecto elegido a partir de su definición en el estado. */
+  private openProjectPanel() {
+    const id = this.selectedProject;
+    const projectState = id ? this.room.state.projects.get(id) : undefined;
+    this.projectPanel = id && projectState ? createProjectPanel(this.config, projectDefFromState(id, projectState), this.panelActions) : undefined;
+  }
+
+  /** Opciones del selector: proyectos abiertos y cerrados, en orden de creación. */
+  private refreshProjectSelector() {
+    const selector = document.getElementById("proyecto-selector") as HTMLSelectElement;
+    const entries = [...this.room.state.projects.entries()].sort(([, a], [, b]) => a.createdAt - b.createdAt);
+    const options = entries.map(([id, p]) => `${id}|${p.name}|${p.phase}|${p.status}`).join(";");
+    if (options === this.projectOptions) return;
+    this.projectOptions = options;
+    selector.replaceChildren(...entries.map(([id, p]) => {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = `${p.name}${p.phase === "cerrado" ? " (cerrado)" : p.status === "completado" || p.status === "construido" ? " (completado)" : ""}`;
+      return option;
+    }));
+    if (this.selectedProject) selector.value = this.selectedProject;
+    if (!this.projectPanel && this.selectedProject) this.openProjectPanel();
+  }
+
   private refreshResources() {
     const { state } = this.room;
     this.refreshStructures();
+    this.refreshProjectSelector();
     for (const [id, view] of this.nodeViews) {
       const units = state.nodes.get(id) ?? 0;
       view.label.setText(String(units));
@@ -265,16 +305,18 @@ export class WorldScene extends Phaser.Scene {
       ...this.config.items.map((i) => ({ id: i.id, name: i.name, amount: state.community.get(i.id) ?? 0 }))];
     this.hud.setCommunity(communityRows, state.communityName);
 
-    const project = this.config.projects[0];
-    const projectState = project && state.projects.get(project.id);
-    if (this.projectPanel && projectState) {
+    const projectId = this.selectedProject;
+    const projectState = projectId ? state.projects.get(projectId) : undefined;
+    if (this.projectPanel && projectId && projectState) {
+      const structureDef = this.config.structures.find((s) => s.projectId === projectId);
       this.projectPanel.render({
         state: projectState,
         held: (resource) => me.inventory.get(resource) ?? 0,
         community: (resource) => state.community.get(resource) ?? 0,
         ownName: me.name,
-        structure: this.config.structures[0] && state.structures.get(this.config.structures[0].id),
-        mission: this.config.missions[0] && state.missions.get(this.config.missions[0].id),
+        structure: structureDef && state.structures.get(structureDef.id),
+        missions: [...state.missions.entries()],
+        projectName: (id) => state.projects.get(id)?.name ?? id,
         position: { x: me.x, y: me.y },
       });
     }

@@ -36,6 +36,10 @@ test("fabricar: requisitos y motivos (Q157)", () => {
 });
 
 test("misión: se cumple con al menos la cantidad pedida del objeto en la comunidad", () => {
-  assert.equal(missionSatisfied(mision, () => 0), false);
-  assert.equal(missionSatisfied(mision, (id) => (id === "herramienta" ? 1 : 0)), true);
+  const none = () => false;
+  assert.equal(missionSatisfied(mision, { stock: () => 0, projectCompleted: none }), false);
+  assert.equal(missionSatisfied(mision, { stock: (id) => (id === "herramienta" ? 1 : 0), projectCompleted: none }), true);
+  const proyecto: MissionDef = { id: "m2", name: "Huerto", description: "", objective: { kind: "project-completed", project: "huerto" } };
+  assert.equal(missionSatisfied(proyecto, { stock: () => 9, projectCompleted: none }), false);
+  assert.equal(missionSatisfied(proyecto, { stock: () => 0, projectCompleted: (id) => id === "huerto" }), true);
 });

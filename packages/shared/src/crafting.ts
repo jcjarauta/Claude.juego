@@ -65,8 +65,16 @@ export function checkCraft({ recipe, structure, structureBuilt, position, stock 
   return { ok: true, recipe };
 }
 
-/** Objetivo de la misión cumplido con las existencias actuales de la comunidad. */
-export function missionSatisfied(mission: MissionDef, stock: (id: string) => number): boolean {
+export interface MissionContext {
+  /** Existencias del almacén de la comunidad. */
+  stock: (id: string) => number;
+  /** Proyecto completado (construido, o con sus tareas completas y aprobadas si se exige; F1a). */
+  projectCompleted: (projectId: string) => boolean;
+}
+
+/** Objetivo de la misión cumplido con el estado actual (Q158, Q174). */
+export function missionSatisfied(mission: MissionDef, { stock, projectCompleted }: MissionContext): boolean {
   const { objective } = mission;
-  return objective.kind === "item-in-community" && stock(objective.item) >= objective.amount;
+  if (objective.kind === "item-in-community") return stock(objective.item) >= objective.amount;
+  return projectCompleted(objective.project);
 }

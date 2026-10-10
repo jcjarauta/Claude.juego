@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q170 (BORRADOR)
+# Registro de decisiones — Q001 a Q175 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -173,6 +173,11 @@
 | Q168 | Umbrales | Los umbrales de `docs/pruebas.md` §3 se fijan con los valores medidos en M6 (`docs/aceptacion-mvp.md` §3). Aprobado por la persona responsable el 2026-10-10 | VERIFICADO (decisión); MVP |
 | Q169 | Accesibilidad | El MVP se acepta sin probar en Firefox (Q143 lo pedía); queda como excepción registrada. Chrome y Edge, probados por la persona responsable. Decidido el 2026-10-10 | VERIFICADO (decisión); MVP |
 | Q170 | MVP | **MVP aceptado** por la persona responsable el 2026-10-10 (gate Q101), con la excepción de Q169; M6 se fusiona y se sube a GitHub | VERIFICADO (decisión); MVP |
+| Q171 | Permisos | Rol de administración por lista `admins` en la configuración (por defecto `coordinacion`): solo la administración crea proyectos y misiones desde el panel y cierra proyectos. Aprobado con el plan de F1a | VERIFICADO (decisión); F1a |
+| Q172 | Proyectos | Un proyecto creado en el panel queda publicado y su definición es inmutable; para corregirlo se cierra y se crea otro. Cerrar deja de admitir aportes y conserva el historial; los proyectos de la configuración no se cierran desde el panel. Aprobado con el plan de F1a | VERIFICADO (decisión); F1a |
+| Q173 | Proyectos | Los proyectos sin estructura se completan con sus tareas (y aprobaciones si se exigen). Estructuras, recetas y objetos nuevos siguen siendo configuración; su creación desde la interfaz queda para FUT-04. Aprobado con el plan de F1a | VERIFICADO (decisión); F1a |
+| Q174 | Misiones | Misiones con objetivo `project-completed`, además de `item-in-community`; se completan en la misma transacción que la operación que las cumple. Aprobado con el plan de F1a | VERIFICADO (decisión); F1a |
+| Q175 | Proyectos | Fase F1a elegida por la persona responsable como primera fase posterior al MVP (FUT-05): proyectos y misiones configurables desde el panel. Límites: 20 proyectos abiertos, 8 tareas (una por recurso), cantidades 1–1000, 50 misiones | VERIFICADO (decisión); F1a |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

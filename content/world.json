@@ -21,6 +21,9 @@
     "id": "aldea",
     "name": "Comunidad de la aldea"
   },
+  "admins": [
+    "coordinacion"
+  ],
   "projects": [
     {
       "id": "construir-taller",

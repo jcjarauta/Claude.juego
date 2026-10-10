@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import type { MissionDef, ProjectDef } from "@juego/shared";
 
 // Persistencia del mundo (ADR-002): SQLite con escritura previa a la confirmación.
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -119,6 +120,24 @@ export const MIGRATIONS: Record<number, string> = {
       expires_at INTEGER NOT NULL
     );
   `,
+  // F1a: proyectos y misiones creados desde el panel. La definición es inmutable (Q172);
+  // cerrar solo anota quién y cuándo.
+  6: `
+    CREATE TABLE project_def (
+      id TEXT PRIMARY KEY,
+      definition TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      closed_by TEXT,
+      closed_at INTEGER
+    );
+    CREATE TABLE mission_def (
+      id TEXT PRIMARY KEY,
+      definition TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+  `,
 };
 
 export function openStore(path: string) {
@@ -188,6 +207,12 @@ export function openStore(path: string) {
     getSession: db.prepare(`SELECT s.account_id AS accountId, s.expires_at AS expiresAt, a.name AS name
       FROM session s JOIN account a ON a.id = s.account_id WHERE s.token_hash = ?`),
     deleteSession: db.prepare("DELETE FROM session WHERE token_hash = ?"),
+    getProjectDefs: db.prepare(`SELECT definition, created_by AS createdBy, created_at AS createdAt, closed_by AS closedBy, closed_at AS closedAt
+      FROM project_def ORDER BY created_at, id`),
+    addProjectDef: db.prepare("INSERT INTO project_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
+    closeProjectDef: db.prepare("UPDATE project_def SET closed_by = ?, closed_at = ? WHERE id = ? AND closed_at IS NULL"),
+    getMissionDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM mission_def ORDER BY created_at, id"),
+    addMissionDef: db.prepare("INSERT INTO mission_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
     getLastSeen: db.prepare("SELECT last_seen_at AS lastSeenAt FROM player WHERE name = ?"),
     contributionTotals: db.prepare(`SELECT actor AS name, json_extract(data, '$.resource') AS resource, SUM(json_extract(data, '$.amount')) AS total
@@ -296,6 +321,25 @@ export function openStore(path: string) {
     },
     deleteSession(tokenHash: string) {
       q.deleteSession.run(tokenHash);
+    },
+    /** Proyectos creados desde el panel (F1a), en orden de creación. */
+    getProjectDefs(): { def: ProjectDef; createdBy: string; createdAt: number; closedBy: string; closedAt: number }[] {
+      return (q.getProjectDefs.all() as { definition: string; createdBy: string; createdAt: number; closedBy: string | null; closedAt: number | null }[])
+        .map((r) => ({ def: JSON.parse(r.definition) as ProjectDef, createdBy: r.createdBy, createdAt: Number(r.createdAt), closedBy: r.closedBy ?? "", closedAt: Number(r.closedAt ?? 0) }));
+    },
+    addProjectDef(def: ProjectDef, by: string, at: number) {
+      q.addProjectDef.run(def.id, JSON.stringify(def), by, at);
+    },
+    /** Cierra un proyecto abierto; lanza si no existe o ya estaba cerrado. */
+    closeProjectDef(id: string, by: string, at: number) {
+      if (Number(q.closeProjectDef.run(by, at, id).changes) !== 1) throw new Error(`proyecto-no-cerrable: ${id}`);
+    },
+    getMissionDefs(): { def: MissionDef; createdBy: string; createdAt: number }[] {
+      return (q.getMissionDefs.all() as { definition: string; createdBy: string; createdAt: number }[])
+        .map((r) => ({ def: JSON.parse(r.definition) as MissionDef, createdBy: r.createdBy, createdAt: Number(r.createdAt) }));
+    },
+    addMissionDef(def: MissionDef, by: string, at: number) {
+      q.addMissionDef.run(def.id, JSON.stringify(def), by, at);
     },
     /** Última revisión de cada tarea de un proyecto. */
     getReviews(projectId: string): ReviewRow[] {

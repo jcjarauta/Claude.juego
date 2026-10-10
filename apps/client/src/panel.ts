@@ -1,10 +1,11 @@
 import { Client, type Room } from "@colyseus/sdk";
 import {
-  authorize, MESSAGE, NOTE_MAX, REJECT_TEXT, ROOM_NAME, WorldState,
-  type ContributeMessage, type ContributionSource, type JoinOptions, type ProjectDef, type RejectedMessage, type ReviewDecision,
-  type ReviewMessage, type TaskDef, type WorldConfig,
+  authorize, MESSAGE, missionDefFromState, NOTE_MAX, projectDefFromState, REJECT_TEXT, ROOM_NAME, WorldState,
+  type CloseProjectMessage, type ContributeMessage, type ContributionSource, type JoinOptions, type ProjectDef, type RejectedMessage,
+  type ReviewDecision, type ReviewMessage, type TaskDef, type WorldConfig,
 } from "@juego/shared";
 import { enter, logout } from "./account.ts";
+import { createAdminForms } from "./admin-forms.ts";
 import { newRequestId } from "./request-id.ts";
 
 // Panel profesional (M5b, RF-015): lista accesible de proyectos y tareas sobre el mismo
@@ -41,6 +42,8 @@ const PROJECT_STATUS_TEXT: Record<string, string> = {
   "en-curso": "En curso",
   listo: "Listo para construir",
   construido: "Construido",
+  "en-revision": "Tareas completas · falta la aprobación de la coordinación",
+  completado: "Completado",
 };
 
 async function join(token: string): Promise<PanelRoom> {
@@ -52,20 +55,34 @@ async function join(token: string): Promise<PanelRoom> {
 function createProjectView(container: HTMLElement, config: WorldConfig, project: ProjectDef, room: PanelRoom, me: string, announce: (text: string) => void) {
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const coordinator = authorize(me, "review", project);
+  const admin = authorize(me, "close-project", { admins: config.admins });
+  const hasStructure = config.structures.some((s) => s.projectId === project.id);
   const headingId = `proyecto-${project.id}`;
   const status = el("span");
+  const phase = el("span");
+  const origin = el("span");
   const coordinators = el("span");
   const section = el("section", { className: "proyecto" });
   section.setAttribute("aria-labelledby", headingId);
+  const close = el("button", { type: "button", textContent: `Cerrar el proyecto «${project.name}»` });
+  close.onclick = () => {
+    if (close.getAttribute("aria-disabled") === "true") return;
+    if (!window.confirm(`¿Cerrar «${project.name}»? Dejará de admitir aportes; su historial se conserva.`)) return;
+    const message: CloseProjectMessage = { requestId: newRequestId(), projectId: project.id };
+    room.send(MESSAGE.closeProject, message);
+  };
+  const approvalText = hasStructure
+    ? (project.buildRequiresApproval ? ". Construir exige todas las tareas aprobadas." : ". La revisión deja constancia; no bloquea la construcción.")
+    : (project.buildRequiresApproval ? ". Completar exige todas las tareas aprobadas." : ". Se completa al aportar todo; la revisión deja constancia.");
   section.append(
-    el("h2", { id: headingId }, `Proyecto: ${project.name}`),
+    el("h2", { id: headingId, tabIndex: -1 }, `Proyecto: ${project.name}`),
     el("p", {}, el("span", { className: "etiqueta", title: "Clasificación de realidad" }, project.reality),
-      " ", el("code", {}, project.id), " · Comunidad: ", config.community.name),
+      " ", el("code", {}, project.id), " · Comunidad: ", config.community.name, " · ", origin),
     el("p", {}, project.description),
-    el("p", {}, "Estado: ", status),
-    el("p", { className: "ayuda" }, "Coordinación: ", coordinators,
-      project.buildRequiresApproval ? ". Construir exige todas las tareas aprobadas." : ". La revisión deja constancia; no bloquea la construcción."),
+    el("p", {}, "Estado: ", status, " · ", phase),
+    el("p", { className: "ayuda" }, "Coordinación: ", coordinators, approvalText),
   );
+  if (admin) section.append(el("p", {}, close));
 
   const tbody = el("tbody");
   const table = el("table", {},
@@ -143,7 +160,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
     section.append(el("p", { className: "ayuda" }, "Solo la coordinación del proyecto puede aprobar o rechazar tareas."));
   }
 
-  const activity = el("ol", { id: "actividad" });
+  const activity = el("ol", { className: "actividad" });
   section.append(el("h3", {}, "Actividad reciente"), activity);
   container.append(section);
 
@@ -157,6 +174,11 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
       status.textContent = PROJECT_STATUS_TEXT[state.status] ?? state.status;
       if (lastStatus && lastStatus !== state.status) announce(`Proyecto ${project.name}: ${status.textContent}.`);
       lastStatus = state.status;
+      const closed = state.phase === "cerrado";
+      phase.textContent = closed ? `Cerrado por ${state.closedBy}: no admite aportes` : "Abierto";
+      phase.className = closed ? "estado-rechazada" : "";
+      origin.textContent = state.origin === "panel" ? `creado por ${state.createdBy} a las ${time(state.createdAt)}` : "de la configuración del mundo";
+      close.hidden = state.origin !== "panel" || closed;
       coordinators.textContent = state.coordinators.length ? [...state.coordinators].join(", ") : "nadie asignado";
       const own = [...room.state.players.values()].find((p) => p.name === me);
       const decisionsNow = new Map<string, string>();
@@ -169,7 +191,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
         row.progress.value = done;
         row.progressText.textContent = `${done}/${task.required} ${name}`;
         const st = taskState?.status ?? "pendiente";
-        row.status.textContent = STATUS_TEXT[st] ?? st;
+        row.status.textContent = st === "completada" && !state.requiresApproval ? "Completada" : STATUS_TEXT[st] ?? st;
         row.status.className = `estado-${st}`;
         const evidence = [...state.contributors.entries()]
           .map(([who, totals]) => [who, totals.totals.get(task.resource) ?? 0] as const)
@@ -187,7 +209,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
           const fromPlayer = button.dataset.from === "player";
           button.hidden = fromPlayer && !own; // el inventario propio solo se ve con el personaje en el mundo
           const balance = fromPlayer ? own?.inventory.get(task.resource) ?? 0 : room.state.community.get(task.resource) ?? 0;
-          const available = Math.min(balance, remaining);
+          const available = closed ? 0 : Math.min(balance, remaining);
           button.dataset.available = String(available);
           button.setAttribute("aria-disabled", String(available === 0));
           button.textContent = `${fromPlayer ? "Desde tu inventario" : "Desde la comunidad"} (${available})`;
@@ -210,14 +232,19 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
   };
 }
 
+const MISSION_KIND_TEXT = (m: { objectiveKind: string; objectiveTarget: string; objectiveAmount: number }, room: PanelRoom, config: WorldConfig) =>
+  m.objectiveKind === "project-completed"
+    ? `completar el proyecto «${room.state.projects.get(m.objectiveTarget)?.name ?? m.objectiveTarget}»`
+    : `tener ${m.objectiveAmount} ${config.items.find((i) => i.id === m.objectiveTarget)?.name.toLowerCase() ?? m.objectiveTarget} en el almacén de la comunidad`;
+
 function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   byId("entrada").hidden = true;
   byId("panel").hidden = false;
   const notice = byId("aviso");
   const rejection = byId("rechazo");
   const connection = byId("conexion");
-  const roles = config.projects.filter((p) => authorize(name, "review", p)).map((p) => p.name);
-  byId("quien").textContent = `Conectado como ${name}${roles.length ? ` (coordinación de ${roles.join(", ")})` : " (participante)"}.`;
+  const admin = authorize(name, "create-project", { admins: config.admins });
+  const announce = (text: string) => { notice.textContent = text; };
 
   room.reconnection.minUptime = 0;
   room.onDrop(() => { connection.textContent = "Conexión perdida, reconectando…"; });
@@ -230,21 +257,59 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
     location.reload();
   };
 
+  const container = byId("proyectos");
+  const adminForms = admin ? createAdminForms(container, config, room, announce) : undefined;
+
   let rejectionTimer: number | undefined;
-  room.onMessage(MESSAGE.rejected, ({ reason }: RejectedMessage) => {
+  room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
+    if (adminForms?.showRejection(REJECT_TEXT[reason], details)) return;
     rejection.textContent = REJECT_TEXT[reason];
     window.clearTimeout(rejectionTimer);
     rejectionTimer = window.setTimeout(() => { rejection.textContent = ""; }, 6000);
   });
 
-  const container = byId("proyectos");
-  const views = config.projects.map((p) => createProjectView(container, config, p, room, name, (text) => { notice.textContent = text; }));
-  const render = () => { for (const view of views) view.render(); };
+  // Misiones (todas): nombre, objetivo y estado.
+  const missions = el("ul", { className: "misiones" });
+  const missionsSection = el("section", {}, el("h2", { id: "misiones-titulo" }, "Misiones"), missions);
+  missionsSection.setAttribute("aria-labelledby", "misiones-titulo");
+  container.after(missionsSection);
+  const missionStatus = new Map<string, string>();
+
+  // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
+  const views = new Map<string, ReturnType<typeof createProjectView>>();
+  let focused = false;
+  const render = () => {
+    const quien = [...room.state.projects.values()].filter((p) => p.coordinators.includes(name)).map((p) => p.name);
+    byId("quien").textContent = `Conectado como ${name}${admin ? " (administración)" : ""}${quien.length ? ` (coordinación de ${quien.join(", ")})` : admin ? "" : " (participante)"}.`;
+    const ordered = [...room.state.projects.entries()].sort(([, a], [, b]) => a.createdAt - b.createdAt);
+    for (const [id, projectState] of ordered) {
+      if (!views.has(id) && projectState.tasks.size > 0) {
+        views.set(id, createProjectView(container, config, projectDefFromState(id, projectState), room, name, announce));
+      }
+    }
+    for (const view of views.values()) view.render();
+    // Al entrar, el foco va al primer proyecto en cuanto aparece (TP-11).
+    if (!focused && views.size) {
+      focused = true;
+      container.querySelector<HTMLElement>("h2")?.focus();
+    }
+    const items = [...room.state.missions.entries()].map(([id, m]) => {
+      const def = missionDefFromState(id, m);
+      if (missionStatus.has(id) && missionStatus.get(id) !== m.status && m.status === "completada") {
+        announce(`¡Misión «${def.name}» completada por ${m.completedBy}!`);
+      }
+      missionStatus.set(id, m.status);
+      const done = m.status === "completada";
+      return el("li", {}, el("strong", {}, def.name), `: ${MISSION_KIND_TEXT(m, room, config)}. `,
+        el("span", { className: done ? "estado-aprobada" : "" }, done ? `Completada por ${m.completedBy} a las ${time(m.completedAt)}.` : "Pendiente."),
+        def.description ? ` ${def.description}` : "");
+    });
+    missions.replaceChildren(...items);
+    adminForms?.render();
+  };
   room.onStateChange(render);
   container.addEventListener("change", render); // la tarea elegida para revisar cambia el aviso
   render();
-  byId(`proyecto-${config.projects[0]?.id}`)?.setAttribute("tabindex", "-1");
-  byId(`proyecto-${config.projects[0]?.id}`)?.focus();
 }
 
 async function start() {

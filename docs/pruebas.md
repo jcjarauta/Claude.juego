@@ -32,6 +32,8 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-14 | Agotar un nodo y dejar pasar tiempo de mundo con y sin clientes conectados (reloj controlable en pruebas) | El nodo recupera unidades según la regla, sin superar su máximo |
 | TP-15 | Panel profesional y jugador a la vez; plazas | Aportes cruzados visibles en ambas vistas; el panel no crea personaje ni ocupa plaza; acciones de mundo desde el panel rechazadas |
 | TP-16 | Revisar tareas con y sin rol, completas e incompletas | Solo la coordinación revisa tareas completas; nota obligatoria; decisión y evidencia persisten; aprobación obligatoria configurable |
+| TP-17 | Crear, jugar y cerrar proyectos desde el panel | Solo la administración crea y cierra; definiciones inválidas rechazadas con detalle; todos lo ven al momento; se completa con aportes; cerrado no admite aportes; límite de abiertos |
+| TP-18 | Misión configurable «proyecto completado» | Se completa en la misma transacción que el aporte o la aprobación que completa el proyecto, con autor; persiste tras caída |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
@@ -190,6 +192,30 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 85 de 85.
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 98 de 98 | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 98 de 98.
+
+### F1a — 2026-10-10 (rama `f1a-proyectos-configurables`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | `makeId`; `checkCreateProject` (permiso, límite de 20 abiertos, id repetido, 11 casos de definición inválida con detalle); `checkCloseProject`; `checkCreateMission` (objetivos válidos e inválidos, campos extra descartados); `authorize` de mundo; `missionSatisfied` con «proyecto completado» | OK |
+| Regresión | `npm.cmd test` | Las pruebas anteriores, con la validación de la configuración extraída a `validateProjectDef` y `validateMissionDef` | OK |
+| TP-17 | `npm.cmd test` | Un no administrador recibe `sin-permiso`; definiciones inválidas → `definicion-invalida`; el proyecto creado aparece al momento en mundo y panel (origen, autor, fase, realidad, coordinación, tareas con criterio); `requestId` repetido sin efecto; dos aportes lo completan; el taller no cambia; cerrar: `sin-permiso`, `proyecto-de-serie`, `proyecto-cerrado` y aportes rechazados; límite de 20 abiertos | OK |
+| TP-18 y TP-09 | `npm.cmd test` | Misión «proyecto completado» creada en el panel: pendiente con el proyecto en revisión y completada al aprobar, por quien aprueba; coordinador sin cuenta → `definicion-invalida`; tras SIGKILL y reinicio, definiciones, estado, coordinación, criterio y misión intactos; auditoría cuadrada | OK |
+| Migración v5 → v6 | `npm.cmd test` | Datos conservados y copia `*.v5.bak` | OK |
+| Navegador | Navegador integrado, solo teclado | En el panel (administración): crear un proyecto de dos tareas (añadir tarea con el teclado) y una misión «completar el proyecto»; avisos y foco al nombre; proyecto sin nombre → «Nombre obligatorio (máximo 60)» junto al formulario. En el mundo: elegir el proyecto en «Ver proyecto» con flechas, aportar madera y piedra; proyecto «Completado» y misión completada a la vez en el juego y en el panel | OK |
+| Contraste | Medición por script, panel con formularios | 131 textos, mínimo 7,94:1 | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea un proyecto (30 madera, 20 piedra) y su misión al empezar; 173 comprobaciones, 0 divergencias, convergencia máx. 3 ms; el proyecto del panel y el taller completados, las dos misiones completadas, 18 herramientas; auditoría cuadrada (madera 120 = 46 + 74; piedra 79 = 28 + 51; fibra 100 = 59 + 41; herramienta 18 = 18) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 107 de 107 | OK |
+| Prueba del usuario | Persona responsable, 2026-10-10 | Proyecto y misión creados desde el panel como `coordinacion` y jugados en el mundo: «ya está probado»; fusión y subida autorizadas | OK |
+
+Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 107 de 107.
+
+Defectos encontrados y corregidos:
+- Phaser capturaba las flechas y W/A/S/D en toda la ventana: en una lista desplegable las flechas movían al personaje en lugar de cambiar de opción. Ahora no hay captura global y el movimiento se ignora con el foco en listas y campos de texto.
+- Los avisos del panel del juego se tapaban entre sí (el aporte ocultaba la misión completada); ahora se leen juntos.
+- Un formulario enviado con el nombre vacío no mostraba el error junto a él; ahora sí, y los mensajes del servidor se muestran sin ids internos ni nombres de campo en inglés.
+- El navegador podía usar un `bundle.js` antiguo en caché con una página nueva; el servidor envía ahora `Cache-Control: no-cache`.
+- En la prueba del usuario, un servidor antiguo seguía escuchando en `127.0.0.1:2567` mientras el nuevo escuchaba en `0.0.0.0:2567`; Windows enviaba las peticiones locales al antiguo. Se resolvió parando el antiguo (aviso para el futuro: comprobar con `netstat -ano | findstr :2567`).
 
 Defectos encontrados y corregidos:
 - `fetch` se niega a conectar con ciertos puertos (por ejemplo, el 3659). Las pruebas elegían puertos al azar entre 3600 y 4000 y fallaban de vez en cuando; ahora usan 42000–43999.

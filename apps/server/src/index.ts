@@ -42,6 +42,7 @@ interface HttpRequest extends AsyncIterable<Buffer> {
 
 interface HttpResponse {
   type(contentType: string): HttpResponse;
+  set(header: string, value: string): HttpResponse;
   status(code: number): HttpResponse;
   send(body: unknown): unknown;
   json(body: unknown): unknown;
@@ -119,7 +120,8 @@ const server = defineServer({
     for (const [route, { file, type }] of Object.entries(STATIC_FILES)) {
       app.get(route, async (_req: unknown, res: HttpResponse) => {
         try {
-          res.type(type).send(await readFile(join(publicDir, file)));
+          // no-cache: el navegador revalida siempre; así no mezcla una página nueva con un bundle viejo.
+          res.type(type).set("Cache-Control", "no-cache").send(await readFile(join(publicDir, file)));
         } catch {
           res.status(404).send("No encontrado. ¿Has ejecutado npm.cmd run build?");
         }

@@ -46,7 +46,10 @@
     .tarea-acciones button { padding: 2px 8px; }
     #proyecto-estado { font-weight: 600; }
     #proyecto-aviso { color: #ffd166; min-height: 1.4em; }
-    #proyecto-aportes, #proyecto-actividad { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+    #proyecto-aportes, #proyecto-actividad, #misiones { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+    .selector { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    select { font: inherit; padding: 4px 6px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; max-width: 100%; }
+    select:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
     .recursos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
     .recursos table { border-collapse: collapse; width: 100%; }
     .recursos th, .recursos td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #2f3842; }
@@ -100,6 +103,8 @@
         </div>
 
         <section id="proyecto" aria-labelledby="proyecto-titulo">
+          <p class="selector"><label for="proyecto-selector">Ver proyecto</label>
+            <select id="proyecto-selector"></select></p>
           <h2 id="proyecto-titulo" tabindex="-1">Proyecto</h2>
           <p class="ayuda">Comunidad: <span id="proyecto-comunidad"></span></p>
           <p id="proyecto-descripcion"></p>
@@ -119,8 +124,8 @@
             <p id="taller-ayuda" class="ayuda"></p>
           </section>
           <section aria-labelledby="mision-titulo">
-            <h3 id="mision-titulo">Misión</h3>
-            <p id="mision-estado"></p>
+            <h3 id="mision-titulo">Misiones</h3>
+            <ul id="misiones"></ul>
           </section>
           <h3>Novedades</h3>
           <p id="proyecto-novedades" class="ayuda" role="status" aria-live="polite"></p>

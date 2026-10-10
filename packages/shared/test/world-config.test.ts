@@ -12,6 +12,7 @@ const base = (): WorldConfig => ({
   regenIntervalMs: 120000,
   session: { reconnectSeconds: 10 },
   community: { id: "aldea", name: "Aldea" },
+  admins: ["ana"],
   projects: [{
     id: "construir-taller", name: "Construir taller", description: "",
     tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20, acceptance: "Aportar 20 de madera" }],
@@ -123,7 +124,7 @@ test("rechaza estructuras, objetos, recetas y misiones mal definidos", () => {
   cfg.items.push({ id: "madera", name: "Madera" });
   cfg.recipes[0]!.inputs = { oro: 1 };
   cfg.recipes[0]!.output.item = "espada";
-  cfg.missions[0]!.objective.item = "espada";
+  (cfg.missions[0]!.objective as { item: string }).item = "espada";
   const errors = String(errorsOf(cfg));
   assert.match(errors, /la casilla 3,3 la ocupa un nodo/);
   assert.match(errors, /"fuera": fuera del mapa/);

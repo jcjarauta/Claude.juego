@@ -1,18 +1,28 @@
+import { randomBytes } from "node:crypto";
 import {
-  authorize, checkContribution, checkReview, isValidRequestId, projectStatus,
-  type ContributionSource, type ProjectDef, type RejectReason, type ReviewDecision, type WorldConfig,
+  authorize, checkCloseProject, checkContribution, checkCreateMission, checkCreateProject, checkReview, isValidRequestId,
+  missionSatisfied, projectStatus,
+  type ContributionSource, type MissionDef, type ProjectDef, type RejectReason, type ReviewDecision, type WorldConfig,
 } from "@juego/shared";
 import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
 
-// Núcleo de proyectos (M5b, ADR-001): fuente de verdad de proyectos y tareas.
+// Núcleo de proyectos (M5b, ADR-001): fuente de verdad de proyectos, tareas y misiones.
 // No conoce Colyseus ni el mapa: recibe el actor y el mensaje, valida con las reglas
 // puras de @juego/shared, escribe en una transacción junto con su evento y devuelve
 // un resultado que cada interfaz (mundo o panel) aplica a su estado sincronizado.
+// F1a: además de los de la configuración, hay proyectos y misiones creados desde el panel.
 
 export type Outcome<T> =
   | { kind: "done"; value: T }
   | { kind: "duplicate" }
-  | { kind: "rejected"; reason: RejectReason };
+  | { kind: "rejected"; reason: RejectReason; details?: string[] };
+
+/** Misión completada en la misma transacción que la operación que la cumple (Q158, Q174). */
+export interface MissionCompleted {
+  mission: MissionDef;
+  by: string;
+  at: number;
+}
 
 export interface ContributionDone {
   project: ProjectDef;
@@ -24,6 +34,7 @@ export interface ContributionDone {
   sourceAmount: number;
   /** Total aportado a la tarea según el registro. */
   projectAmount: number;
+  missions: MissionCompleted[];
 }
 
 export interface ReviewDone {
@@ -33,6 +44,24 @@ export interface ReviewDone {
   note: string;
   reviewedBy: string;
   reviewedAt: number;
+  missions: MissionCompleted[];
+}
+
+/** Definición de proyecto con su origen y su fase (F1a). */
+export interface ProjectEntry {
+  def: ProjectDef;
+  origin: "configuracion" | "panel";
+  createdBy: string;
+  createdAt: number;
+  closedBy: string;
+  closedAt: number;
+}
+
+export interface MissionEntry {
+  def: MissionDef;
+  origin: "configuracion" | "panel";
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface ProjectSnapshot {
@@ -49,12 +78,69 @@ export interface ProjectSnapshot {
 export const RECENT_CONTRIBUTIONS = 10;
 
 export function createProjectCore(store: Store, config: WorldConfig) {
-  const projectById = (id: unknown) => config.projects.find((p) => p.id === id);
+  // Registro en memoria: la configuración y lo guardado en la base. Solo cambia tras confirmar.
+  const projects = new Map<string, ProjectEntry>();
+  for (const def of config.projects) projects.set(def.id, { def, origin: "configuracion", createdBy: "", createdAt: 0, closedBy: "", closedAt: 0 });
+  for (const row of store.getProjectDefs()) projects.set(row.def.id, { ...row, origin: "panel" });
+  const missions = new Map<string, MissionEntry>();
+  for (const def of config.missions) missions.set(def.id, { def, origin: "configuracion", createdBy: "", createdAt: 0 });
+  for (const row of store.getMissionDefs()) missions.set(row.def.id, { ...row, origin: "panel" });
+
+  const resourceIds = new Set(config.resources.map((r) => r.id));
+  const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
+  const itemIds = new Set(config.items.map((i) => i.id));
+  const allProjects = () => [...projects.values()].map((e) => e.def);
+  const projectById = (id: unknown) => (typeof id === "string" ? projects.get(id)?.def : undefined);
+  const isClosed = (id: string) => Boolean(projects.get(id)?.closedAt);
+  const structureOf = (projectId: string) => config.structures.find((s) => s.projectId === projectId);
   // Lo aportado sale del registro: no disminuye cuando la construcción consume los materiales.
   const contributed = (projectId: string, resource: string) => store.contributedAmount(projectId, resource);
+  const suffix = () => randomBytes(3).toString("hex");
+
+  const isComplete = (project: ProjectDef) => project.tasks.every((t) => contributed(project.id, t.resource) >= t.required);
+
+  /** Con aprobación obligatoria (Q162), alguna tarea no está aprobada. */
+  function approvalMissing(project: ProjectDef): boolean {
+    if (!project.buildRequiresApproval) return false;
+    const decisions = new Map(store.getReviews(project.id).map((r) => [r.taskId, r.decision]));
+    return project.tasks.some((t) => decisions.get(t.id) !== "aprobada");
+  }
+
+  /** Completado: con estructura, construida; sin estructura, tareas completas y aprobadas si se exige (Q173). */
+  function projectCompleted(projectId: string): boolean {
+    const project = projectById(projectId);
+    if (!project) return false;
+    const structure = structureOf(projectId);
+    if (structure) return store.getStructures().some((s) => s.id === structure.id);
+    return isComplete(project) && !approvalMissing(project);
+  }
+
+  /**
+   * Completa, dentro de la transacción en curso, las misiones cuyo objetivo se cumple por
+   * primera vez. `extra` son misiones aún no registradas en memoria (la que se está creando).
+   */
+  function completeMissions(actor: string, at: number, extra: MissionDef[] = []): MissionCompleted[] {
+    const done = new Set(store.getMissions().map((m) => m.id));
+    const stock = (id: string) => store.getAmount(COMMUNITY, id);
+    const completed: MissionCompleted[] = [];
+    for (const mission of [...[...missions.values()].map((e) => e.def), ...extra]) {
+      if (done.has(mission.id) || !missionSatisfied(mission, { stock, projectCompleted })) continue;
+      store.completeMission(mission.id, actor, at);
+      store.event("mission-complete", actor, null, { mission: mission.id });
+      completed.push({ mission, by: actor, at });
+    }
+    return completed;
+  }
 
   return {
     projectById,
+    projects: allProjects,
+    projectEntries: () => [...projects.values()],
+    missionEntries: () => [...missions.values()],
+    isClosed,
+    isComplete,
+    approvalMissing,
+    completeMissions,
 
     /** Aportar a una tarea desde el inventario propio o el de la comunidad (RF-006, Q152, Q153). */
     contribute(actor: string, payload: unknown): Outcome<ContributionDone> {
@@ -64,12 +150,13 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const project = projectById(message.projectId);
       if (project && !authorize(actor, "contribute", project)) return { kind: "rejected", reason: "sin-permiso" };
       const own = playerScope(actor);
+      const at = Date.now();
       return store.transaction(() => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" as const };
         const check = checkContribution({
-          projects: config.projects,
+          projects: allProjects(),
           projectId: message.projectId, taskId: message.taskId, from: message.from, amount: message.amount,
-          contributed,
+          contributed, closed: isClosed,
           balance: (from, resource) => store.getAmount(from === "player" ? own : COMMUNITY, resource),
         });
         if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
@@ -84,6 +171,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
             project: check.project, taskId: task.id, resource: task.resource, from, amount,
             sourceAmount: store.getAmount(source, task.resource),
             projectAmount: contributed(check.project.id, task.resource),
+            missions: completeMissions(actor, at),
           },
         };
       });
@@ -101,7 +189,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       return store.transaction(() => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" as const };
         const check = checkReview({
-          projects: config.projects, actor,
+          projects: allProjects(), actor,
           projectId: message.projectId, taskId: message.taskId, decision: message.decision, note: message.note,
           contributed,
         });
@@ -110,20 +198,81 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const evidence = store.taskEvidence(project.id, task.id);
         store.putReview(project.id, task.id, decision, actor, at, note);
         store.event("task-review", actor, requestId, { project: project.id, task: task.id, decision, note, evidence });
-        return { kind: "done" as const, value: { project, taskId: task.id, decision, note, reviewedBy: actor, reviewedAt: at } };
+        return {
+          kind: "done" as const,
+          value: { project, taskId: task.id, decision, note, reviewedBy: actor, reviewedAt: at, missions: completeMissions(actor, at) },
+        };
       });
     },
 
-    /** Con buildRequiresApproval (Q162), alguna tarea no está aprobada. */
-    approvalMissing(project: ProjectDef): boolean {
-      if (!project.buildRequiresApproval) return false;
-      const decisions = new Map(store.getReviews(project.id).map((r) => [r.taskId, r.decision]));
-      return project.tasks.some((t) => decisions.get(t.id) !== "aprobada");
+    /** Crear un proyecto desde el panel (F1a, Q171–Q173): queda publicado e inmutable. */
+    createProject(actor: string, payload: unknown): Outcome<ProjectEntry> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<ProjectEntry> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkCreateProject({
+          actor, admins: config.admins, payload, resourceIds, resourceName,
+          openProjects: [...projects.values()].filter((e) => !e.closedAt).length,
+          existingIds: new Set(projects.keys()), idSuffix: suffix(),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        // Los coordinadores deben ser cuentas existentes; se guarda su nombre tal como está registrado.
+        const unknown = check.def.coordinators.filter((name) => !store.getAccountByName(name));
+        if (unknown.length) return { kind: "rejected", reason: "definicion-invalida", details: unknown.map((n) => `coordinador sin cuenta: "${n}"`) };
+        const def = { ...check.def, coordinators: check.def.coordinators.map((n) => store.getAccountByName(n)!.name) };
+        store.addProjectDef(def, actor, at);
+        store.event("project-created", actor, requestId, { project: def });
+        return { kind: "done", value: { def, origin: "panel", createdBy: actor, createdAt: at, closedBy: "", closedAt: 0 } };
+      });
+      if (outcome.kind === "done") projects.set(outcome.value.def.id, outcome.value);
+      return outcome;
     },
 
-    /** Todas las tareas tienen lo requerido. */
-    isComplete(project: ProjectDef): boolean {
-      return project.tasks.every((t) => contributed(project.id, t.resource) >= t.required);
+    /** Cerrar un proyecto del panel: deja de admitir aportes y conserva su historial (F1a). */
+    closeProject(actor: string, payload: unknown): Outcome<ProjectEntry> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<ProjectEntry> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const entry = typeof message.projectId === "string" ? projects.get(message.projectId) : undefined;
+        const check = checkCloseProject({
+          actor, admins: config.admins, project: entry?.def, fromConfig: entry?.origin === "configuracion", closed: Boolean(entry?.closedAt),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason };
+        store.closeProjectDef(entry!.def.id, actor, at);
+        store.event("project-closed", actor, requestId, { project: entry!.def.id });
+        return { kind: "done", value: { ...entry!, closedBy: actor, closedAt: at } };
+      });
+      if (outcome.kind === "done") projects.set(outcome.value.def.id, outcome.value);
+      return outcome;
+    },
+
+    /** Crear una misión desde el panel (Q174); si su objetivo ya se cumple, queda completada en la misma transacción. */
+    createMission(actor: string, payload: unknown): Outcome<{ entry: MissionEntry; completed: MissionCompleted[] }> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<{ entry: MissionEntry; completed: MissionCompleted[] }> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkCreateMission({
+          actor, admins: config.admins, payload, itemIds,
+          openProjectIds: new Set([...projects.values()].filter((e) => !e.closedAt).map((e) => e.def.id)),
+          missions: missions.size, existingIds: new Set(missions.keys()), idSuffix: suffix(),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        store.addMissionDef(check.def, actor, at);
+        store.event("mission-created", actor, requestId, { mission: check.def });
+        const entry: MissionEntry = { def: check.def, origin: "panel", createdBy: actor, createdAt: at };
+        return { kind: "done", value: { entry, completed: completeMissions(actor, at, [check.def]) } };
+      });
+      if (outcome.kind === "done") missions.set(outcome.value.entry.def.id, outcome.value.entry);
+      return outcome;
     },
 
     /**
@@ -139,9 +288,14 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       return consumed;
     },
 
-    /** «construido» si su estructura existe; si no, «listo» o «en-curso» según lo aportado. */
+    /**
+     * Estado del proyecto. Con estructura: «construido», «listo» o «en-curso» (M5).
+     * Sin estructura (F1a, Q173): «completado», «en-revision» (falta aprobar) o «en-curso».
+     */
     status(project: ProjectDef, progress: (resource: string) => number, built: boolean): string {
-      return built ? "construido" : projectStatus(project, progress);
+      if (structureOf(project.id)) return built ? "construido" : projectStatus(project, progress);
+      if (projectStatus(project, progress) !== "listo") return "en-curso";
+      return approvalMissing(project) ? "en-revision" : "completado";
     },
 
     /** Estado de un proyecto reconstruido desde la base de datos. */
