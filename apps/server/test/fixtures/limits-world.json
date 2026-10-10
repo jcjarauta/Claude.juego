@@ -1,0 +1,133 @@
+{
+  "map": {
+    "width": 6,
+    "height": 5,
+    "tileSize": 32,
+    "defaultZoneName": "Camino",
+    "defaultColor": "#3a4a3f"
+  },
+  "spawn": {
+    "x": 0,
+    "y": 0
+  },
+  "moveCooldownMs": 100,
+  "collectCooldownMs": 100,
+  "inventoryMax": 3,
+  "regenIntervalMs": 1000,
+  "session": {
+    "reconnectSeconds": 2
+  },
+  "community": {
+    "id": "aldea",
+    "name": "Comunidad de la aldea"
+  },
+  "admins": [
+    "ana"
+  ],
+  "projects": [
+    {
+      "id": "construir-taller",
+      "name": "Construir taller",
+      "description": "Prueba.",
+      "tasks": [
+        {
+          "id": "madera",
+          "title": "Aportar madera",
+          "resource": "madera",
+          "required": 4
+        },
+        {
+          "id": "piedra",
+          "title": "Aportar piedra",
+          "resource": "piedra",
+          "required": 1
+        }
+      ],
+      "coordinators": [
+        "ana"
+      ]
+    }
+  ],
+  "structures": [
+    {
+      "id": "taller",
+      "name": "Taller",
+      "projectId": "construir-taller",
+      "x": 2,
+      "y": 1,
+      "width": 1,
+      "height": 1,
+      "color": "#a0522d"
+    }
+  ],
+  "items": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta",
+      "structureId": "taller",
+      "inputs": {
+        "madera": 1,
+        "piedra": 1
+      },
+      "output": {
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
+  "missions": [
+    {
+      "id": "primera-herramienta",
+      "name": "Primera herramienta",
+      "description": "Prueba.",
+      "objective": {
+        "kind": "item-in-community",
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
+  "resources": [
+    {
+      "id": "madera",
+      "name": "Madera",
+      "color": "#8d5a2b",
+      "shape": "triangle"
+    },
+    {
+      "id": "piedra",
+      "name": "Piedra",
+      "color": "#b8bec6",
+      "shape": "square"
+    }
+  ],
+  "zones": [],
+  "nodes": [
+    {
+      "id": "arbol-1",
+      "resource": "madera",
+      "x": 1,
+      "y": 0,
+      "max": 5
+    },
+    {
+      "id": "roca-1",
+      "resource": "piedra",
+      "x": 3,
+      "y": 3,
+      "max": 1
+    }
+  ],
+  "buildLimits": {
+    "recipeInputs": 1,
+    "byproducts": 1,
+    "items": 3,
+    "side": 2
+  }
+}
