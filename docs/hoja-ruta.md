@@ -25,7 +25,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | M5b | Núcleo de proyectos y panel profesional (auditoría `docs/auditoria-engremiat-2026-10-09.md`, Q159–Q164) | M5 | Las 10 capacidades del incremento cubiertas por pruebas — **CERRADA** (evidencia en `docs/pruebas.md` §5; probada por la persona responsable y fusionada) |
 | M6 | Endurecimiento: permisos, accesibilidad básica, fallos, pruebas integrales | M5b | Evidencias y aprobación formal del MVP — **CERRADA: MVP ACEPTADO el 2026-10-10** (`docs/aceptacion-mvp.md`; excepción: Firefox, Q169) |
 | F1a | Proyectos y misiones configurables desde el panel (FUT-05, RF-017) | M6 | Un proyecto y su misión creados en el panel se juegan hasta completarse y persisten — **CERRADA** 2026-10-10 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
-| F1b | Vistas de gestión: tablero, cronograma e indicadores; fechas objetivo y replanificación (RF-018, RF-019) | F1a | Las vistas muestran los mismos datos que la lista y el mundo, accesibles — **HECHA en `f1b-vistas-gestion`**; pendiente: tu prueba y fusión |
+| F1b | Vistas de gestión: tablero, cronograma e indicadores; fechas objetivo y replanificación (RF-018, RF-019) | F1a | Las vistas muestran los mismos datos que la lista y el mundo, accesibles — **CERRADA** 2026-10-10 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -94,4 +94,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba de F1b por la persona responsable y fusión; después, elegir la siguiente fase.
+**NEXT:** elegir y planificar la siguiente fase posterior al MVP.
