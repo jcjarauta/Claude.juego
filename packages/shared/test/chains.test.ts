@@ -156,3 +156,30 @@ test("la configuración del mundo: sección buildLimits opcional, validada, y ci
   assert.ok(!cyc.ok);
   assert.match(cyc.errors.join(" | "), /forma un ciclo: pan → harina → pan/);
 });
+
+test("descripción de cadenas: línea de texto, qué falta y diagrama por capas sin flechas hacia atrás", async () => {
+  const { describeChains, chainLine, chainMissing, chainDiagram } = await import("../src/index.ts");
+  const names: Record<string, string> = { madera: "Madera", harina: "Harina", salvado: "Salvado", pan: "Pan" };
+  const built: Record<string, boolean> = { molino: true, horno: false };
+  const recipes: RecipeDef[] = [
+    { id: "hornear", name: "Hornear", structureId: "horno", verb: "hornear", alsoNeeds: ["molino"], inputs: { harina: 2 }, output: { item: "pan", amount: 1 } },
+    { id: "moler", name: "Moler", structureId: "molino", verb: "moler", inputs: { madera: 1 }, output: { item: "harina", amount: 2 }, byproducts: [{ item: "salvado", amount: 1 }] },
+  ];
+  const stock: Record<string, number> = { harina: 1 };
+  const entries = describeChains({
+    recipes, building: (id) => ({ name: id === "molino" ? "Molino" : "Horno", built: built[id]! }),
+    entryName: (id) => names[id]!, isItem: (id) => id !== "madera", stock: (id) => stock[id] ?? 0,
+  });
+  assert.equal(chainLine(entries[0]!), "Hornear — hornear en Horno (sin construir), con Molino: 2 harina → 1 pan");
+  assert.equal(chainLine(entries[1]!), "Moler — moler en Molino: 1 madera → 2 harina + 1 salvado");
+  assert.deepEqual(chainMissing(entries[0]!), ["construir Horno", "1 más de harina"]);
+  assert.deepEqual(chainMissing(entries[1]!), ["1 más de madera"]);
+
+  const diagram = chainDiagram(entries);
+  const column = (key: string) => diagram.nodes.find((n) => n.key === key)!.column;
+  assert.deepEqual([column("e:madera"), column("r:moler"), column("e:harina"), column("r:hornear"), column("e:pan")], [0, 1, 2, 3, 4]);
+  assert.equal(column("e:salvado"), 2, "el subproducto sale en la misma capa que la salida");
+  assert.ok(diagram.edges.every((e) => column(e.from) < column(e.to)), "todas las flechas van hacia la derecha");
+  assert.equal(diagram.columns, 5);
+  assert.equal(new Set(diagram.nodes.map((n) => `${n.column},${n.row}`)).size, diagram.nodes.length, "ningún nodo comparte casilla");
+});

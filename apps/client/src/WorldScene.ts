@@ -1,3 +1,4 @@
+import { chainsFromState } from "./views/cadenas.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
@@ -323,6 +324,8 @@ export class WorldScene extends Phaser.Scene {
         structureDef,
         recipes: structureDef ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureDef.id).map(([id, r]) => recipeDefFromState(id, r)) : [],
         itemName: (id) => state.items.get(id)?.name.toLowerCase() ?? id,
+        building: (id) => { const s = state.structures.get(id); return s && { name: s.name, built: s.built }; },
+        chains: chainsFromState(state, this.config, (id) => state.community.get(id) ?? 0),
         held: (resource) => me.inventory.get(resource) ?? 0,
         community: (resource) => state.community.get(resource) ?? 0,
         ownName: me.name,

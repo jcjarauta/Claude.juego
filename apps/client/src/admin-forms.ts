@@ -1,5 +1,5 @@
 import {
-  BUILD_LIMITS, MESSAGE, PANEL_LIMITS,
+  MESSAGE, PANEL_LIMITS,
   type CreateConstructionMessage, type CreateItemMessage, type CreateMissionMessage, type CreateProjectMessage, type CreateRecipeMessage,
   type NewTask, type WorldConfig, type WorldState,
 } from "@juego/shared";
@@ -38,7 +38,8 @@ function readable(detail: string): string {
     .replace(/\bname\b/g, "nombre").replace(/\bdescription\b/g, "descripción").replace(/\btitle\b/g, "título")
     .replace(/\brequired\b/g, "cantidad").replace(/\bacceptance\b/g, "criterio de aceptación")
     .replace(/\bcoordinators\b/g, "coordinación").replace(/\btasks\b/g, "tareas").replace(/\bobjective\b/g, "objetivo")
-    .replace(/\binputs\b/g, "entradas").replace(/\boutput\.amount\b/g, "cantidad de salida").replace(/\bcolor\b/g, "color")
+    .replace(/\binputs\b/g, "entradas").replace(/\boutput\.amount\b/g, "cantidad de salida")
+    .replace(/\bbyproducts\b/g, "subproductos").replace(/\bverb\b/g, "acción").replace(/\balsoNeeds\b/g, "edificios extra").replace(/\bcolor\b/g, "color")
     .replace(/^./, (c) => c.toUpperCase());
 }
 
@@ -59,13 +60,13 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const kindBuild = el("input", { type: "radio", name: "tipo-proyecto", value: "construccion" });
   const solarX = el("input", { type: "number", min: "0", max: String(config.map.width - 1), value: "0", inputMode: "numeric" });
   const solarY = el("input", { type: "number", min: "0", max: String(config.map.height - 1), value: "0", inputMode: "numeric" });
-  const solarW = el("input", { type: "number", min: "1", max: String(BUILD_LIMITS.side), value: "2", inputMode: "numeric" });
-  const solarH = el("input", { type: "number", min: "1", max: String(BUILD_LIMITS.side), value: "2", inputMode: "numeric" });
+  const solarW = el("input", { type: "number", min: "1", max: String(config.buildLimits.side), value: "2", inputMode: "numeric" });
+  const solarH = el("input", { type: "number", min: "1", max: String(config.buildLimits.side), value: "2", inputMode: "numeric" });
   const solarColor = el("input", { type: "color", value: "#8b5a2b" });
   const minimap = createMinimap(config, room);
   const solarBox = el("fieldset", { className: "solar", hidden: true },
     el("legend", {}, "Solar del edificio en el mapa"),
-    el("p", { className: "ayuda" }, `El solar tiene de 1 a ${BUILD_LIMITS.side} casillas por lado. Las casillas se cuentan desde la esquina superior izquierda del mapa (0, 0).`),
+    el("p", { className: "ayuda" }, `El solar tiene de 1 a ${config.buildLimits.side} casillas por lado. Las casillas se cuentan desde la esquina superior izquierda del mapa (0, 0).`),
     field("Casilla X (columna)", solarX), field("Casilla Y (fila)", solarY),
     field("Ancho en casillas", solarW), field("Alto en casillas", solarH), field("Color del edificio", solarColor),
     minimap.element);
@@ -234,7 +235,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const itemList = el("div", { className: "lista-creados" });
   const itemForm = el("form", { noValidate: true },
     el("h3", { id: "nuevo-objeto-titulo" }, "Nuevo objeto"),
-    el("p", { className: "ayuda" }, `Un objeto no es un recurso: no se recolecta ni se usa como entrada de receta; se obtiene fabricándolo con una receta y vive en el almacén de la comunidad. Máximo ${BUILD_LIMITS.items} objetos creados aquí.`),
+    el("p", { className: "ayuda" }, `Un objeto no es un recurso: no se recolecta ni se usa como entrada de receta; se obtiene fabricándolo con una receta y vive en el almacén de la comunidad. Máximo ${config.buildLimits.items} objetos creados aquí.`),
     field("Nombre del objeto", itemName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`), itemErrors,
     el("button", { type: "submit", textContent: "Crear el objeto" }), itemConfirm, itemList);
   itemForm.setAttribute("aria-labelledby", "nuevo-objeto-titulo");
@@ -247,27 +248,42 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     room.send(MESSAGE.createItem, message);
   };
 
-  // --- Nueva receta (F2a) ---
+  // --- Nueva receta (F2a, F2b) ---
+  const limits = config.buildLimits;
   const recipeName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
+  const recipeVerb = el("input", { maxLength: 20, autocomplete: "off", placeholder: "Fabricar" });
   const recipeStructure = el("select");
   const recipeOutput = el("select");
-  const outputAmount = el("input", { type: "number", min: "1", max: "100", value: "1", inputMode: "numeric" });
-  const inputRows = Array.from({ length: BUILD_LIMITS.recipeInputs }, (_, i) => {
-    const resource = el("select");
-    resource.append(el("option", { value: "", textContent: i === 0 ? "Elige un recurso" : "(ninguno)" }),
-      ...config.resources.map((r) => el("option", { value: r.id, textContent: r.name })));
-    const amount = el("input", { type: "number", min: "1", max: String(BUILD_LIMITS.inputAmount), value: "1", inputMode: "numeric" });
-    return { resource, amount, box: el("div", { className: "entrada-receta" }, field(`Recurso de la entrada ${i + 1}`, resource), field(`Cantidad de la entrada ${i + 1}`, amount)) };
+  const outputAmount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
+  // Entradas: recursos u objetos (F2b, Q190); filas según el límite configurado.
+  const entrySelects: HTMLSelectElement[] = [];
+  const inputRows = Array.from({ length: limits.recipeInputs }, (_, i) => {
+    const entry = el("select");
+    entrySelects.push(entry);
+    const amount = el("input", { type: "number", min: "1", max: String(limits.inputAmount), value: "1", inputMode: "numeric" });
+    return { entry, amount, box: el("div", { className: "entrada-receta" }, field(`Entrada ${i + 1}: recurso u objeto`, entry), field(`Cantidad de la entrada ${i + 1}`, amount)) };
+  });
+  const byproductRows = Array.from({ length: limits.byproducts }, (_, i) => {
+    const item = el("select");
+    const amount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
+    return { item, amount, box: el("div", { className: "entrada-receta" }, field(`Subproducto ${i + 1}: objeto`, item), field(`Cantidad del subproducto ${i + 1}`, amount)) };
+  });
+  const extraRows = Array.from({ length: limits.alsoNeeds }, (_, i) => {
+    const building = el("select");
+    return { building, box: field(`Edificio extra ${i + 1} (debe estar construido, en cualquier lugar)`, building) };
   });
   const recipeErrors = el("div", { className: "error", role: "alert" });
   const recipeConfirm = el("p", { className: "confirmacion", role: "status" });
   const recipeForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-receta-titulo" }, "Nueva receta"),
-    el("p", { className: "ayuda" }, `Se fabrica junto al edificio construido, con recursos del almacén de la comunidad (de 1 a ${BUILD_LIMITS.recipeInputs} entradas). Máximo ${BUILD_LIMITS.recipes} recetas creadas aquí.`),
+    el("p", { className: "ayuda" }, `Una receta es una acción que se hace junto a un edificio construido: consume de 1 a ${limits.recipeInputs} entradas del almacén de la comunidad (recursos u objetos) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
     field("Nombre de la receta", recipeName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`),
-    field("Se fabrica en el edificio", recipeStructure),
-    el("fieldset", {}, el("legend", {}, "Entradas (recursos del almacén común)"), ...inputRows.map((r) => r.box)),
+    field("Acción (verbo)", recipeVerb, "Opcional, hasta 20 caracteres: «moler», «hornear»… Si se deja vacío, «Fabricar»."),
+    field("Se hace junto al edificio", recipeStructure),
+    el("fieldset", {}, el("legend", {}, "Entradas (recursos u objetos del almacén común)"), ...inputRows.map((r) => r.box)),
     field("Objeto que se obtiene", recipeOutput), field("Cantidad que se obtiene", outputAmount),
+    el("fieldset", {}, el("legend", {}, "Subproductos (opcionales)"), ...byproductRows.map((r) => r.box)),
+    el("fieldset", {}, el("legend", {}, "Otros edificios necesarios (opcionales)"), ...extraRows.map((r) => r.box)),
     recipeErrors,
     el("button", { type: "submit", textContent: "Crear la receta" }), recipeConfirm);
   recipeForm.setAttribute("aria-labelledby", "nueva-receta-titulo");
@@ -275,27 +291,48 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     event.preventDefault();
     recipeErrors.replaceChildren();
     recipeConfirm.textContent = "";
-    const used = inputRows.filter((r) => r.resource.value);
-    if (new Set(used.map((r) => r.resource.value)).size !== used.length) {
-      recipeErrors.append(el("p", {}, "No repitas un recurso en dos entradas."));
+    const used = inputRows.filter((r) => r.entry.value);
+    if (new Set(used.map((r) => r.entry.value)).size !== used.length) {
+      recipeErrors.append(el("p", {}, "No repitas una entrada en dos filas."));
       return;
     }
+    const byproducts = byproductRows.filter((r) => r.item.value).map((r) => ({ item: r.item.value, amount: Number(r.amount.value) }));
+    const alsoNeeds = extraRows.map((r) => r.building.value).filter(Boolean);
+    const verb = recipeVerb.value.trim();
     const message: CreateRecipeMessage = {
       requestId: newRequestId(), name: recipeName.value.trim(), structureId: recipeStructure.value,
-      inputs: Object.fromEntries(used.map((r) => [r.resource.value, Number(r.amount.value)])),
+      inputs: Object.fromEntries(used.map((r) => [r.entry.value, Number(r.amount.value)])),
       output: { item: recipeOutput.value, amount: Number(outputAmount.value) },
+      ...(verb ? { verb } : {}), ...(alsoNeeds.length ? { alsoNeeds } : {}), ...(byproducts.length ? { byproducts } : {}),
     };
     pending = { kind: "receta", name: message.name };
     room.send(MESSAGE.createRecipe, message);
   };
 
   /** Opciones de un selector a partir del estado (se rehacen solo si cambian; se conserva la elección). */
-  function syncOptions(select: HTMLSelectElement, entries: [string, string][]) {
-    const signature = entries.map(([id, label]) => `${id}|${label}`).join(";");
+  function syncOptions(select: HTMLSelectElement, entries: [string, string][], placeholder?: string) {
+    const signature = `${placeholder ?? ""}#${entries.map(([id, label]) => `${id}|${label}`).join(";")}`;
     if (select.dataset.options === signature) return;
     const selected = select.value;
-    select.replaceChildren(...entries.map(([id, label]) => el("option", { value: id, textContent: label })));
+    select.replaceChildren(...(placeholder === undefined ? [] : [el("option", { value: "", textContent: placeholder })]),
+      ...entries.map(([id, label]) => el("option", { value: id, textContent: label })));
     if (entries.some(([id]) => id === selected)) select.value = selected;
+    select.dataset.options = signature;
+  }
+
+  /** Entradas de receta agrupadas en «Recursos» y «Objetos» (F2b, Q190). */
+  function syncEntries(select: HTMLSelectElement, items: [string, string][], placeholder: string) {
+    const signature = `${placeholder}#${items.map(([id, label]) => `${id}|${label}`).join(";")}`;
+    if (select.dataset.options === signature) return;
+    const selected = select.value;
+    const group = (label: string, entries: [string, string][]) => {
+      const node = el("optgroup", { label });
+      node.append(...entries.map(([id, text]) => el("option", { value: id, textContent: text })));
+      return node;
+    };
+    select.replaceChildren(el("option", { value: "", textContent: placeholder }),
+      group("Recursos", resources.map((r) => [r.id, r.name])), ...(items.length ? [group("Objetos", items)] : []));
+    if ([...resources.map((r) => r.id), ...items.map(([id]) => id)].includes(selected)) select.value = selected;
     select.dataset.options = signature;
   }
 
@@ -325,8 +362,13 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       syncOptions(projectSelect, open.map(([id, p]) => [id, p.name]));
       // Objetos y edificios del estado (F2a): también los creados desde el panel.
       syncOptions(itemSelect, [...state.items.entries()].map(([id, i]) => [id, i.name]));
-      syncOptions(recipeOutput, [...state.items.entries()].map(([id, i]) => [id, i.name]));
-      syncOptions(recipeStructure, [...state.structures.entries()].map(([id, s]) => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]));
+      const itemEntries = [...state.items.entries()].map(([id, i]): [string, string] => [id, i.name]);
+      const buildingEntries = [...state.structures.entries()].map(([id, s]): [string, string] => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]);
+      syncOptions(recipeOutput, itemEntries);
+      syncOptions(recipeStructure, buildingEntries);
+      inputRows.forEach((r, i) => syncEntries(r.entry, itemEntries, i === 0 ? "Elige una entrada" : "(ninguna)"));
+      for (const r of byproductRows) syncOptions(r.item, itemEntries, "(ninguno)");
+      for (const r of extraRows) syncOptions(r.building, buildingEntries, "(ninguno)");
       minimap.render();
       // Objetos que ya existen (también los de la configuración), a la vista junto al formulario.
       const itemsText = [...state.items.values()].map((i) => i.name).join(", ");

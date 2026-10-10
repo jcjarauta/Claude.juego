@@ -9,6 +9,7 @@ import { createAdminForms } from "./admin-forms.ts";
 import { createBoard } from "./views/board.ts";
 import { blockers, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
+import { createChains } from "./views/cadenas.ts";
 import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
 import { isOverdue, localDay, type AssignMessage, type RescheduleMessage } from "@juego/shared";
@@ -379,6 +380,9 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   missionsSection.setAttribute("aria-labelledby", "misiones-titulo");
   container.after(missionsSection);
   const missionStatus = new Map<string, string>();
+  // Cadenas de producción (F2b): lista de texto y diagrama, para todas las personas.
+  const chains = createChains(room, config);
+  missionsSection.after(chains.element);
 
   // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
   const views = new Map<string, ReturnType<typeof createProjectView>>();
@@ -427,6 +431,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
         def.description ? ` ${def.description}` : "");
     });
     missions.replaceChildren(...items);
+    chains.render();
     adminForms?.render();
   };
   room.onStateChange(render);

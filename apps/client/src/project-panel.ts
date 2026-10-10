@@ -1,7 +1,7 @@
 import {
   blockedBy, daysBetween, isNextTo, isOverdue, isTaskDone, localDay, missionDefFromState,
   type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
-  type RecipeDef, type StructureDef, type StructureState, type WorldConfig,
+  chainLine, chainMissing, recipeProducts, recipeVerb, type ChainEntry, type RecipeDef, type StructureDef, type StructureState, type WorldConfig,
 } from "@juego/shared";
 
 // Panel del proyecto (RF-006, RF-010, RF-013), fuera del canvas y accesible: barras <progress>
@@ -37,6 +37,10 @@ export interface PanelInput {
   recipes: RecipeDef[];
   /** Nombre en minúsculas de un objeto por id. */
   itemName: (id: string) => string;
+  /** Todas las recetas del mundo descritas, con las existencias del almacén (F2b). */
+  chains: ChainEntry[];
+  /** Nombre y estado de un edificio por id (edificios extra de las recetas, F2b). */
+  building: (id: string) => { name: string; built: boolean } | undefined;
   /** Todas las misiones (F1a: también las creadas desde el panel). */
   missions: [string, MissionState][];
   /** Nombre de un proyecto por id (para describir los objetivos de las misiones). */
@@ -66,6 +70,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
   let recipeSignature = "";
   let currentStructureId = "";
   const missionList = byId<HTMLUListElement>("misiones");
+  const chainList = byId<HTMLUListElement>("cadenas-juego");
+  let chainSignature = "";
   buildBox.hidden = true;
   workshop.hidden = true;
   buildButton.onclick = () => { if (buildButton.getAttribute("aria-disabled") !== "true" && currentStructureId) actions.build(currentStructureId); };
@@ -139,7 +145,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
       heading.focus();
     },
 
-    render({ state, held, community, ownName, structure, structureDef, recipes, itemName, missions, projectName, position }: PanelInput) {
+    render({ state, held, community, ownName, structure, structureDef, recipes, itemName, building, chains, missions, projectName, position }: PanelInput) {
       const closed = state.phase === "cerrado";
       // Avisos de este repintado: se leen juntos para que uno no tape a otro (aportes, misiones…).
       const messages: string[] = [];
@@ -238,7 +244,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
             const text = document.createElement("p");
             const button = document.createElement("button");
             button.type = "button";
-            button.textContent = `Fabricar: ${recipe.name}`;
+            const verb = recipeVerb(recipe);
+            button.textContent = `${verb}: ${recipe.name}`;
             button.onclick = () => { if (button.getAttribute("aria-disabled") !== "true") actions.craft(recipe.id); };
             const help = document.createElement("p");
             help.className = "ayuda";
@@ -251,18 +258,38 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         for (const recipe of recipes) {
           const block = recipeBlocks.get(recipe.id);
           if (!block) continue;
-          const parts = Object.entries(recipe.inputs).map(([r, n]) => `${n} de ${resourceName.get(r) ?? r} (hay ${community(r)})`);
-          block.text.textContent = `Receta «${recipe.name}»: ${parts.join(", ")} del almacén de la comunidad → ${recipe.output.amount} ${itemName(recipe.output.item)}.`;
+          const entry = (id: string) => resourceName.get(id) ?? itemName(id);
+          const parts = Object.entries(recipe.inputs).map(([r, n]) => `${n} de ${entry(r)} (hay ${community(r)})`);
+          const products = recipeProducts(recipe).map((p) => `${p.amount} ${itemName(p.item)}`);
+          const extras = (recipe.alsoNeeds ?? []).map((id) => ({ name: building(id)?.name ?? id, built: building(id)?.built ?? false }));
+          block.text.textContent = `Receta «${recipe.name}» (${recipeVerb(recipe).toLowerCase()}): ${parts.join(", ")} del almacén de la comunidad → ${products.join(" + ")}.`
+            + (extras.length ? ` Necesita también: ${extras.map((b) => `${b.name} (${b.built ? "construido" : "sin construir"})`).join(", ")}.` : "");
           const enough = Object.entries(recipe.inputs).every(([r, n]) => community(r) >= n);
+          const missingBuildings = extras.filter((b) => !b.built).map((b) => b.name);
           const near = isNextTo(position, structureDef);
-          block.button.setAttribute("aria-disabled", String(!enough || !near));
-          block.help.textContent = !near ? `Acércate al ${structureDef.name.toLowerCase()} para fabricar.`
-            : enough ? "Todo listo para fabricar." : "Faltan materiales en el almacén de la comunidad: depositad lo necesario.";
-          const stock = community(recipe.output.item);
-          const before = lastStock.get(recipe.output.item);
-          if (before !== undefined && stock > before) say(`Se ha fabricado ${stock - before} ${itemName(recipe.output.item)}.`);
-          lastStock.set(recipe.output.item, stock);
+          block.button.setAttribute("aria-disabled", String(!enough || !near || missingBuildings.length > 0));
+          block.help.textContent = !near ? `Acércate al ${structureDef.name.toLowerCase()} para ${recipeVerb(recipe).toLowerCase()}.`
+            : missingBuildings.length ? `Falta construir: ${missingBuildings.join(", ")}.`
+              : enough ? "Todo listo." : "Faltan materiales en el almacén de la comunidad: depositad lo necesario.";
+          for (const p of recipeProducts(recipe)) {
+            const stock = community(p.item);
+            const before = lastStock.get(p.item);
+            if (before !== undefined && stock > before) say(`Se ha obtenido ${stock - before} ${itemName(p.item)}.`);
+            lastStock.set(p.item, stock);
+          }
         }
+      }
+
+      // Cadenas de producción (F2b): cada receta del mundo, con lo que falta ahora.
+      const chainRows = chains.map((c) => {
+        const missing = chainMissing(c);
+        return `${chainLine(c)}. ${missing.length ? `Falta: ${missing.join("; ")}.` : "Todo listo para hacerlo."}`;
+      });
+      const nextSignature = chainRows.join("\n");
+      if (nextSignature !== chainSignature) {
+        chainSignature = nextSignature;
+        chainList.replaceChildren(...(chainRows.length ? chainRows.map((text) => Object.assign(document.createElement("li"), { textContent: text }))
+          : [Object.assign(document.createElement("li"), { textContent: "Todavía no hay recetas." })]));
       }
 
       // Misiones (Q158, Q174): todas, también las creadas desde el panel.
