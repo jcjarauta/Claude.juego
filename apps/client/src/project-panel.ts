@@ -1,5 +1,5 @@
 import {
-  isNextTo,
+  isNextTo, missionDefFromState,
   type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
   type StructureState, type WorldConfig,
 } from "@juego/shared";
@@ -26,10 +26,16 @@ const TASK_STATUS: Record<string, string> = {
 
 export type ContributeHandler = (projectId: string, taskId: string, from: ContributionSource, amount: number) => void;
 
+/** Estado de las misiones ya visto (para anunciar solo los cambios, aunque se cambie de proyecto). */
+const seenMissions = new Map<string, string>();
+
 export interface PanelInput {
   state: ProjectState;
   structure: StructureState | undefined;
-  mission: MissionState | undefined;
+  /** Todas las misiones (F1a: también las creadas desde el panel). */
+  missions: [string, MissionState][];
+  /** Nombre de un proyecto por id (para describir los objetivos de las misiones). */
+  projectName: (id: string) => string;
   position: Position;
   /** Inventario propio y almacén de la comunidad, por recurso. */
   held: (resource: string) => number;
@@ -47,7 +53,6 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
   const onContribute = actions.contribute;
   const structureDef = config.structures.find((s) => s.projectId === project.id);
   const recipeDef = structureDef && config.recipes.find((r) => r.structureId === structureDef.id);
-  const missionDef = config.missions[0];
   const itemName = new Map(config.items.map((i) => [i.id, i.name.toLowerCase()]));
   const buildBox = byId("construir");
   const buildButton = byId<HTMLButtonElement>("construir-boton");
@@ -57,7 +62,9 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
   const recipeText = byId("taller-receta");
   const craftButton = byId<HTMLButtonElement>("taller-fabricar");
   const craftHelp = byId("taller-ayuda");
-  const missionText = byId("mision-estado");
+  const missionList = byId<HTMLUListElement>("misiones");
+  buildBox.hidden = true;
+  workshop.hidden = true;
   if (structureDef) {
     buildButton.textContent = `Construir: ${structureDef.name}`;
     buildButton.onclick = () => { if (buildButton.getAttribute("aria-disabled") !== "true") actions.build(structureDef.id); };
@@ -68,7 +75,6 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
     craftButton.onclick = () => { if (craftButton.getAttribute("aria-disabled") !== "true") actions.craft(recipeDef.id); };
   }
   let lastBuilt: boolean | undefined;
-  let lastMission: string | undefined;
   let lastTools: number | undefined;
   const heading = byId("proyecto-titulo");
   const status = byId("proyecto-estado");
@@ -83,6 +89,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
 
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const rows = new Map<string, { li: HTMLLIElement; progress: HTMLProgressElement; text: HTMLElement; buttons: HTMLButtonElement[] }>();
+  tasks.replaceChildren(); // al cambiar de proyecto se crean las filas del nuevo
 
   // Tareas: se crean una vez y luego solo cambian valores y estados (no se pierde el foco).
   for (const task of project.tasks) {
@@ -135,7 +142,11 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
       heading.focus();
     },
 
-    render({ state, held, community, ownName, structure, mission, position }: PanelInput) {
+    render({ state, held, community, ownName, structure, missions, projectName, position }: PanelInput) {
+      const closed = state.phase === "cerrado";
+      // Avisos de este repintado: se leen juntos para que uno no tape a otro (aportes, misiones…).
+      const messages: string[] = [];
+      const say = (text: string) => { messages.push(text); };
       for (const task of project.tasks) {
         const row = rows.get(task.id)!;
         const done = state.progress.get(task.resource) ?? 0;
@@ -144,18 +155,20 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         row.progress.value = done;
         const taskState = state.tasks.get(task.id);
         const review = taskState?.decision ? ` por ${taskState.reviewedBy}: «${taskState.note}»` : "";
-        row.text.textContent = `${done}/${task.required} ${name} — ${TASK_STATUS[taskState?.status ?? ""] ?? "pendiente"}${review}`;
+        const st = taskState?.status ?? "pendiente";
+        const label = st === "completada" && !state.requiresApproval ? "completa" : TASK_STATUS[st] ?? "pendiente";
+        row.text.textContent = `${done}/${task.required} ${name} — ${label}${review}`;
         if (seenReviews && taskState?.decision && seenReviews.get(task.id) !== taskState.reviewedAt) {
-          announcer.textContent = `${task.title}: ${taskState.decision} por ${taskState.reviewedBy}.`;
+          say(`${task.title}: ${taskState.decision} por ${taskState.reviewedBy}.`);
         }
         for (const button of row.buttons) {
           const balance = button.dataset.from === "player" ? held(task.resource) : community(task.resource);
-          const available = Math.min(balance, remaining);
+          const available = closed ? 0 : Math.min(balance, remaining);
           button.dataset.available = String(available);
           button.setAttribute("aria-disabled", String(available === 0));
         }
         if (remaining === 0 && !completed.has(task.id)) {
-          if (lastStatus) announcer.textContent = `Tarea completa: ${task.title}.`;
+          if (lastStatus) say(`Tarea completa: ${task.title}.`);
           completed.add(task.id);
         }
       }
@@ -164,10 +177,18 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
 
       const ready = state.status === "listo";
       const built = Boolean(structure?.built);
-      status.textContent = built
-        ? `Construido: ${structureDef?.name ?? ""} en pie.`
-        : ready ? "Listo para construir: todas las tareas están completas." : "En curso.";
-      if (lastStatus && lastStatus !== state.status && ready) announcer.textContent = `¡Proyecto ${project.name} listo para construir!`;
+      if (structureDef) {
+        status.textContent = built
+          ? `Construido: ${structureDef.name} en pie.`
+          : ready ? "Listo para construir: todas las tareas están completas." : "En curso.";
+        if (lastStatus && lastStatus !== state.status && ready) say(`¡Proyecto ${project.name} listo para construir!`);
+      } else {
+        // Proyectos sin estructura (F1a, Q173): se completan con sus tareas (y aprobaciones, si se exigen).
+        status.textContent = state.status === "completado" ? "Completado: todas las tareas están hechas."
+          : state.status === "en-revision" ? "Tareas completas: falta la aprobación de la coordinación." : "En curso.";
+        if (lastStatus && lastStatus !== state.status && state.status === "completado") say(`¡Proyecto ${project.name} completado!`);
+      }
+      if (closed) status.textContent = `Cerrado por ${state.closedBy}: ya no admite aportes. ${status.textContent}`;
       lastStatus = state.status;
 
       // Construir (Q156): visible con el proyecto listo; el servidor decide.
@@ -180,7 +201,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
           : `Acércate al solar (contorno discontinuo en la aldea, casillas ${structureDef.x}–${structureDef.x + structureDef.width - 1}, ${structureDef.y}–${structureDef.y + structureDef.height - 1}).`;
       }
       if (lastBuilt === false && built) {
-        announcer.textContent = `¡${structure!.builtBy} ha construido el ${structureDef?.name.toLowerCase() ?? "edificio"}!`;
+        say(`¡${structure!.builtBy} ha construido el ${structureDef?.name.toLowerCase() ?? "edificio"}!`);
         // El botón de construir desaparece: si tenía el foco, pasa a la sección del taller.
         if (document.activeElement === buildButton || document.activeElement === document.body) {
           workshop.hidden = false;
@@ -201,18 +222,26 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         craftHelp.textContent = !near ? `Acércate al ${structureDef.name.toLowerCase()} para fabricar.`
           : enough ? "Todo listo para fabricar." : "Faltan materiales en el almacén de la comunidad: depositad lo necesario.";
         const tools = community(recipeDef.output.item);
-        if (lastTools !== undefined && tools > lastTools) announcer.textContent = `Se ha fabricado ${tools - lastTools} ${itemName.get(recipeDef.output.item) ?? ""}.`;
+        if (lastTools !== undefined && tools > lastTools) say(`Se ha fabricado ${tools - lastTools} ${itemName.get(recipeDef.output.item) ?? ""}.`);
         lastTools = tools;
       }
 
-      // Misión (Q158).
-      if (missionDef && mission) {
-        missionText.textContent = mission.status === "completada"
-          ? `${missionDef.name}: completada por ${mission.completedBy} a las ${time(mission.completedAt)}. ¡Enhorabuena a toda la comunidad!`
-          : `${missionDef.name}: pendiente. ${missionDef.description}`;
-        if (lastMission === "pendiente" && mission.status === "completada") announcer.textContent = `¡Misión ${missionDef.name} completada por ${mission.completedBy}!`;
-        lastMission = mission.status;
-      }
+      // Misiones (Q158, Q174): todas, también las creadas desde el panel.
+      missionList.replaceChildren(...missions.map(([id, mission]) => {
+        const def = missionDefFromState(id, mission);
+        const goal = def.objective.kind === "project-completed"
+          ? `completar «${projectName(def.objective.project)}»`
+          : `${def.objective.amount} ${itemName.get(def.objective.item) ?? def.objective.item} en el almacén`;
+        const li = document.createElement("li");
+        li.textContent = mission.status === "completada"
+          ? `${def.name} (${goal}): completada por ${mission.completedBy} a las ${time(mission.completedAt)}. ¡Enhorabuena a toda la comunidad!`
+          : `${def.name} (${goal}): pendiente. ${def.description}`;
+        if (seenMissions.get(id) === "pendiente" && mission.status === "completada") {
+          say(`¡Misión ${def.name} completada por ${mission.completedBy}!`);
+        }
+        seenMissions.set(id, mission.status);
+        return li;
+      }));
 
       contributors.replaceChildren(...[...state.contributors.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
@@ -234,7 +263,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
       if (seenRecent) {
         for (const c of recent.filter((c) => !seenRecent!.has(key(c)))) {
           const what = `${c.amount} de ${resourceName.get(c.resource) ?? c.resource}`;
-          announcer.textContent = c.name === ownName ? `Has aportado ${what} al proyecto.` : `${c.name} ha aportado ${what} al proyecto.`;
+          say(c.name === ownName ? `Has aportado ${what} al proyecto.` : `${c.name} ha aportado ${what} al proyecto.`);
         }
       }
       seenRecent = new Set(recent.map(key));
@@ -243,6 +272,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         li.textContent = `${time(c.at)} — ${c.name} aportó ${c.amount} de ${resourceName.get(c.resource) ?? c.resource}`;
         return li;
       }));
+      if (messages.length) announcer.textContent = messages.join(" ");
     },
 
     showNews(message: NewsMessage) {
