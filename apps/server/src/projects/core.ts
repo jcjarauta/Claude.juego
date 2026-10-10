@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import {
-  authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateMission, checkCreateProject, checkReschedule,
-  checkReview, isTaskDone, isValidRequestId, missionSatisfied, projectStatus, taskStatus,
-  type ContributionSource, type MissionDef, type ProjectDef, type RejectReason, type ReviewDecision, type WorldConfig,
+  authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateConstruction, checkCreateItem, checkCreateMission,
+  checkCreateProject, checkCreateRecipe, checkReschedule, checkReview, isTaskDone, isValidRequestId, missionSatisfied, projectStatus, taskStatus,
+  type ContributionSource, type ItemDef, type MissionDef, type ProjectDef, type RecipeDef, type RejectReason, type ReviewDecision, type StructureDef,
+  type WorldConfig,
 } from "@juego/shared";
 import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
 
@@ -55,6 +56,24 @@ export interface ProjectEntry {
   createdAt: number;
   closedBy: string;
   closedAt: number;
+}
+
+/** Estructura con su origen y su retirada (F2a). */
+export interface StructureEntry {
+  def: StructureDef;
+  origin: "configuracion" | "panel";
+  createdBy: string;
+  retiredAt: number;
+}
+
+export interface ItemEntry {
+  def: ItemDef;
+  origin: "configuracion" | "panel";
+}
+
+export interface RecipeEntry {
+  def: RecipeDef;
+  origin: "configuracion" | "panel";
 }
 
 export interface MissionEntry {
@@ -117,13 +136,26 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   for (const def of config.missions) missions.set(def.id, { def, origin: "configuracion", createdBy: "", createdAt: 0 });
   for (const row of store.getMissionDefs()) missions.set(row.def.id, { ...row, origin: "panel" });
 
+  // Estructuras, objetos y recetas: configuración + lo creado desde el panel (F2a).
+  const structures = new Map<string, StructureEntry>();
+  for (const def of config.structures) structures.set(def.id, { def, origin: "configuracion", createdBy: "", retiredAt: 0 });
+  for (const row of store.getStructureDefs()) structures.set(row.def.id, { def: row.def, origin: "panel", createdBy: row.createdBy, retiredAt: row.retiredAt });
+  const items = new Map<string, ItemEntry>();
+  for (const def of config.items) items.set(def.id, { def, origin: "configuracion" });
+  for (const row of store.getItemDefs()) items.set(row.def.id, { def: row.def, origin: "panel" });
+  const recipes = new Map<string, RecipeEntry>();
+  for (const def of config.recipes) recipes.set(def.id, { def, origin: "configuracion" });
+  for (const row of store.getRecipeDefs()) recipes.set(row.def.id, { def: row.def, origin: "panel" });
+  const activeStructures = () => [...structures.values()].filter((e) => !e.retiredAt);
+
   const resourceIds = new Set(config.resources.map((r) => r.id));
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
-  const itemIds = new Set(config.items.map((i) => i.id));
+  const nodeCells = new Set(config.nodes.map((n) => `${n.x},${n.y}`));
+  const itemIds = () => new Set(items.keys());
   const allProjects = () => [...projects.values()].map((e) => e.def);
   const projectById = (id: unknown) => (typeof id === "string" ? projects.get(id)?.def : undefined);
   const isClosed = (id: string) => Boolean(projects.get(id)?.closedAt);
-  const structureOf = (projectId: string) => config.structures.find((s) => s.projectId === projectId);
+  const structureOf = (projectId: string) => [...structures.values()].find((e) => e.def.projectId === projectId)?.def;
   // Lo aportado sale del registro: no disminuye cuando la construcción consume los materiales.
   const contributed = (projectId: string, resource: string) => store.contributedAmount(projectId, resource);
   const suffix = () => randomBytes(3).toString("hex");
@@ -228,6 +260,95 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     projects: allProjects,
     scheduleOf,
     isBlocked,
+    structureOf,
+    structureById: (id: unknown) => (typeof id === "string" ? structures.get(id)?.def : undefined),
+    recipeById: (id: unknown) => (typeof id === "string" ? recipes.get(id)?.def : undefined),
+    structureEntries: () => [...structures.values()],
+    itemEntries: () => [...items.values()],
+    recipeEntries: () => [...recipes.values()],
+
+    /**
+     * Crear una construcción desde el panel (F2a, Q186): un proyecto y su estructura con solar,
+     * en una transacción. El solar aparece en el mapa al confirmarse.
+     */
+    createConstruction(actor: string, payload: unknown): Outcome<{ project: ProjectEntry; structure: StructureEntry }> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<{ project: ProjectEntry; structure: StructureEntry }> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkCreateConstruction({
+          actor, admins: config.admins, payload, resourceIds, resourceName,
+          openProjects: [...projects.values()].filter((e) => !e.closedAt).length,
+          existingProjectIds: new Set(projects.keys()),
+          constructions: [...structures.values()].filter((e) => e.origin === "panel" && !e.retiredAt).length,
+          map: { width: config.map.width, height: config.map.height, nodeCells, spawn: config.spawn, structures: activeStructures().map((e) => e.def) },
+          idSuffix: suffix(),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        const unknown = check.def.project.coordinators.filter((name) => !store.getAccountByName(name));
+        if (unknown.length) return { kind: "rejected", reason: "definicion-invalida", details: unknown.map((n) => `coordinador sin cuenta: "${n}"`) };
+        const projectDef = { ...check.def.project, coordinators: check.def.project.coordinators.map((n) => store.getAccountByName(n)!.name) };
+        store.addProjectDef(projectDef, actor, at);
+        store.addStructureDef(check.def.structure, actor, at);
+        store.event("construction-created", actor, requestId, { project: projectDef, structure: check.def.structure });
+        return {
+          kind: "done",
+          value: {
+            project: { def: projectDef, origin: "panel", createdBy: actor, createdAt: at, closedBy: "", closedAt: 0 },
+            structure: { def: check.def.structure, origin: "panel", createdBy: actor, retiredAt: 0 },
+          },
+        };
+      });
+      if (outcome.kind === "done") {
+        projects.set(outcome.value.project.def.id, outcome.value.project);
+        structures.set(outcome.value.structure.def.id, outcome.value.structure);
+      }
+      return outcome;
+    },
+
+    /** Crear un objeto fabricable (F2a). */
+    createItem(actor: string, payload: unknown): Outcome<ItemEntry> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<ItemEntry> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkCreateItem({
+          actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(),
+          created: [...items.values()].filter((e) => e.origin === "panel").length, idSuffix: suffix(),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        store.addItemDef(check.def, actor, at);
+        store.event("item-created", actor, requestId, { item: check.def });
+        return { kind: "done", value: { def: check.def, origin: "panel" } };
+      });
+      if (outcome.kind === "done") items.set(outcome.value.def.id, outcome.value);
+      return outcome;
+    },
+
+    /** Crear una receta (F2a). */
+    createRecipe(actor: string, payload: unknown): Outcome<RecipeEntry> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<RecipeEntry> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkCreateRecipe({
+          actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), structureIds: new Set(activeStructures().map((e) => e.def.id)),
+          created: [...recipes.values()].filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()), idSuffix: suffix(),
+        });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        store.addRecipeDef(check.def, actor, at);
+        store.event("recipe-created", actor, requestId, { recipe: check.def });
+        return { kind: "done", value: { def: check.def, origin: "panel" } };
+      });
+      if (outcome.kind === "done") recipes.set(outcome.value.def.id, outcome.value);
+      return outcome;
+    },
 
     /** Apuntar o asignar a un responsable (F1c, Q181). */
     assign: (actor: string, payload: unknown) => assignment(actor, payload, true),
@@ -387,12 +508,12 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     },
 
     /** Cerrar un proyecto del panel: deja de admitir aportes y conserva su historial (F1a). */
-    closeProject(actor: string, payload: unknown): Outcome<ProjectEntry> {
+    closeProject(actor: string, payload: unknown): Outcome<ProjectEntry & { retiredStructure?: string }> {
       const message = (payload ?? {}) as Record<string, unknown>;
       if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
       const requestId = message.requestId;
       const at = Date.now();
-      const outcome = store.transaction((): Outcome<ProjectEntry> => {
+      const outcome = store.transaction((): Outcome<ProjectEntry & { retiredStructure?: string }> => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const entry = typeof message.projectId === "string" ? projects.get(message.projectId) : undefined;
         const check = checkCloseProject({
@@ -401,9 +522,22 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         if (!check.ok) return { kind: "rejected", reason: check.reason };
         store.closeProjectDef(entry!.def.id, actor, at);
         store.event("project-closed", actor, requestId, { project: entry!.def.id });
-        return { kind: "done", value: { ...entry!, closedBy: actor, closedAt: at } };
+        // Un solar del panel sin construir se retira del mapa (Q187); un edificio construido se queda.
+        const structure = [...structures.values()].find((e) => e.origin === "panel" && !e.retiredAt && e.def.projectId === entry!.def.id);
+        const built = structure && store.getStructures().some((s) => s.id === structure.def.id);
+        let retiredStructure: string | undefined;
+        if (structure && !built) {
+          store.retireStructureDef(structure.def.id, at);
+          retiredStructure = structure.def.id;
+        }
+        return { kind: "done", value: { ...entry!, closedBy: actor, closedAt: at, retiredStructure } };
       });
-      if (outcome.kind === "done") projects.set(outcome.value.def.id, outcome.value);
+      if (outcome.kind === "done") {
+        const { retiredStructure, ...entry } = outcome.value;
+        projects.set(entry.def.id, entry);
+        const retired = retiredStructure ? structures.get(retiredStructure) : undefined;
+        if (retired) structures.set(retired.def.id, { ...retired, retiredAt: entry.closedAt });
+      }
       return outcome;
     },
 
@@ -416,7 +550,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const outcome = store.transaction((): Outcome<{ entry: MissionEntry; completed: MissionCompleted[] }> => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateMission({
-          actor, admins: config.admins, payload, itemIds,
+          actor, admins: config.admins, payload, itemIds: itemIds(),
           openProjectIds: new Set([...projects.values()].filter((e) => !e.closedAt).map((e) => e.def.id)),
           missions: missions.size, existingIds: new Set(missions.keys()), idSuffix: suffix(),
         });

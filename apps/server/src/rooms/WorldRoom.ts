@@ -2,14 +2,15 @@ import { Room, type Client } from "@colyseus/core";
 import {
   applyMove, checkBuild, checkCollect, checkCraft, checkTransfer, Contribution, ContributorTotals, isValidName,
   isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, Player, ProjectState, regenerate,
-  StructureState, TaskState, taskStatus, VIEWS, WorldState,
+  ItemState, RecipeState, StructureState, TaskState, taskStatus, VIEWS, WorldState,
   type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
   type StructureDef, type View,
 } from "@juego/shared";
 import type { Account } from "../accounts.ts";
 import { log } from "../log.ts";
 import {
-  createProjectCore, RECENT_CONTRIBUTIONS, type MissionCompleted, type MissionEntry, type ProjectCore, type ProjectEntry,
+  createProjectCore, RECENT_CONTRIBUTIONS, type ItemEntry, type MissionCompleted, type MissionEntry, type ProjectCore, type ProjectEntry,
+  type RecipeEntry, type StructureEntry,
 } from "../projects/core.ts";
 import { createRateLimiter } from "../rate-limit.ts";
 import { COMMUNITY, playerScope, type Store } from "../store.ts";
@@ -79,12 +80,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     this.state.communityName = config.community.name;
     // Estructuras y misiones antes que los proyectos: el estado del proyecto depende de si su estructura existe.
-    const built = new Map(this.store.getStructures().map((s) => [s.id, s]));
-    for (const def of config.structures) {
-      const row = built.get(def.id);
-      this.state.structures.set(def.id, new StructureState({ built: Boolean(row), builtBy: row?.builtBy ?? "", builtAt: row?.builtAt ?? 0 }));
-      if (row) this.blockFootprint(def);
-    }
+    for (const entry of this.core.itemEntries()) this.loadItem(entry);
+    for (const entry of this.core.structureEntries()) if (!entry.retiredAt) this.loadStructure(entry);
+    for (const entry of this.core.recipeEntries()) this.loadRecipe(entry);
     for (const entry of this.core.missionEntries()) this.loadMission(entry);
     for (const entry of this.core.projectEntries()) this.loadProject(entry);
 
@@ -387,6 +385,40 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const projectState = this.state.projects.get(outcome.value.def.id)!;
       projectState.phase = "cerrado";
       projectState.closedBy = outcome.value.closedBy;
+      // Un solar sin construir desaparece del mapa para todos (Q187).
+      if (outcome.value.retiredStructure) this.state.structures.delete(outcome.value.retiredStructure);
+    },
+
+    /** Crear una construcción: proyecto y solar (F2a, Q186, solo administración). */
+    [MESSAGE.createConstruction]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.createConstruction(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.loadStructure(outcome.value.structure);
+      this.loadProject(outcome.value.project);
+      log("info", "construccion-creada", { project: outcome.value.project.def.id });
+    },
+
+    /** Crear un objeto fabricable (F2a, solo administración). */
+    [MESSAGE.createItem]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.createItem(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.loadItem(outcome.value);
+    },
+
+    /** Crear una receta (F2a, solo administración). */
+    [MESSAGE.createRecipe]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.createRecipe(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.loadRecipe(outcome.value);
     },
 
     /** Crear una misión desde el panel (F1a, Q174, solo administración). */
@@ -417,8 +449,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const message = (payload ?? {}) as Record<string, unknown>;
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
-      const { config } = this.world;
-      const structure = config.structures.find((s) => s.id === message.structureId);
+      // Solo estructuras vigentes (las retiradas ya no existen para nadie).
+      const structure = this.state.structures.has(String(message.structureId)) ? this.core.structureById(message.structureId) : undefined;
       const now = Date.now();
 
       const outcome = this.safely(client, () => this.store.transaction(() => {
@@ -459,9 +491,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const message = (payload ?? {}) as Record<string, unknown>;
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
-      const { config } = this.world;
-      const recipe = config.recipes.find((r) => r.id === message.recipeId);
-      const structure = recipe && config.structures.find((s) => s.id === recipe.structureId);
+      const recipe = this.core.recipeById(message.recipeId);
+      const structure = recipe && this.state.structures.has(recipe.structureId) ? this.core.structureById(recipe.structureId) : undefined;
       const now = Date.now();
 
       const outcome = this.safely(client, () => this.store.transaction(() => {
@@ -543,9 +574,34 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   /** «construido» si la estructura del proyecto existe; si no, «listo» o «en-curso» según lo aportado. */
   private projectStatusOf(project: ProjectDef, projectState: ProjectState): string {
-    const structure = this.world.config.structures.find((s) => s.projectId === project.id);
+    const structure = this.core.structureOf(project.id);
     const built = Boolean(structure && this.state.structures.get(structure.id)?.built);
     return this.core.status(project, (r) => projectState.progress.get(r) ?? 0, built);
+  }
+
+  /** Estado sincronizado de una estructura, con su definición; si está construida, bloquea su huella (F2a). */
+  private loadStructure({ def, origin }: StructureEntry) {
+    const row = this.store.getStructures().find((s) => s.id === def.id);
+    const state = new StructureState();
+    Object.assign(state, {
+      name: def.name, projectId: def.projectId, x: def.x, y: def.y, width: def.width, height: def.height, color: def.color, origin,
+      built: Boolean(row), builtBy: row?.builtBy ?? "", builtAt: row?.builtAt ?? 0,
+    });
+    this.state.structures.set(def.id, state);
+    if (row) this.blockFootprint(def);
+  }
+
+  private loadItem({ def, origin }: ItemEntry) {
+    const state = new ItemState();
+    Object.assign(state, { name: def.name, origin });
+    this.state.items.set(def.id, state);
+  }
+
+  private loadRecipe({ def, origin }: RecipeEntry) {
+    const state = new RecipeState();
+    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, origin });
+    for (const [resource, amount] of Object.entries(def.inputs)) state.inputs.set(resource, amount);
+    this.state.recipes.set(def.id, state);
   }
 
   private applyAssignment(client: Client, payload: unknown, assign: boolean) {

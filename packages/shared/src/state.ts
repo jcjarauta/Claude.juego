@@ -1,5 +1,5 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
-import type { MissionDef, ProjectDef } from "./world-config.ts";
+import type { ItemDef, MissionDef, ProjectDef, RecipeDef, StructureDef } from "./world-config.ts";
 
 // Estado sincronizado: lo modifica solo el servidor; el cliente lo recibe tipado
 // pasando WorldState a client.join(). De los nodos solo se sincronizan las
@@ -97,6 +97,16 @@ export const ProjectState = schema({
 export type ProjectState = SchemaType<typeof ProjectState>;
 
 export const StructureState = schema({
+  /** Definición (F2a): los clientes dibujan solares y edificios desde el estado, no de /config. */
+  name: t.string(),
+  projectId: t.string(),
+  x: t.int16(),
+  y: t.int16(),
+  width: t.uint8(),
+  height: t.uint8(),
+  color: t.string(),
+  /** "configuracion" | "panel" */
+  origin: t.string(),
   built: t.boolean(),
   builtBy: t.string(),
   builtAt: t.float64(),
@@ -122,6 +132,24 @@ export const MissionState = schema({
 }, "MissionState");
 export type MissionState = SchemaType<typeof MissionState>;
 
+/** Objeto fabricable creado o de la configuración (F2a). */
+export const ItemState = schema({
+  name: t.string(),
+  origin: t.string(),
+}, "ItemState");
+export type ItemState = SchemaType<typeof ItemState>;
+
+/** Receta (F2a): entradas del almacén común y objeto de salida. */
+export const RecipeState = schema({
+  name: t.string(),
+  structureId: t.string(),
+  inputs: t.map("uint16"),
+  outputItem: t.string(),
+  outputAmount: t.uint8(),
+  origin: t.string(),
+}, "RecipeState");
+export type RecipeState = SchemaType<typeof RecipeState>;
+
 export const WorldState = schema({
   players: t.map(Player),
   /** Unidades disponibles por id de nodo. */
@@ -133,6 +161,8 @@ export const WorldState = schema({
   projects: t.map(ProjectState),
   structures: t.map(StructureState),
   missions: t.map(MissionState),
+  items: t.map(ItemState),
+  recipes: t.map(RecipeState),
 }, "WorldState");
 export type WorldState = SchemaType<typeof WorldState>;
 
@@ -156,4 +186,17 @@ export function missionDefFromState(id: string, m: MissionState): MissionDef {
     ? { kind: "project-completed", project: m.objectiveTarget }
     : { kind: "item-in-community", item: m.objectiveTarget, amount: m.objectiveAmount };
   return { id, name: m.name, description: m.description, objective };
+}
+
+/** Definición de una estructura reconstruida desde el estado sincronizado (F2a). */
+export function structureDefFromState(id: string, s: StructureState): StructureDef {
+  return { id, name: s.name, projectId: s.projectId, x: s.x, y: s.y, width: s.width, height: s.height, color: s.color };
+}
+
+export function itemDefFromState(id: string, i: ItemState): ItemDef {
+  return { id, name: i.name };
+}
+
+export function recipeDefFromState(id: string, r: RecipeState): RecipeDef {
+  return { id, name: r.name, structureId: r.structureId, inputs: Object.fromEntries(r.inputs.entries()), output: { item: r.outputItem, amount: r.outputAmount } };
 }
