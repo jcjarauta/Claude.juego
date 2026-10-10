@@ -21,6 +21,9 @@ export const MESSAGE = {
   closeProject: "close-project",
   createMission: "create-mission",
   reschedule: "reschedule",
+  assign: "assign",
+  unassign: "unassign",
+  comment: "comment",
   rejected: "rejected",
 } as const;
 
@@ -157,6 +160,8 @@ export interface NewTask {
   acceptance?: string;
   /** Fecha objetivo «AAAA-MM-DD» (F1b). */
   dueDate?: string;
+  /** Recursos (= ids) de las tareas de este proyecto que deben terminar antes (F1c). */
+  dependsOn?: string[];
 }
 
 /** Crear un proyecto desde el panel (solo administración, Q171). Queda publicado e inmutable (Q172). */
@@ -182,6 +187,30 @@ export interface RescheduleMessage {
   dueDate: string;
   /** Motivo: 1–500 caracteres. */
   reason: string;
+}
+
+/** Apuntar o quitar a un responsable de una tarea (F1c, Q181). */
+export interface AssignMessage {
+  requestId: string;
+  projectId: string;
+  taskId: string;
+  /** Cuenta que se asigna o se quita (uno mismo o, con rol, otra persona). */
+  name: string;
+}
+
+/** Comentario en una tarea (F1c, Q184). */
+export interface CommentMessage {
+  requestId: string;
+  projectId: string;
+  taskId: string;
+  text: string;
+}
+
+/** Hilo de comentarios de una tarea (F1c), del más antiguo al más reciente. */
+export interface CommentsResponse {
+  projectId: string;
+  taskId: string;
+  comments: { by: string; at: number; text: string }[];
 }
 
 /** Historia de un proyecto para las gráficas (F1b): aportado por día. */
@@ -252,7 +281,10 @@ export type RejectReason =
   | "demasiadas-misiones"
   | "definicion-invalida"
   | "fecha-invalida"
-  | "motivo-invalido";
+  | "motivo-invalido"
+  | "tarea-bloqueada"
+  | "comentario-invalido"
+  | "demasiados-responsables";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -299,6 +331,9 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "definicion-invalida": "La definición no es válida; revisa los campos indicados.",
   "fecha-invalida": "La fecha no es válida: usa AAAA-MM-DD; una tarea no puede vencer después que su proyecto.",
   "motivo-invalido": "Escribe un motivo de 1 a 500 caracteres.",
+  "tarea-bloqueada": "Esa tarea está bloqueada: antes hay que terminar las tareas de las que depende.",
+  "comentario-invalido": "Escribe un comentario de 1 a 500 caracteres.",
+  "demasiados-responsables": "Esa tarea ya tiene 3 responsables.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

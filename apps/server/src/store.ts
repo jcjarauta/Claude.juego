@@ -6,7 +6,7 @@ import type { MissionDef, ProjectDef } from "@juego/shared";
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -151,6 +151,26 @@ export const MIGRATIONS: Record<number, string> = {
     );
     CREATE INDEX schedule_change_project ON schedule_change (project_id, id);
   `,
+  // F1c: responsables (clave única: no se repite una persona en una tarea) y comentarios (traza, Q184).
+  8: `
+    CREATE TABLE task_assignee (
+      project_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      assigned_by TEXT NOT NULL,
+      assigned_at INTEGER NOT NULL,
+      PRIMARY KEY (project_id, task_id, name)
+    );
+    CREATE TABLE task_comment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      author TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      text TEXT NOT NULL
+    );
+    CREATE INDEX task_comment_task ON task_comment (project_id, task_id, id);
+  `,
 };
 
 export function openStore(path: string) {
@@ -230,6 +250,14 @@ export function openStore(path: string) {
       FROM schedule_change WHERE project_id = ? ORDER BY id`),
     contributionsByDay: db.prepare(`SELECT date(at / 1000, 'unixepoch', 'localtime') AS day, SUM(json_extract(data, '$.amount')) AS amount
       FROM event WHERE type = 'contribute' AND json_extract(data, '$.project') = ? GROUP BY day ORDER BY day`),
+    getAssignees: db.prepare("SELECT task_id AS taskId, name FROM task_assignee WHERE project_id = ? ORDER BY assigned_at, rowid"),
+    addAssignee: db.prepare("INSERT INTO task_assignee (project_id, task_id, name, assigned_by, assigned_at) VALUES (?, ?, ?, ?, ?)"),
+    removeAssignee: db.prepare("DELETE FROM task_assignee WHERE project_id = ? AND task_id = ? AND name = ?"),
+    addComment: db.prepare("INSERT INTO task_comment (project_id, task_id, author, at, text) VALUES (?, ?, ?, ?, ?)"),
+    getComments: db.prepare(`SELECT author AS "by", at, text FROM task_comment WHERE project_id = ? AND task_id = ? ORDER BY id`),
+    commentSummary: db.prepare(`SELECT c.task_id AS taskId, COUNT(*) AS count, (SELECT author || char(31) || at || char(31) || text FROM task_comment l
+      WHERE l.project_id = c.project_id AND l.task_id = c.task_id ORDER BY l.id DESC LIMIT 1) AS last
+      FROM task_comment c WHERE c.project_id = ? GROUP BY c.task_id`),
     getMissionDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM mission_def ORDER BY created_at, id"),
     addMissionDef: db.prepare("INSERT INTO mission_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
@@ -364,6 +392,34 @@ export function openStore(path: string) {
     /** Aportado por día (hora local del servidor) a un proyecto, para la historia (F1b). */
     contributionsByDay(projectId: string): { day: string; amount: number }[] {
       return (q.contributionsByDay.all(projectId) as { day: string; amount: number }[]).map((r) => ({ day: r.day, amount: Number(r.amount) }));
+    },
+    /** Responsables por tarea de un proyecto, en orden de asignación (F1c). */
+    getAssignees(projectId: string): Record<string, string[]> {
+      const result: Record<string, string[]> = {};
+      for (const r of q.getAssignees.all(projectId) as { taskId: string; name: string }[]) (result[r.taskId] ??= []).push(r.name);
+      return result;
+    },
+    addAssignee(projectId: string, taskId: string, name: string, by: string, at: number) {
+      q.addAssignee.run(projectId, taskId, name, by, at);
+    },
+    removeAssignee(projectId: string, taskId: string, name: string) {
+      q.removeAssignee.run(projectId, taskId, name);
+    },
+    addComment(projectId: string, taskId: string, author: string, at: number, text: string) {
+      q.addComment.run(projectId, taskId, author, at, text);
+    },
+    /** Hilo de una tarea, del más antiguo al más reciente (F1c). */
+    getComments(projectId: string, taskId: string): { by: string; at: number; text: string }[] {
+      return (q.getComments.all(projectId, taskId) as { by: string; at: number; text: string }[]).map((r) => ({ by: r.by, at: Number(r.at), text: r.text }));
+    },
+    /** Número de comentarios y el último, por tarea. */
+    commentSummary(projectId: string): Record<string, { count: number; last: { by: string; at: number; text: string } }> {
+      const result: Record<string, { count: number; last: { by: string; at: number; text: string } }> = {};
+      for (const r of q.commentSummary.all(projectId) as { taskId: string; count: number; last: string }[]) {
+        const [by, at, ...text] = r.last.split("\u001f");
+        result[r.taskId] = { count: Number(r.count), last: { by: by!, at: Number(at), text: text.join("\u001f") } };
+      }
+      return result;
     },
     getMissionDefs(): { def: MissionDef; createdBy: string; createdAt: number }[] {
       return (q.getMissionDefs.all() as { definition: string; createdBy: string; createdAt: number }[])

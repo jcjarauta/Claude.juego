@@ -332,6 +332,26 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.applyMissions(done.missions);
     },
 
+    /** Apuntar o asignar a un responsable (F1c, Q181). */
+    [MESSAGE.assign]: (client: Client, payload: unknown) => this.applyAssignment(client, payload, true),
+    /** Quitar a un responsable (F1c, Q181). */
+    [MESSAGE.unassign]: (client: Client, payload: unknown) => this.applyAssignment(client, payload, false),
+
+    /** Comentar una tarea (F1c, Q184). */
+    [MESSAGE.comment]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.comment(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+      const { project, taskId, count, last } = outcome.value;
+      const task = this.state.projects.get(project.id)!.tasks.get(taskId)!;
+      task.comments = count;
+      task.lastCommentBy = last.by;
+      task.lastCommentAt = last.at;
+      task.lastCommentText = last.text;
+    },
+
     /** Replanificar la fecha objetivo de un proyecto o tarea (F1b, Q177). */
     [MESSAGE.reschedule]: (client: Client, payload: unknown) => {
       const actor = this.actorOf(client);
@@ -528,6 +548,16 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     return this.core.status(project, (r) => projectState.progress.get(r) ?? 0, built);
   }
 
+  private applyAssignment(client: Client, payload: unknown, assign: boolean) {
+    const actor = this.actorOf(client);
+    if (!actor || !this.withinLimit(client)) return;
+    const outcome = this.safely(client, () => (assign ? this.core.assign(actor, payload) : this.core.unassign(actor, payload)));
+    if (!outcome || outcome.kind === "duplicate") return;
+    if (outcome.kind === "rejected") return this.reject(client, outcome.reason);
+    const task = this.state.projects.get(outcome.value.project.id)!.tasks.get(outcome.value.taskId)!;
+    task.assignees.splice(0, task.assignees.length, ...outcome.value.assignees);
+  }
+
   /** Misiones completadas confirmadas: pasan al estado sincronizado. */
   private applyMissions(completed: MissionCompleted[]) {
     for (const { mission, by, at } of completed) {
@@ -574,12 +604,21 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const name of project.coordinators) projectState.coordinators.push(name);
     for (const task of project.tasks) {
       const review = snapshot.reviews[task.id];
-      projectState.tasks.set(task.id, new TaskState({
+      projectState.tasks.set(task.id, Object.assign(new TaskState(), {
         title: task.title, resource: task.resource, required: task.required, acceptance: task.acceptance,
         dueDate: schedule.tasks[task.id]?.due ?? "", reschedules: schedule.tasks[task.id]?.count ?? 0,
         status: "", decision: review?.decision ?? "", reviewedBy: review?.reviewedBy ?? "",
         reviewedAt: review?.reviewedAt ?? 0, note: review?.note ?? "",
       }));
+    }
+    for (const task of project.tasks) {
+      const taskState = projectState.tasks.get(task.id)!;
+      for (const dep of task.dependsOn ?? []) taskState.dependsOn.push(dep);
+      for (const name of snapshot.assignees[task.id] ?? []) taskState.assignees.push(name);
+      const comments = snapshot.comments[task.id];
+      if (comments) Object.assign(taskState, {
+        comments: comments.count, lastCommentBy: comments.last.by, lastCommentAt: comments.last.at, lastCommentText: comments.last.text,
+      });
     }
     this.refreshTasks(project, projectState);
     projectState.status = this.projectStatusOf(project, projectState);

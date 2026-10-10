@@ -1,4 +1,4 @@
-import { NOTE_MAX, type RejectReason } from "./contracts.ts";
+import { isValidName, NOTE_MAX, type RejectReason } from "./contracts.ts";
 import type { ProjectDef } from "./world-config.ts";
 
 // Gestión de proyectos (F1b): fechas objetivo, replanificación, tablero e indicadores.
@@ -155,5 +155,141 @@ export function checkReschedule(input: RescheduleInput): RescheduleResult {
   if (!text || text.length > REASON_MAX) return { ok: false, reason: "motivo-invalido" };
   if (taskId !== "" && projectDue && dueDate > projectDue) return { ok: false, reason: "fecha-invalida" };
   if (taskId === "" && Object.values(taskDues).some((d) => d && d > dueDate)) return { ok: false, reason: "fecha-invalida" };
+  // Dependencias (F1c, Q182): una tarea no vence antes que sus requisitos ni después que las que dependen de ella.
+  if (taskId !== "") {
+    const task = project.tasks.find((t) => t.id === taskId)!;
+    if ((task.dependsOn ?? []).some((dep) => taskDues[dep] && taskDues[dep]! > dueDate)) return { ok: false, reason: "fecha-invalida" };
+    if (project.tasks.some((t) => (t.dependsOn ?? []).includes(taskId as string) && taskDues[t.id] && taskDues[t.id]! < dueDate)) {
+      return { ok: false, reason: "fecha-invalida" };
+    }
+  }
   return { ok: true, project, taskId: taskId as string, dueDate, reason: text };
+}
+
+// --- F1c: dependencias, responsables y comentarios ---
+
+/** Tarea terminada: aprobada, o completada si no se exige aprobación. */
+export const isTaskDone = (status: string, requiresApproval: boolean) =>
+  status === "aprobada" || (status === "completada" && !requiresApproval);
+
+interface DepTask {
+  id: string;
+  dependsOn?: unknown;
+  dueDate?: unknown;
+}
+
+/** Errores de dependencias de las tareas de un proyecto (Q182): ids conocidos, sin repetir, sin ciclos y fechas coherentes. */
+export function dependencyErrors(tasks: readonly DepTask[], where: string): string[] {
+  const errors: string[] = [];
+  const ids = new Set(tasks.map((t) => t.id));
+  const graph = new Map<string, string[]>();
+  tasks.forEach((t, j) => {
+    if (t.dependsOn === undefined) return graph.set(t.id, []);
+    if (!Array.isArray(t.dependsOn) || !t.dependsOn.every((d) => typeof d === "string")) {
+      errors.push(`${where}.tasks[${j}]: dependsOn debe ser una lista de ids de tareas`);
+      return graph.set(t.id, []);
+    }
+    const deps = t.dependsOn as string[];
+    if (new Set(deps).size !== deps.length) errors.push(`${where}.tasks[${j}]: dependsOn repite una tarea`);
+    for (const d of deps) {
+      if (d === t.id) errors.push(`${where}.tasks[${j}]: una tarea no puede depender de sí misma`);
+      else if (!ids.has(d)) errors.push(`${where}.tasks[${j}]: depende de una tarea desconocida "${d}"`);
+    }
+    graph.set(t.id, deps.filter((d) => d !== t.id && ids.has(d)));
+  });
+  // Ciclos (búsqueda en profundidad con colores).
+  const color = new Map<string, 0 | 1 | 2>();
+  const visit = (id: string): boolean => {
+    color.set(id, 1);
+    for (const next of graph.get(id) ?? []) {
+      if (color.get(next) === 1) return true;
+      if (!color.get(next) && visit(next)) return true;
+    }
+    color.set(id, 2);
+    return false;
+  };
+  if ([...graph.keys()].some((id) => !color.get(id) && visit(id))) errors.push(`${where}: las dependencias forman un ciclo`);
+  // Fechas: una tarea no vence antes que aquellas de las que depende.
+  const due = new Map(tasks.map((t) => [t.id, isValidDate(t.dueDate) ? t.dueDate : undefined]));
+  tasks.forEach((t, j) => {
+    const own = due.get(t.id);
+    for (const d of graph.get(t.id) ?? []) {
+      const dep = due.get(d);
+      if (own && dep && own < dep) errors.push(`${where}.tasks[${j}]: no puede vencer antes que la tarea "${d}" de la que depende`);
+    }
+  });
+  return errors;
+}
+
+/** Requisitos sin terminar de una tarea: si hay alguno, está bloqueada. */
+export function blockedBy(task: { dependsOn?: readonly string[] }, done: (taskId: string) => boolean): string[] {
+  return (task.dependsOn ?? []).filter((d) => !done(d));
+}
+
+/**
+ * Cadena crítica (Q183): la cadena más larga de tareas pendientes encadenadas por dependencias,
+ * en orden (primero el requisito). Sin duraciones, es una aproximación a la ruta crítica.
+ */
+export function criticalChain(tasks: readonly { id: string; dependsOn?: readonly string[] }[], done: (taskId: string) => boolean): string[] {
+  const pending = new Map(tasks.filter((t) => !done(t.id)).map((t) => [t.id, (t.dependsOn ?? []).filter((d) => !done(d))]));
+  const memo = new Map<string, string[]>();
+  const longest = (id: string): string[] => {
+    const cached = memo.get(id);
+    if (cached) return cached;
+    let best: string[] = [];
+    for (const dep of pending.get(id) ?? []) {
+      if (!pending.has(dep)) continue;
+      const chain = longest(dep);
+      if (chain.length > best.length) best = chain;
+    }
+    const result = [...best, id];
+    memo.set(id, result);
+    return result;
+  };
+  let chain: string[] = [];
+  for (const id of pending.keys()) {
+    const c = longest(id);
+    if (c.length > chain.length) chain = c;
+  }
+  return chain.length > 1 ? chain : [];
+}
+
+export const MAX_ASSIGNEES = 3;
+
+export interface AssignInput {
+  actor: string;
+  admins: readonly string[];
+  project: ProjectDef | undefined;
+  closed: boolean;
+  taskId: unknown;
+  /** Cuenta que se asigna o se quita. */
+  target: unknown;
+  assign: boolean;
+  assignees: readonly string[];
+  taskDone: boolean;
+}
+
+export type AssignResult = { ok: true; project: ProjectDef; taskId: string; target: string; changed: boolean } | { ok: false; reason: RejectReason };
+
+/** Responsables (Q181): la coordinación o la administración asignan a otros; cualquiera se apunta o se quita; máximo 3. */
+export function checkAssign(input: AssignInput): AssignResult {
+  const { actor, admins, project, closed, taskId, target, assign, assignees, taskDone } = input;
+  if (!project) return { ok: false, reason: "proyecto-desconocido" };
+  if (typeof taskId !== "string" || !project.tasks.some((t) => t.id === taskId)) return { ok: false, reason: "tarea-desconocida" };
+  if (!isValidName(target)) return { ok: false, reason: "solicitud-invalida" };
+  if (target !== actor && !project.coordinators.includes(actor) && !admins.includes(actor)) return { ok: false, reason: "sin-permiso" };
+  if (closed) return { ok: false, reason: "proyecto-cerrado" };
+  if (taskDone) return { ok: false, reason: "tarea-completa" };
+  const present = assignees.includes(target);
+  if (assign && !present && assignees.length >= MAX_ASSIGNEES) return { ok: false, reason: "demasiados-responsables" };
+  return { ok: true, project, taskId, target, changed: assign !== present };
+}
+
+export const COMMENT_MAX = NOTE_MAX;
+
+/** Comentario (Q184): 1–500 caracteres tras recortar. */
+export function checkComment(text: unknown): { ok: true; text: string } | { ok: false; reason: RejectReason } {
+  const value = typeof text === "string" ? text.trim() : "";
+  if (!value || value.length > COMMENT_MAX) return { ok: false, reason: "comentario-invalido" };
+  return { ok: true, text: value };
 }

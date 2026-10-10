@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import {
-  authorize, checkCloseProject, checkContribution, checkCreateMission, checkCreateProject, checkReschedule, checkReview, isValidRequestId,
-  missionSatisfied, projectStatus,
+  authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateMission, checkCreateProject, checkReschedule,
+  checkReview, isTaskDone, isValidRequestId, missionSatisfied, projectStatus, taskStatus,
   type ContributionSource, type MissionDef, type ProjectDef, type RejectReason, type ReviewDecision, type WorldConfig,
 } from "@juego/shared";
 import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
@@ -78,6 +78,19 @@ export interface RescheduleDone {
   count: number;
 }
 
+export interface AssignDone {
+  project: ProjectDef;
+  taskId: string;
+  assignees: string[];
+}
+
+export interface CommentDone {
+  project: ProjectDef;
+  taskId: string;
+  count: number;
+  last: { by: string; at: number; text: string };
+}
+
 export interface ProjectSnapshot {
   /** Aportado por recurso. */
   progress: Record<string, number>;
@@ -87,6 +100,10 @@ export interface ProjectSnapshot {
   recent: ContributionRow[];
   /** Última revisión de cada tarea revisada, por id de tarea. */
   reviews: Record<string, ReviewRow>;
+  /** Responsables por tarea (F1c). */
+  assignees: Record<string, string[]>;
+  /** Número de comentarios y el último, por tarea (F1c). */
+  comments: Record<string, { count: number; last: { by: string; at: number; text: string } }>;
 }
 
 export const RECENT_CONTRIBUTIONS = 10;
@@ -128,6 +145,49 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     return schedule;
   }
 
+  /** Tarea terminada ahora (F1c): completa por lo aportado y, si se exige, aprobada. */
+  function taskDoneNow(project: ProjectDef, taskId: string): boolean {
+    const task = project.tasks.find((t) => t.id === taskId);
+    if (!task) return false;
+    const decision = store.getReviews(project.id).find((r) => r.taskId === taskId)?.decision as "aprobada" | "rechazada" | undefined;
+    return isTaskDone(taskStatus(task, contributed(project.id, task.resource), decision ?? ""), project.buildRequiresApproval);
+  }
+
+  /** Bloqueada (Q182): alguna tarea de la que depende no está terminada. */
+  function isBlocked(projectId: string, taskId: string): boolean {
+    const project = projectById(projectId);
+    const task = project?.tasks.find((t) => t.id === taskId);
+    return Boolean(project && task && blockedBy(task, (dep) => taskDoneNow(project, dep)).length);
+  }
+
+  function assignment(actor: string, payload: unknown, assign: boolean): Outcome<AssignDone> {
+    const message = (payload ?? {}) as Record<string, unknown>;
+    if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+    const requestId = message.requestId;
+    const at = Date.now();
+    return store.transaction((): Outcome<AssignDone> => {
+      if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+      const project = projectById(message.projectId);
+      const taskId = typeof message.taskId === "string" ? message.taskId : "";
+      // La persona asignada debe tener cuenta; se guarda su nombre tal como está registrado.
+      const account = typeof message.name === "string" ? store.getAccountByName(message.name) : undefined;
+      if (assign && typeof message.name === "string" && !account) return { kind: "rejected", reason: "solicitud-invalida" };
+      const target = account?.name ?? message.name;
+      const current = project ? store.getAssignees(project.id)[taskId] ?? [] : [];
+      const check = checkAssign({
+        actor, admins: config.admins, project, closed: Boolean(project && isClosed(project.id)), taskId, target, assign,
+        assignees: current, taskDone: Boolean(project && taskDoneNow(project, taskId)),
+      });
+      if (!check.ok) return { kind: "rejected", reason: check.reason };
+      if (check.changed) {
+        if (assign) store.addAssignee(check.project.id, check.taskId, check.target, actor, at);
+        else store.removeAssignee(check.project.id, check.taskId, check.target);
+        store.event(assign ? "task-assigned" : "task-unassigned", actor, requestId, { project: check.project.id, task: check.taskId, name: check.target });
+      }
+      return { kind: "done", value: { project: check.project, taskId: check.taskId, assignees: store.getAssignees(check.project.id)[check.taskId] ?? [] } };
+    });
+  }
+
   const isComplete = (project: ProjectDef) => project.tasks.every((t) => contributed(project.id, t.resource) >= t.required);
 
   /** Con aprobación obligatoria (Q162), alguna tarea no está aprobada. */
@@ -167,6 +227,40 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     projectById,
     projects: allProjects,
     scheduleOf,
+    isBlocked,
+
+    /** Apuntar o asignar a un responsable (F1c, Q181). */
+    assign: (actor: string, payload: unknown) => assignment(actor, payload, true),
+    /** Quitar a un responsable (F1c, Q181). */
+    unassign: (actor: string, payload: unknown) => assignment(actor, payload, false),
+
+    /** Comentar una tarea (F1c, Q184): traza, no se edita ni se borra. */
+    comment(actor: string, payload: unknown): Outcome<CommentDone> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      return store.transaction((): Outcome<CommentDone> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const project = projectById(message.projectId);
+        if (!project) return { kind: "rejected", reason: "proyecto-desconocido" };
+        const taskId = typeof message.taskId === "string" ? message.taskId : "";
+        if (!project.tasks.some((t) => t.id === taskId)) return { kind: "rejected", reason: "tarea-desconocida" };
+        const check = checkComment(message.text);
+        if (!check.ok) return { kind: "rejected", reason: check.reason };
+        store.addComment(project.id, taskId, actor, at, check.text);
+        store.event("task-comment", actor, requestId, { project: project.id, task: taskId, text: check.text });
+        const summary = store.commentSummary(project.id)[taskId]!;
+        return { kind: "done", value: { project, taskId, count: summary.count, last: summary.last } };
+      });
+    },
+
+    /** Hilo de comentarios de una tarea (para el endpoint HTTP). */
+    comments(projectId: string, taskId: string) {
+      const project = projectById(projectId);
+      if (!project || !project.tasks.some((t) => t.id === taskId)) return undefined;
+      return { projectId, taskId, comments: store.getComments(projectId, taskId) };
+    },
 
     /** Replanificar la fecha objetivo de un proyecto o tarea (F1b, Q177): con motivo y trazado. */
     reschedule(actor: string, payload: unknown): Outcome<RescheduleDone> {
@@ -217,7 +311,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const check = checkContribution({
           projects: allProjects(),
           projectId: message.projectId, taskId: message.taskId, from: message.from, amount: message.amount,
-          contributed, closed: isClosed,
+          contributed, closed: isClosed, blocked: isBlocked,
           balance: (from, resource) => store.getAmount(from === "player" ? own : COMMUNITY, resource),
         });
         if (!check.ok) return { kind: "rejected" as const, reason: check.reason };
@@ -370,6 +464,8 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         progress, contributors,
         recent: store.recentContributions(project.id, RECENT_CONTRIBUTIONS).reverse(),
         reviews: Object.fromEntries(store.getReviews(project.id).map((r) => [r.taskId, r])),
+        assignees: store.getAssignees(project.id),
+        comments: store.commentSummary(project.id),
       };
     },
   };

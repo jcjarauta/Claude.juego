@@ -44,6 +44,15 @@ export const TaskState = schema({
   dueDate: t.string(),
   /** Veces que se ha replanificado. */
   reschedules: t.uint16(),
+  /** Tareas de las que depende (F1c, Q182; parte de la definición). */
+  dependsOn: t.array("string"),
+  /** Responsables (F1c, Q181). */
+  assignees: t.array("string"),
+  /** Número de comentarios y el último (F1c, Q184); el hilo completo va por HTTP. */
+  comments: t.uint16(),
+  lastCommentBy: t.string(),
+  lastCommentAt: t.float64(),
+  lastCommentText: t.string(),
   /** "pendiente" | "en-curso" | "completada" | "aprobada" | "rechazada" */
   status: t.string(),
   /** Última revisión: "" (ninguna), "aprobada" o "rechazada". */
@@ -136,6 +145,7 @@ export function projectDefFromState(id: string, p: ProjectState): ProjectDef {
     tasks: [...p.tasks.entries()].map(([taskId, task]) => ({
       id: taskId, title: task.title, resource: task.resource, required: task.required, acceptance: task.acceptance,
       ...(task.dueDate ? { dueDate: task.dueDate } : {}),
+      ...(task.dependsOn.length ? { dependsOn: [...task.dependsOn] } : {}),
     })),
   };
 }
