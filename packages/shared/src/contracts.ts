@@ -24,6 +24,14 @@ export const MESSAGE = {
   createConstruction: "create-construction",
   createItem: "create-item",
   createRecipe: "create-recipe",
+  createSkill: "create-skill",
+  grantSkill: "grant-skill",
+  teachOffer: "teach-offer",
+  teachRespond: "teach-respond",
+  /** Servidor → destinatario: alguien le ofrece enseñarle una habilidad. */
+  teachOffered: "teach-offered",
+  /** Servidor → las dos personas: cómo acabó una oferta. */
+  teachResult: "teach-result",
   assign: "assign",
   unassign: "unassign",
   comment: "comment",
@@ -222,6 +230,55 @@ export interface CreateRecipeMessage {
   alsoNeeds?: string[];
   /** Subproductos; opcional. */
   byproducts?: { item: string; amount: number }[];
+  /** Habilidades necesarias con su nivel mínimo; opcional (F2c). */
+  requiresSkills?: { skill: string; level: number }[];
+}
+
+export interface CreateSkillMessage {
+  requestId: string;
+  name: string;
+  description?: string;
+  /** Niveles en orden: nombre y la receta que se practica `times` veces para alcanzarlo. */
+  levels: { name: string; recipe: string; times: number }[];
+}
+
+export interface GrantSkillMessage {
+  requestId: string;
+  /** Cuenta que recibe el nivel. */
+  name: string;
+  skill: string;
+  level: number;
+}
+
+export interface TeachOfferMessage {
+  requestId: string;
+  /** Persona a la que se ofrece enseñar. */
+  to: string;
+  skill: string;
+}
+
+export interface TeachRespondMessage {
+  requestId: string;
+  offerId: string;
+  accept: boolean;
+}
+
+export interface TeachOfferedMessage {
+  offerId: string;
+  from: string;
+  skill: string;
+  /** Nivel que alcanzaría al aceptar. */
+  level: number;
+  expiresAt: number;
+}
+
+export interface TeachResultMessage {
+  offerId: string;
+  from: string;
+  to: string;
+  skill: string;
+  level: number;
+  status: "aceptada" | "rechazada" | "caducada" | "anulada";
 }
 
 /** Apuntar o quitar a un responsable de una tarea (F1c, Q181). */
@@ -304,6 +361,9 @@ export type RejectReason =
   | "lejos-del-taller"
   | "faltan-materiales"
   | "faltan-edificios"
+  | "falta-habilidad"
+  | "demasiadas-habilidades"
+  | "oferta-invalida"
   | "sin-permiso"
   | "tarea-sin-completar"
   | "nota-invalida"
@@ -357,6 +417,9 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "lejos-del-taller": "Acércate al taller para fabricar.",
   "faltan-materiales": "Faltan materiales en el almacén de la comunidad.",
   "faltan-edificios": "Faltan edificios por construir para esta receta.",
+  "falta-habilidad": "Te falta una habilidad para esta receta.",
+  "demasiadas-habilidades": "Se ha alcanzado el máximo de habilidades creadas desde el panel.",
+  "oferta-invalida": "No se puede enseñar eso ahora.",
   "sin-permiso": "No tienes permiso para esa acción en este proyecto.",
   "tarea-sin-completar": "Solo se puede revisar una tarea completada.",
   "nota-invalida": "Escribe una nota de 1 a 500 caracteres.",

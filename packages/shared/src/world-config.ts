@@ -101,6 +101,22 @@ export interface RecipeDef {
   alsoNeeds?: string[];
   /** Objetos que además de la salida principal deja la receta (F2b, Q192). */
   byproducts?: { item: string; amount: number }[];
+  /** Habilidades necesarias, cada una con su nivel mínimo (1 = el primero) (F2c, Q199). */
+  requiresSkills?: { skill: string; level: number }[];
+}
+
+/** Un nivel de una habilidad y cómo se alcanza practicando: fabricar `times` veces la receta `recipe` (F2c, Q196). */
+export interface SkillLevelDef {
+  name: string;
+  practice: { recipe: string; times: number };
+}
+
+/** Habilidad permanente con niveles definidos por la administración (F2c, Q195). El nivel 0 es no tenerla. */
+export interface SkillDef {
+  id: string;
+  name: string;
+  description: string;
+  levels: SkillLevelDef[];
 }
 
 /** Productos de una receta: la salida principal y los subproductos. */
@@ -140,6 +156,8 @@ export interface WorldConfig {
   admins: string[];
   /** Límites de lo que se crea desde el panel (F2b, Q193); la configuración los completa con los valores por omisión. */
   buildLimits: BuildLimits;
+  /** Habilidades de serie (F2c); por omisión, ninguna. */
+  skills: SkillDef[];
   projects: ProjectDef[];
   structures: StructureDef[];
   items: ItemDef[];
@@ -267,15 +285,21 @@ export interface BuildLimits {
   /** Subproductos y edificios extra por receta. */
   byproducts: number;
   alsoNeeds: number;
+  /** Habilidades creadas desde el panel, niveles por habilidad y habilidades exigidas por receta (F2c, Q199). */
+  skills: number;
+  skillLevels: number;
+  recipeSkills: number;
 }
 
 /** Valores por omisión (los de F2a: nada cambia si la configuración no declara `buildLimits`). */
 export const DEFAULT_BUILD_LIMITS: BuildLimits = {
   constructions: 10, items: 20, recipes: 20, side: 5, recipeInputs: 4, inputAmount: 100, outputAmount: 100, byproducts: 2, alsoNeeds: 2,
+  skills: 10, skillLevels: 3, recipeSkills: 2,
 };
 /** Techos que ninguna configuración puede superar. */
 export const HARD_BUILD_LIMITS: BuildLimits = {
   constructions: 100, items: 200, recipes: 200, side: 10, recipeInputs: 10, inputAmount: 1000, outputAmount: 1000, byproducts: 5, alsoNeeds: 5,
+  skills: 100, skillLevels: 6, recipeSkills: 5,
 };
 /** Compatibilidad con F2a: los valores por omisión. */
 export const BUILD_LIMITS = DEFAULT_BUILD_LIMITS;
@@ -358,6 +382,8 @@ export interface RecipeValidationContext {
   limits: "config" | "panel";
   /** Límites vigentes; sin ellos se usan los de omisión. */
   buildLimits?: BuildLimits;
+  /** Habilidades existentes (basta con su número de niveles); sin ellas, ninguna receta puede exigir una. */
+  skills?: ReadonlyMap<string, { levels: readonly unknown[] }>;
   where: string;
 }
 
@@ -365,7 +391,7 @@ export interface RecipeValidationContext {
  * Valida una receta (configuración o panel): entradas (recursos u objetos) del almacén común, un objeto de salida,
  * subproductos opcionales, verbo y edificios extra (F2b). La existencia de ciclos entre recetas la comprueba `recipeCycle`.
  */
-export function validateRecipeDef(r: unknown, { resourceIds, itemIds, structureIds, limits, buildLimits, where }: RecipeValidationContext): string[] {
+export function validateRecipeDef(r: unknown, { resourceIds, itemIds, structureIds, limits, buildLimits, skills, where }: RecipeValidationContext): string[] {
   if (!isObject(r) || typeof r.id !== "string" || !ID.test(r.id)) return [`${where}: id inválido`];
   const errors: string[] = [];
   const at = `${where} "${r.id}"`;
@@ -411,6 +437,58 @@ export function validateRecipeDef(r: unknown, { resourceIds, itemIds, structureI
   if (isObject(r.inputs)) {
     for (const item of produced) if (item in r.inputs) errors.push(`${at}: el objeto "${item}" es a la vez entrada y salida`);
   }
+  if (r.requiresSkills !== undefined) {
+    if (!Array.isArray(r.requiresSkills) || r.requiresSkills.length > lim.recipeSkills) errors.push(`${at}: requiresSkills debe ser una lista de como máximo ${lim.recipeSkills} habilidades`);
+    else {
+      const seen = new Set<string>();
+      r.requiresSkills.forEach((q, j) => {
+        const known = isObject(q) && typeof q.skill === "string" ? skills?.get(q.skill) : undefined;
+        if (!isObject(q) || !known) return errors.push(`${at}: habilidad necesaria ${j + 1}: habilidad desconocida`);
+        if (!isInt(q.level, 1, known.levels.length)) errors.push(`${at}: habilidad necesaria ${j + 1}: el nivel debe ser un entero 1–${known.levels.length}`);
+        if (seen.has(q.skill as string)) errors.push(`${at}: habilidad necesaria ${j + 1}: repetida`);
+        seen.add(q.skill as string);
+      });
+    }
+  }
+  return errors;
+}
+
+export interface SkillValidationContext {
+  /** Recetas existentes (con su definición) para comprobar la práctica de cada nivel. */
+  recipes: ReadonlyMap<string, RecipeDef>;
+  limits: "config" | "panel";
+  buildLimits?: BuildLimits;
+  where: string;
+}
+
+/**
+ * Valida una habilidad (configuración o panel): niveles con nombre y receta de práctica conocida. La receta de
+ * práctica del nivel k no puede exigir esta habilidad a un nivel ≥ k (no se podría ganar nunca; Q196).
+ */
+export function validateSkillDef(sk: unknown, { recipes, limits, buildLimits, where }: SkillValidationContext): string[] {
+  if (!isObject(sk) || typeof sk.id !== "string" || !ID.test(sk.id)) return [`${where}: id inválido`];
+  const errors: string[] = [];
+  const at = `${where} "${sk.id}"`;
+  const lim = limits === "panel" ? (buildLimits ?? DEFAULT_BUILD_LIMITS) : HARD_BUILD_LIMITS;
+  if (!isText(sk.name, 60)) errors.push(`${at}: name obligatorio (máximo 60)`);
+  if (sk.description !== undefined && !isText(sk.description, 200, false)) errors.push(`${at}: description debe ser texto (máximo 200)`);
+  if (!Array.isArray(sk.levels) || sk.levels.length === 0 || sk.levels.length > lim.skillLevels) {
+    errors.push(`${at}: levels debe ser una lista de 1 a ${lim.skillLevels} niveles`);
+    return errors;
+  }
+  const names = new Set<string>();
+  sk.levels.forEach((lv, i) => {
+    const lw = `${at}: nivel ${i + 1}`;
+    if (!isObject(lv) || !isText(lv.name, 30)) return errors.push(`${lw}: name obligatorio (máximo 30)`);
+    const key = lv.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    if (names.has(key)) errors.push(`${lw}: nombre repetido «${lv.name}»`);
+    names.add(key);
+    const p = lv.practice;
+    if (!isObject(p) || typeof p.recipe !== "string" || !recipes.has(p.recipe)) return errors.push(`${lw}: la receta de práctica es desconocida`);
+    if (!isInt(p.times, 1, 1000)) errors.push(`${lw}: practice.times debe ser un entero 1–1000`);
+    const needs = recipes.get(p.recipe)!.requiresSkills?.find((q) => q.skill === sk.id && q.level >= i + 1);
+    if (needs) errors.push(`${lw}: la receta de práctica exige esta habilidad al nivel ${needs.level}; no se podría ganar nunca`);
+  });
   return errors;
 }
 
@@ -444,7 +522,7 @@ export function validateWorldConfig(input: unknown): ValidationResult {
   const fail = (msg: string) => errors.push(msg);
 
   if (!isObject(input)) return { ok: false, errors: ["la configuración no es un objeto"] };
-  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, admins, buildLimits, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
+  const { map, spawn, moveCooldownMs, collectCooldownMs, inventoryMax, regenIntervalMs, session, community, admins, buildLimits, skills, projects, structures, items, recipes, missions, resources, zones, nodes } = input;
 
   if (!isObject(map) || !isInt(map.width, 1, 1000) || !isInt(map.height, 1, 1000) || !isInt(map.tileSize, 8, 128)) {
     fail("map: width y height deben ser enteros 1–1000 y tileSize 8–128");
@@ -543,13 +621,19 @@ export function validateWorldConfig(input: unknown): ValidationResult {
 
   const recipeIds = new Set<string>();
   const previousRecipes: RecipeDef[] = [];
+  // Las recetas solo necesitan saber cuántos niveles tiene cada habilidad; las habilidades se validan después, con las recetas.
+  const skillShapes = new Map<string, { levels: readonly unknown[] }>();
+  if (skills !== undefined && !Array.isArray(skills)) fail("skills debe ser una lista");
+  else for (const sk of (skills ?? []) as unknown[]) {
+    if (isObject(sk) && typeof sk.id === "string" && Array.isArray(sk.levels)) skillShapes.set(sk.id, { levels: sk.levels });
+  }
   if (!Array.isArray(recipes)) fail("recipes debe ser una lista");
   else recipes.forEach((r, i) => {
     if (isObject(r) && typeof r.id === "string" && ID.test(r.id)) {
       if (recipeIds.has(r.id)) fail(`recipes: id duplicado "${r.id}"`);
       recipeIds.add(r.id);
     }
-    const recipeErrors = validateRecipeDef(r, { resourceIds, itemIds, structureIds, limits: "config", where: `recipes[${i}]` });
+    const recipeErrors = validateRecipeDef(r, { resourceIds, itemIds, structureIds, limits: "config", skills: skillShapes, where: `recipes[${i}]` });
     for (const e of recipeErrors) fail(e);
     if (!recipeErrors.length) {
       const cycle = recipeCycle(previousRecipes, r as unknown as RecipeDef);
@@ -557,6 +641,18 @@ export function validateWorldConfig(input: unknown): ValidationResult {
       previousRecipes.push(r as unknown as RecipeDef);
     }
   });
+
+  if (Array.isArray(skills)) {
+    const recipeMap = new Map(previousRecipes.map((r) => [r.id, r]));
+    const skillIds = new Set<string>();
+    skills.forEach((sk, i) => {
+      for (const e of validateSkillDef(sk, { recipes: recipeMap, limits: "config", where: `skills[${i}]` })) fail(e);
+      if (isObject(sk) && typeof sk.id === "string") {
+        if (skillIds.has(sk.id)) fail(`skills: id duplicado "${sk.id}"`);
+        skillIds.add(sk.id);
+      }
+    });
+  }
 
   const missionIds = new Set<string>();
   if (!Array.isArray(missions)) fail("missions debe ser una lista");
@@ -582,6 +678,7 @@ function withDefaults(config: WorldConfig): WorldConfig {
     ...config,
     admins: config.admins ?? [],
     buildLimits: resolveBuildLimits(config.buildLimits),
+    skills: config.skills ?? [],
     projects: config.projects.map((p) => withProjectDefaults(p, resourceName)),
   };
 }

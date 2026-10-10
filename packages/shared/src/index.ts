@@ -8,3 +8,4 @@ export * from "./crafting.ts";
 export * from "./management.ts";
 export * from "./construction.ts";
 export * from "./chains.ts";
+export * from "./skills.ts";
