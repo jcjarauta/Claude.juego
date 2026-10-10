@@ -276,14 +276,18 @@ Totales F2a: `npm.cmd test` 135 de 135.
 | TP-26 | `npm.cmd test` | Molino, Horno, «Harina», «Salvado» y «Pan» creados en el panel; «Moler» (madera → 2 harina + salvado) y «Hornear» (2 harina → pan, con el Molino construido); ciclo, subproducto repetido, verbo largo y edificio desconocido rechazados; sin permiso → `sin-permiso`; sin el Molino construido → `faltan-edificios`; sin harina → `faltan-materiales`; misión «1 pan» completada; verbo, edificios extra y subproducto persisten tras SIGKILL; auditoría cuadrada | OK |
 | Límites configurables | `npm.cmd test` (fixture `limits-world.json`) | Con `recipeInputs` 1, `byproducts` 1, `items` 3 y `side` 2: receta de 2 entradas, receta de 2 subproductos, cuarto objeto y solar de 3 de ancho rechazados; la receta válida se crea | OK |
 | Navegador | Navegador integrado, servidor y base temporales | Objetos creados con confirmación junto al formulario; duplicado «harina» rechazado; entradas agrupadas en Recursos y Objetos; receta con verbo y subproducto; ciclo rechazado con «Forma un ciclo: Harina → Pan → Harina»; lista y diagrama de cadenas en el panel (12 elementos, sin solapes, dentro del lienzo); panel P del juego con «Falta: …» por receta | OK |
+| Filas dinámicas de la receta | Navegador integrado | Entradas, subproductos y edificios necesarios se añaden con «Añadir …» (contador «n de máximo», aviso al llegar al límite) y se quitan con «Quitar»; las etiquetas se renumeran, el foco pasa a la fila siguiente y se anuncia el cambio; una receta creada con 2 entradas y 1 subproducto; el formulario vuelve a 1 fila de entrada | OK |
+| Limpieza de duplicados | `npm.cmd test` (`dedupe.test.ts`) y `node scripts/dedupe-defs.ts <base> [--apply]` | Borra los objetos y recetas con nombre repetido que nadie usa, conserva el más antiguo y los usados (receta, misión, existencias, fabricaciones), hace copia antes y repetirlo no cambia nada | OK |
 | Contraste | Medición por script en el panel | Textos y bordes del diagrama, lista, confirmación y errores: mínimo 8,56:1 | OK |
 | Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea Molino, Horno, Harina, Salvado, Pan y las recetas «Moler» y «Hornear»; los bots construyen y fabrican; 173 comprobaciones, 0 divergencias, convergencia máx. 2 ms; molino y horno construidos, 11 de salvado y 5 de pan; auditoría cuadrada (harina producida 11 = consumida 10 + 1 en almacén; salvado 11; pan 5; madera 120 = 46 + 74; piedra 79 = 24 + 55; fibra 100 = 73 + 27; herramienta 11) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 148 de 148 | OK |
 | Prueba del usuario | Persona responsable | Pendiente | — |
 
-Totales F2b: `npm.cmd test` 148 de 148.
+Totales F2b: `npm.cmd test` 150 de 150.
 
 Defectos encontrados y corregidos durante la verificación:
+- En la prueba del usuario: el formulario de receta tenía 4 entradas fijas y mostraba objetos repetidos creados antes de F2a-Q194; ahora las entradas, subproductos y edificios se añaden y quitan, y `scripts/dedupe-defs.ts` limpia los duplicados de una base existente.
+- Al crear las listas dinámicas, una referencia anticipada impedía arrancar el panel; corregido al verificarlo en el navegador.
 - Tras crear una receta, los campos numéricos del formulario quedaban vacíos al reiniciarlo (los valores iniciales no eran los de `reset()`; venía de F2a). Ahora hay una sola función `el()` compartida que los fija.
 
 Defectos encontrados en la prueba del usuario y corregidos:

@@ -37,6 +37,79 @@ function readable(detail: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
+/** Una fila de una lista dinámica: sus controles, las etiquetas a renumerar y el control que recibe el foco. */
+interface DynamicRow {
+  controls: HTMLElement[];
+  labels: HTMLLabelElement[];
+  first: HTMLElement;
+  names: (index: number) => string[];
+}
+
+/**
+ * Lista de filas que se añaden con «Añadir …» y se quitan con «Quitar» (F2b): mínimo y máximo, etiquetas renumeradas,
+ * el foco pasa a la fila nueva o al botón de añadir, y cada cambio se anuncia (el botón se desactiva con aria-disabled
+ * para no perder el foco).
+ */
+function dynamicList<R extends DynamicRow>(opts: {
+  legend: string; addLabel: string; noun: string; min: number; max: number; announce: (text: string) => void;
+  build: () => R; onChange: () => void;
+}) {
+  const rows: R[] = [];
+  const boxes = new Map<R, HTMLElement>();
+  const list = el("div", { className: "filas" });
+  const add = el("button", { type: "button" });
+  const element = el("fieldset", {}, el("legend", {}, opts.legend), list, add);
+
+  function renumber() {
+    rows.forEach((row, i) => {
+      row.names(i).forEach((name, k) => { row.labels[k]!.textContent = name; });
+      const remove = boxes.get(row)!.querySelector("button")!;
+      remove.textContent = "Quitar";
+      remove.setAttribute("aria-label", `Quitar ${opts.noun} ${i + 1}`);
+      remove.setAttribute("aria-disabled", String(rows.length <= opts.min));
+    });
+    add.textContent = `${opts.addLabel} (${rows.length} de ${opts.max})`;
+    add.setAttribute("aria-disabled", String(rows.length >= opts.max));
+  }
+  function addRow(focus: boolean, silent = false) {
+    const row = opts.build();
+    const remove = el("button", { type: "button" });
+    remove.onclick = () => {
+      if (remove.getAttribute("aria-disabled") === "true") return;
+      const at = rows.indexOf(row);
+      rows.splice(at, 1);
+      boxes.get(row)!.remove();
+      boxes.delete(row);
+      renumber();
+      (rows[Math.min(at, rows.length - 1)]?.first ?? add).focus();
+      opts.announce(`${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)} quitada. Quedan ${rows.length}.`);
+    };
+    const box = el("div", { className: "entrada-receta" }, ...row.controls, remove);
+    rows.push(row);
+    boxes.set(row, box);
+    list.append(box);
+    renumber();
+    if (!silent) opts.onChange();
+    if (focus) {
+      row.first.focus();
+      opts.announce(`${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)} ${rows.length} añadida.`);
+    }
+  }
+  add.onclick = () => {
+    if (add.getAttribute("aria-disabled") === "true") { opts.announce(`No caben más: el máximo es ${opts.max}.`); return; }
+    addRow(true);
+  };
+  // `silent`: al crearse, las listas que `onChange` consulta aún no existen; las opciones se rellenan en el primer render().
+  const reset = (silent = false) => {
+    for (const row of [...rows]) { boxes.get(row)!.remove(); boxes.delete(row); }
+    rows.length = 0;
+    for (let i = 0; i < opts.min; i++) addRow(false, silent);
+    renumber();
+  };
+  reset(true);
+  return { element, rows, reset };
+}
+
 export function createAdminForms(container: HTMLElement, config: WorldConfig, room: Room<unknown, WorldState>, announce: (text: string) => void) {
   const resources = config.resources;
   const section = el("section", { className: "admin" });
@@ -249,35 +322,61 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const recipeStructure = el("select");
   const recipeOutput = el("select");
   const outputAmount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
-  // Entradas: recursos u objetos (F2b, Q190); filas según el límite configurado.
-  const entrySelects: HTMLSelectElement[] = [];
-  const inputRows = Array.from({ length: limits.recipeInputs }, (_, i) => {
-    const entry = el("select");
-    entrySelects.push(entry);
-    const amount = el("input", { type: "number", min: "1", max: String(limits.inputAmount), value: "1", inputMode: "numeric" });
-    return { entry, amount, box: el("div", { className: "entrada-receta" }, field(`Entrada ${i + 1}: recurso u objeto`, entry), field(`Cantidad de la entrada ${i + 1}`, amount)) };
+  // Opciones vigentes de los selectores de las filas (se rellenan en render()).
+  let itemEntries: [string, string][] = [];
+  let buildingEntries: [string, string][] = [];
+
+  // Entradas, subproductos y edificios extra: filas que se añaden y se quitan (F2b, Q190); el tope es el límite configurado.
+  const inputList = dynamicList({
+    legend: "Entradas (recursos u objetos del almacén común)", addLabel: "Añadir entrada (recurso u objeto)", noun: "entrada", min: 1, max: limits.recipeInputs, announce,
+    onChange: () => syncRecipeSelects(),
+    build: () => {
+      const entry = el("select");
+      const amount = el("input", { type: "number", min: "1", max: String(limits.inputAmount), value: "1", inputMode: "numeric" });
+      const a = field("", entry), b = field("", amount);
+      return { entry, amount, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: entry,
+        names: (i: number) => [`Entrada ${i + 1}: recurso u objeto`, `Cantidad de la entrada ${i + 1}`] };
+    },
   });
-  const byproductRows = Array.from({ length: limits.byproducts }, (_, i) => {
-    const item = el("select");
-    const amount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
-    return { item, amount, box: el("div", { className: "entrada-receta" }, field(`Subproducto ${i + 1}: objeto`, item), field(`Cantidad del subproducto ${i + 1}`, amount)) };
+  const byproductList = dynamicList({
+    legend: "Subproductos (opcionales)", addLabel: "Añadir subproducto", noun: "subproducto", min: 0, max: limits.byproducts, announce,
+    onChange: () => syncRecipeSelects(),
+    build: () => {
+      const item = el("select");
+      const amount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
+      const a = field("", item), b = field("", amount);
+      return { item, amount, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: item,
+        names: (i: number) => [`Subproducto ${i + 1}: objeto`, `Cantidad del subproducto ${i + 1}`] };
+    },
   });
-  const extraRows = Array.from({ length: limits.alsoNeeds }, (_, i) => {
-    const building = el("select");
-    return { building, box: field(`Edificio extra ${i + 1} (debe estar construido, en cualquier lugar)`, building) };
+  const extraList = dynamicList({
+    legend: "Otros edificios necesarios (opcionales)", addLabel: "Añadir edificio necesario", noun: "edificio", min: 0, max: limits.alsoNeeds, announce,
+    onChange: () => syncRecipeSelects(),
+    build: () => {
+      const building = el("select");
+      const a = field("", building);
+      return { building, controls: [a], labels: [a.querySelector("label")!], first: building,
+        names: (i: number) => [`Edificio necesario ${i + 1} (debe estar construido, en cualquier lugar)`] };
+    },
   });
+  function syncRecipeSelects() {
+    inputList.rows.forEach((r, i) => syncEntries(r.entry, itemEntries, i === 0 ? "Elige una entrada" : "Elige una entrada"));
+    for (const r of byproductList.rows) syncOptions(r.item, itemEntries, "Elige un objeto");
+    for (const r of extraList.rows) syncOptions(r.building, buildingEntries, "Elige un edificio");
+  }
+
   const recipeErrors = el("div", { className: "error", role: "alert" });
   const recipeConfirm = el("p", { className: "confirmacion", role: "status" });
   const recipeForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-receta-titulo" }, "Nueva receta"),
-    el("p", { className: "ayuda" }, `Una receta es una acción que se hace junto a un edificio construido: consume de 1 a ${limits.recipeInputs} entradas del almacén de la comunidad (recursos u objetos) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
+    el("p", { className: "ayuda" }, `Una receta es una acción que se hace junto a un edificio construido: consume entradas del almacén de la comunidad (recursos u objetos; hasta ${limits.recipeInputs}) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
     field("Nombre de la receta", recipeName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`),
     field("Acción (verbo)", recipeVerb, "Opcional, hasta 20 caracteres: «moler», «hornear»… Si se deja vacío, «Fabricar»."),
     field("Se hace junto al edificio", recipeStructure),
-    el("fieldset", {}, el("legend", {}, "Entradas (recursos u objetos del almacén común)"), ...inputRows.map((r) => r.box)),
+    inputList.element,
     field("Objeto que se obtiene", recipeOutput), field("Cantidad que se obtiene", outputAmount),
-    el("fieldset", {}, el("legend", {}, "Subproductos (opcionales)"), ...byproductRows.map((r) => r.box)),
-    el("fieldset", {}, el("legend", {}, "Otros edificios necesarios (opcionales)"), ...extraRows.map((r) => r.box)),
+    byproductList.element,
+    extraList.element,
     recipeErrors,
     el("button", { type: "submit", textContent: "Crear la receta" }), recipeConfirm);
   recipeForm.setAttribute("aria-labelledby", "nueva-receta-titulo");
@@ -285,13 +384,13 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     event.preventDefault();
     recipeErrors.replaceChildren();
     recipeConfirm.textContent = "";
-    const used = inputRows.filter((r) => r.entry.value);
+    const used = inputList.rows.filter((r) => r.entry.value);
     if (new Set(used.map((r) => r.entry.value)).size !== used.length) {
       recipeErrors.append(el("p", {}, "No repitas una entrada en dos filas."));
       return;
     }
-    const byproducts = byproductRows.filter((r) => r.item.value).map((r) => ({ item: r.item.value, amount: Number(r.amount.value) }));
-    const alsoNeeds = extraRows.map((r) => r.building.value).filter(Boolean);
+    const byproducts = byproductList.rows.filter((r) => r.item.value).map((r) => ({ item: r.item.value, amount: Number(r.amount.value) }));
+    const alsoNeeds = [...new Set(extraList.rows.map((r) => r.building.value).filter(Boolean))];
     const verb = recipeVerb.value.trim();
     const message: CreateRecipeMessage = {
       requestId: newRequestId(), name: recipeName.value.trim(), structureId: recipeStructure.value,
@@ -356,13 +455,11 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       syncOptions(projectSelect, open.map(([id, p]) => [id, p.name]));
       // Objetos y edificios del estado (F2a): también los creados desde el panel.
       syncOptions(itemSelect, [...state.items.entries()].map(([id, i]) => [id, i.name]));
-      const itemEntries = [...state.items.entries()].map(([id, i]): [string, string] => [id, i.name]);
-      const buildingEntries = [...state.structures.entries()].map(([id, s]): [string, string] => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]);
+      itemEntries = [...state.items.entries()].map(([id, i]): [string, string] => [id, i.name]);
+      buildingEntries = [...state.structures.entries()].map(([id, s]): [string, string] => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]);
       syncOptions(recipeOutput, itemEntries);
       syncOptions(recipeStructure, buildingEntries);
-      inputRows.forEach((r, i) => syncEntries(r.entry, itemEntries, i === 0 ? "Elige una entrada" : "(ninguna)"));
-      for (const r of byproductRows) syncOptions(r.item, itemEntries, "(ninguno)");
-      for (const r of extraRows) syncOptions(r.building, buildingEntries, "(ninguno)");
+      syncRecipeSelects();
       minimap.render();
       // Objetos que ya existen (también los de la configuración), a la vista junto al formulario.
       const itemsText = [...state.items.values()].map((i) => i.name).join(", ");
@@ -413,6 +510,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
           recipeConfirm.textContent = `Receta «${pending.name}» creada. Se fabricará en el edificio elegido cuando esté construido.`;
           pending = undefined;
           recipeForm.reset();
+          for (const list of [inputList, byproductList, extraList]) list.reset();
           recipeName.focus();
         }
       }
