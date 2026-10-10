@@ -245,7 +245,7 @@ Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 118 de 118.
 | Contraste | Medición por script en el panel | 169 textos, mínimo 9,99:1 | OK |
 | Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | Proyecto del panel con dependencia (madera tras piedra), responsables y comentario; los bots saltan tareas bloqueadas; 173 comprobaciones, 0 divergencias, convergencia máx. 4 ms; proyectos y misiones completados; auditoría cuadrada (madera 120 = 43 + 77; piedra 78 = 25 + 53; fibra 100 = 57 + 43; herramienta 19 = 19) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 127 de 127 | OK |
-| Prueba del usuario | Persona responsable | Pendiente | NO VERIFICADO |
+| Prueba del usuario | Persona responsable, 2026-10-10 | «ya está probado»; fusión y subida autorizadas | OK |
 
 Totales: `npm.cmd run typecheck` sin errores; `npm.cmd test` 127 de 127.
 
