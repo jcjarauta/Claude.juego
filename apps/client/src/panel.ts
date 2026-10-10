@@ -62,7 +62,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const coordinator = authorize(me, "review", project);
   const admin = authorize(me, "close-project", { admins: config.admins });
-  const hasStructure = config.structures.some((s) => s.projectId === project.id);
+  const hasStructure = [...room.state.structures.values()].some((s) => s.projectId === project.id);
   const headingId = `proyecto-${project.id}`;
   const status = el("span");
   const phase = el("span");
@@ -292,7 +292,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
 const MISSION_KIND_TEXT = (m: { objectiveKind: string; objectiveTarget: string; objectiveAmount: number }, room: PanelRoom, config: WorldConfig) =>
   m.objectiveKind === "project-completed"
     ? `completar el proyecto «${room.state.projects.get(m.objectiveTarget)?.name ?? m.objectiveTarget}»`
-    : `tener ${m.objectiveAmount} ${config.items.find((i) => i.id === m.objectiveTarget)?.name.toLowerCase() ?? m.objectiveTarget} en el almacén de la comunidad`;
+    : `tener ${m.objectiveAmount} ${room.state.items.get(m.objectiveTarget)?.name.toLowerCase() ?? m.objectiveTarget} en el almacén de la comunidad`;
 
 function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   byId("entrada").hidden = true;

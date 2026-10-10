@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores F1a, F1b y F1c cerradas.
+**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores F1a, F1b y F1c cerradas; F2a (editor de construcciones) hecha en rama.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
@@ -66,6 +66,6 @@ Equivalencias: 00→`README.md`; 02, 08, 11, 12→`CLAUDE.md`; 03, 06, 13→`doc
 
 ## Próximo gate
 
-M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). F1a cerrada: la administración crea proyectos y misiones desde el panel sin programar ni reiniciar. F1b cerrada: el panel tiene pestañas Lista, Tablero, Cronograma e Indicadores, y los proyectos admiten fechas objetivo y replanificación con motivo. F1c cerrada: responsables por tarea, dependencias que bloquean aportes hasta terminar los requisitos (con cadena crítica en el cronograma) y comentarios por tarea.
+M1–M5 cerradas: el bucle completo del MVP funciona (recolectar → aportar → construir el taller → fabricar la herramienta → misión completada), con persistencia y 2–4 jugadores en red local. M5b cerrada: núcleo de proyectos separado, estados de tarea, revisión con evidencia y permisos, y panel profesional. M6 cerrada: cuentas locales, límite de frecuencia, robustez ante fallos, logs, accesibilidad y umbrales medidos. **MVP aceptado el 2026-10-10** (excepción: Firefox sin probar). F1a cerrada: la administración crea proyectos y misiones desde el panel sin programar ni reiniciar. F1b cerrada: el panel tiene pestañas Lista, Tablero, Cronograma e Indicadores, y los proyectos admiten fechas objetivo y replanificación con motivo. F1c cerrada: responsables por tarea, dependencias que bloquean aportes hasta terminar los requisitos (con cadena crítica en el cronograma) y comentarios por tarea. F2a hecha en la rama `f2a-editor-construcciones`: la administración crea desde el panel construcciones (un proyecto con su edificio y solar en el mapa, con previsualización), objetos y recetas, que los jugadores construyen y fabrican en el mundo. Pendiente: tu prueba y la fusión.
 
 Para leer la documentación en Obsidian: *Open folder as vault* → carpeta `docs/` del repositorio.

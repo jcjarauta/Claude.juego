@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import type { MissionDef, ProjectDef } from "@juego/shared";
+import type { ItemDef, MissionDef, ProjectDef, RecipeDef, StructureDef } from "@juego/shared";
 
 // Persistencia del mundo (ADR-002): SQLite con escritura previa a la confirmación.
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -171,6 +171,29 @@ export const MIGRATIONS: Record<number, string> = {
     );
     CREATE INDEX task_comment_task ON task_comment (project_id, task_id, id);
   `,
+  // F2a: construcciones, objetos y recetas creados desde el panel. Definiciones inmutables (Q187);
+  // un solar sin construir se «retira» al cerrar su proyecto.
+  9: `
+    CREATE TABLE structure_def (
+      id TEXT PRIMARY KEY,
+      definition TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      retired_at INTEGER
+    );
+    CREATE TABLE item_def (
+      id TEXT PRIMARY KEY,
+      definition TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE recipe_def (
+      id TEXT PRIMARY KEY,
+      definition TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+  `,
 };
 
 export function openStore(path: string) {
@@ -258,6 +281,13 @@ export function openStore(path: string) {
     commentSummary: db.prepare(`SELECT c.task_id AS taskId, COUNT(*) AS count, (SELECT author || char(31) || at || char(31) || text FROM task_comment l
       WHERE l.project_id = c.project_id AND l.task_id = c.task_id ORDER BY l.id DESC LIMIT 1) AS last
       FROM task_comment c WHERE c.project_id = ? GROUP BY c.task_id`),
+    getStructureDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt, retired_at AS retiredAt FROM structure_def ORDER BY created_at, id"),
+    addStructureDef: db.prepare("INSERT INTO structure_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
+    retireStructureDef: db.prepare("UPDATE structure_def SET retired_at = ? WHERE id = ? AND retired_at IS NULL"),
+    getItemDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM item_def ORDER BY created_at, id"),
+    addItemDef: db.prepare("INSERT INTO item_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
+    getRecipeDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM recipe_def ORDER BY created_at, id"),
+    addRecipeDef: db.prepare("INSERT INTO recipe_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     getMissionDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM mission_def ORDER BY created_at, id"),
     addMissionDef: db.prepare("INSERT INTO mission_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     setLastSeen: db.prepare("UPDATE player SET last_seen_at = ? WHERE name = ?"),
@@ -420,6 +450,32 @@ export function openStore(path: string) {
         result[r.taskId] = { count: Number(r.count), last: { by: by!, at: Number(at), text: text.join("\u001f") } };
       }
       return result;
+    },
+    /** Estructuras creadas desde el panel, con su fecha de retirada (0 = vigente). */
+    getStructureDefs(): { def: StructureDef; createdBy: string; createdAt: number; retiredAt: number }[] {
+      return (q.getStructureDefs.all() as { definition: string; createdBy: string; createdAt: number; retiredAt: number | null }[])
+        .map((r) => ({ def: JSON.parse(r.definition) as StructureDef, createdBy: r.createdBy, createdAt: Number(r.createdAt), retiredAt: Number(r.retiredAt ?? 0) }));
+    },
+    addStructureDef(def: StructureDef, by: string, at: number) {
+      q.addStructureDef.run(def.id, JSON.stringify(def), by, at);
+    },
+    /** Retira un solar sin construir; lanza si no existe o ya estaba retirado. */
+    retireStructureDef(id: string, at: number) {
+      if (Number(q.retireStructureDef.run(at, id).changes) !== 1) throw new Error(`estructura-no-retirable: ${id}`);
+    },
+    getItemDefs(): { def: ItemDef; createdBy: string; createdAt: number }[] {
+      return (q.getItemDefs.all() as { definition: string; createdBy: string; createdAt: number }[])
+        .map((r) => ({ def: JSON.parse(r.definition) as ItemDef, createdBy: r.createdBy, createdAt: Number(r.createdAt) }));
+    },
+    addItemDef(def: ItemDef, by: string, at: number) {
+      q.addItemDef.run(def.id, JSON.stringify(def), by, at);
+    },
+    getRecipeDefs(): { def: RecipeDef; createdBy: string; createdAt: number }[] {
+      return (q.getRecipeDefs.all() as { definition: string; createdBy: string; createdAt: number }[])
+        .map((r) => ({ def: JSON.parse(r.definition) as RecipeDef, createdBy: r.createdBy, createdAt: Number(r.createdAt) }));
+    },
+    addRecipeDef(def: RecipeDef, by: string, at: number) {
+      q.addRecipeDef.run(def.id, JSON.stringify(def), by, at);
     },
     getMissionDefs(): { def: MissionDef; createdBy: string; createdAt: number }[] {
       return (q.getMissionDefs.all() as { definition: string; createdBy: string; createdAt: number }[])

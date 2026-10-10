@@ -11,7 +11,7 @@
 // No forma parte de `npm.cmd test`; se ejecuta con `npm.cmd run soak`.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { addDays, blockedBy, isNextTo, isTaskDone, localDay, MESSAGE, type MoveMessage, type WorldConfig } from "@juego/shared";
+import { addDays, blockedBy, isNextTo, isTaskDone, localDay, MESSAGE, solarProblems, type MoveMessage, type WorldConfig } from "@juego/shared";
 import { openStore } from "../apps/server/src/store.ts";
 import { joinPanel, joinWorld, sleep, startServer, tempDb, waitFor, type TestPanel, type TestPlayer } from "../apps/server/test/helpers.ts";
 
@@ -49,6 +49,30 @@ panel.room.send(MESSAGE.assign, { requestId: randomUUID(), projectId: pozoId, ta
 panel.room.send(MESSAGE.comment, { requestId: randomUUID(), projectId: pozoId, taskId: "madera", text: "Primero la piedra, luego la madera." });
 await waitFor(() => panel.room.state.projects.get(pozoId)!.tasks.get("madera")!.comments === 1, 5000);
 
+// F2a: el panel crea una construcción (en un solar libre junto al taller), un objeto y una receta; los bots
+// la construyen y fabrican. El solar se busca con la misma regla que el servidor.
+const nodeCells = new Set(config.nodes.map((n) => `${n.x},${n.y}`));
+let spot: { x: number; y: number } | undefined;
+const taller = config.structures[0];
+for (let dy = 0; dy < 12 && !spot; dy++) {
+  for (let dx = 0; dx < 12 && !spot; dx++) {
+    const candidate = { x: (taller?.x ?? 10) + dx - 3, y: (taller?.y ?? 10) + 3 + dy, width: 2, height: 2 };
+    if (!solarProblems(candidate, { width: config.map.width, height: config.map.height, nodeCells, spawn: config.spawn, structures: config.structures }).length) spot = candidate;
+  }
+}
+const MOLINO = "Molino del soak";
+panel.room.send(MESSAGE.createConstruction, {
+  requestId: randomUUID(), name: MOLINO, description: "", ...spot!, color: "#3366cc",
+  tasks: [{ title: "Madera del molino", resource: "madera", required: 6 }, { title: "Piedra del molino", resource: "piedra", required: 4 }],
+});
+await waitFor(() => [...panel.room.state.structures.values()].some((st) => st.name === MOLINO), 5000);
+const molinoId = [...panel.room.state.structures.entries()].find(([, st]) => st.name === MOLINO)![0];
+panel.room.send(MESSAGE.createItem, { requestId: randomUUID(), name: "Harina del soak" });
+await waitFor(() => [...panel.room.state.items.values()].some((i) => i.name === "Harina del soak"), 5000);
+const harinaId = [...panel.room.state.items.entries()].find(([, i]) => i.name === "Harina del soak")![0];
+panel.room.send(MESSAGE.createRecipe, { requestId: randomUUID(), name: "Moler", structureId: molinoId, inputs: { madera: 1, piedra: 1 }, output: { item: harinaId, amount: 1 } });
+await waitFor(() => panel.room.state.recipes.size >= 2, 5000);
+
 let running = true;
 let paused = false;
 const sent = { moves: 0, collects: 0, transfers: 0, contributions: 0, builds: 0, crafts: 0, panelContributions: 0, reviews: 0 };
@@ -67,26 +91,29 @@ function stepToward(me: { x: number; y: number }, target: { x: number; y: number
 async function act(bot: TestPlayer) {
   const me = bot.me();
   const { state } = bot.room;
-  // Construir cuando el proyecto está listo; fabricar cuando hay materiales en el almacén común.
-  if (structure) {
-    const built = Boolean(state.structures.get(structure.id)?.built);
-    const ready = state.projects.get(structure.projectId)?.status === "listo";
-    const canCraft = built && recipe && Object.entries(recipe.inputs).every(([r, n]) => (state.community.get(r) ?? 0) >= n);
-    if ((ready && !built) || canCraft) {
-      if (isNextTo(me, structure)) {
-        if (!built) {
-          bot.room.send(MESSAGE.build, { requestId: randomUUID(), structureId: structure.id });
-          sent.builds++;
-        } else {
-          bot.room.send(MESSAGE.craft, { requestId: randomUUID(), recipeId: recipe!.id });
-          sent.crafts++;
-        }
-        return 300;
+  // Construir un edificio cuyo proyecto está listo, o fabricar donde hay materiales en el almacén común
+  // (cualquier edificio del estado, también el creado desde el panel).
+  for (const [structureId, st] of state.structures) {
+    const projectState = state.projects.get(st.projectId);
+    const ready = projectState?.status === "listo" && projectState.phase !== "cerrado";
+    const recipeEntry = st.built
+      ? [...state.recipes.entries()].find(([, r]) => r.structureId === structureId && [...r.inputs.entries()].every(([res, n]) => (state.community.get(res) ?? 0) >= n))
+      : undefined;
+    if (!(ready && !st.built) && !recipeEntry) continue;
+    const footprint = { x: st.x, y: st.y, width: st.width, height: st.height };
+    if (isNextTo(me, footprint)) {
+      if (!st.built) {
+        bot.room.send(MESSAGE.build, { requestId: randomUUID(), structureId });
+        sent.builds++;
+      } else {
+        bot.room.send(MESSAGE.craft, { requestId: randomUUID(), recipeId: recipeEntry![0] });
+        sent.crafts++;
       }
-      bot.room.send(MESSAGE.move, stepToward(me, { x: structure.x - 1, y: structure.y + structure.height }));
-      sent.moves++;
-      return 130;
+      return 300;
     }
+    bot.room.send(MESSAGE.move, stepToward(me, { x: st.x - 1, y: st.y + st.height }));
+    sent.moves++;
+    return 130;
   }
   // Aportar a cualquier proyecto abierto (los de la configuración y los creados en el panel).
   for (const [projectId, projectState] of bot.room.state.projects) {
@@ -108,7 +135,7 @@ async function act(bot: TestPlayer) {
     }
   }
   // Con el taller construido se deposita antes (a partir de 3) para que haya materiales que fabricar.
-  const threshold = structure && state.structures.get(structure.id)?.built ? 3 : config.inventoryMax;
+  const threshold = [...state.structures.values()].some((st) => st.built) ? 3 : config.inventoryMax;
   const full = config.resources.find((r) => (me.inventory.get(r.id) ?? 0) >= threshold);
   if (full) {
     bot.room.send(MESSAGE.transfer, { requestId: randomUUID(), resource: full.id, amount: me.inventory.get(full.id), to: "community" });
@@ -177,7 +204,7 @@ function fullSnapshot(viewer: { room: TestPlayer["room"] }): string {
     .sort();
   const nodes = [...state.nodes.entries()].sort().join(";");
   const community = [...state.community.entries()].sort().join(";");
-  const structures = [...state.structures.entries()].map(([id, s]) => `${id}:${s.built}:${s.builtBy}`).sort().join(";");
+  const structures = [...state.structures.entries()].map(([id, s]) => `${id}:${s.x},${s.y}:${s.built}:${s.builtBy}`).sort().join(";") + "|" + [...state.items.keys()].sort().join(",") + "|" + [...state.recipes.keys()].sort().join(",");
   const missions = [...state.missions.entries()].map(([id, m]) => `${id}:${m.status}:${m.completedBy}`).sort().join(";");
   const projects = [...state.projects.entries()].map(([id, p]) =>
     `${id}:${p.status}:${p.phase}:${p.dueDate}/${p.reschedules}:${[...p.progress.entries()].sort().join(";")}:${[...p.contributors.entries()].map(([n, c]) => `${n}=${[...c.totals.entries()].sort().join(",")}`).sort().join("/")}:${p.recent.length}:${[...p.tasks.entries()].map(([t, s]) => `${t}=${s.status}/${s.reviewedBy}/${s.reviewedAt}/${[...s.assignees].join("+")}/${s.comments}`).sort().join(",")}`);
@@ -221,6 +248,7 @@ const projectSummary = project ? (() => {
     built: structure ? state.structures.get(structure.id)?.built : null,
     mission: config.missions[0] ? state.missions.get(config.missions[0].id)?.status : null,
     tools: recipe ? state.community.get(recipe.output.item) ?? 0 : null,
+    molino: { built: state.structures.get(molinoId)?.built, status: state.projects.get(molinoId)?.status, harina: state.community.get(harinaId) ?? 0 },
     tasks: Object.fromEntries([...p.tasks.entries()].map(([id, t]) => [id, `${t.status}${t.reviewedBy ? ` (${t.reviewedBy})` : ""}`])),
     pozo: { status: state.projects.get(pozoId)?.status, dueDate: state.projects.get(pozoId)?.dueDate, reschedules: state.projects.get(pozoId)?.reschedules, progress: Object.fromEntries(state.projects.get(pozoId)?.progress.entries() ?? []) },
     missions: Object.fromEntries([...state.missions.values()].map((m) => [m.name, m.status])),
