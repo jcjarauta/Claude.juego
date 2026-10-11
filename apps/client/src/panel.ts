@@ -16,6 +16,10 @@ import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
 import { isOverdue, localDay, type AssignMessage, type RescheduleMessage } from "@juego/shared";
 import { newRequestId } from "./request-id.ts";
+import { followPreferences } from "./ui/preferences.ts";
+
+// El panel respeta las preferencias de accesibilidad del juego (tamaño del texto, contraste, movimiento) y las sigue en vivo (Q242).
+followPreferences();
 
 // Panel profesional (M5b, RF-015): lista accesible de proyectos y tareas sobre el mismo
 // estado autoritativo que el mundo. Entra como observador (sin personaje): puede aportar

@@ -25,6 +25,17 @@ export function applyPreferences(prefs: Preferences, root: HTMLElement = documen
   for (const [name, value] of Object.entries(preferenceAttributes(prefs, systemReduced))) root.setAttribute(name, value);
 }
 
+/**
+ * Aplica las preferencias guardadas y las sigue en vivo cuando otra pestaña del mismo navegador las cambia (evento `storage`).
+ * Para pantallas que respetan las preferencias pero no las editan, como el panel profesional (G1b, Q242).
+ */
+export function followPreferences(root: HTMLElement = document.documentElement) {
+  applyPreferences(loadPreferences(), root);
+  window.addEventListener("storage", (event) => {
+    if (event.key === null || event.key === PREFERENCES_KEY) applyPreferences(loadPreferences(), root);
+  });
+}
+
 const radios = (name: string, legend: string, options: [string, string][], current: string, onPick: (value: string) => void) => {
   const set = el("fieldset", {}, el("legend", {}, legend));
   for (const [value, label] of options) {
