@@ -148,7 +148,7 @@ test("TP-22: una tarea bloqueada rechaza aportes hasta que termina su requisito 
     send(ana, MESSAGE.review, { projectId: balsa, taskId: "piedra", decision: "aprobada", note: "Piedra comprobada" });
     await waitFor(() => task(luis, balsa, "piedra").status === "aprobada");
     send(ana, MESSAGE.contribute, { projectId: balsa, taskId: "madera", from: "player", amount: 1 });
-    await waitFor(() => (luis.room.state.projects.get(balsa)!.progress.get("madera") ?? 0) === 1);
+    await waitFor(() => (luis.room.state.projects.get(balsa)!.progress.get("madera") ?? 0) === 1 && inv(ana, "madera") === 0);
     assert.equal(inv(ana, "madera"), 0);
     for (const v of [ana, luis]) await v.room.leave();
   } finally {
