@@ -1,10 +1,11 @@
 import { chainsFromState } from "./views/cadenas.ts";
 import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
 import type { Feed } from "./feed.ts";
+import { createObjectivePanel } from "./objective-panel.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillDefFromState, skillLevelName, structureDefFromState,
+  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillDefFromState, skillLevelName, snapshotFromState, structureDefFromState,
   type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
   type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TeachOfferedMessage, type TeachOfferMessage, type TeachRespondMessage,
   type TeachResultMessage, type TransferMessage, type WorldConfig, type WorldIndex,
@@ -88,6 +89,7 @@ export class WorldScene extends Phaser.Scene {
   /** Panel de habilidades (F2c) y ofertas de enseñanza recibidas. */
   private skillsPanel!: SkillsPanel;
   private feed!: Feed;
+  private objectivePanel: ReturnType<typeof createObjectivePanel> | undefined;
   private lastZone: string | undefined;
   private offers: TeachOfferedMessage[] = [];
   /** Proyecto que se ve en el panel (F1a: hay varios; por defecto, el primero de la configuración). */
@@ -145,13 +147,32 @@ export class WorldScene extends Phaser.Scene {
     this.room.send(MESSAGE.news, {});
 
     // Nodos, inventarios y proyecto se refrescan con cada lote de cambios del servidor.
-    this.room.onStateChange(() => this.refreshResources());
+    this.room.onStateChange(() => { this.refreshResources(); this.objectivePanel?.schedule(); });
     this.refreshResources();
+
+    // Zona C (G3c): objetivo activo, siguiente acción y estado; el servidor decide siempre si la acción es válida.
+    this.objectivePanel = createObjectivePanel({
+      feed: this.feed,
+      world: this.config.community.id,
+      snapshot: () => this.room.state.players.get(this.room.sessionId)
+        ? snapshotFromState(this.room.state, this.config, this.room.sessionId, this.offers.map((o) => ({ id: o.offerId, from: o.from, skill: o.skill, level: o.level })))
+        : undefined,
+      perform: (action) => {
+        if (action.type === "contribute" && action.project && action.task && action.from && action.amount) this.contribute(action.project, action.task, action.from, action.amount);
+        else if (action.type === "deposit" && action.resource && action.amount) this.deposit(action.resource, action.amount);
+        else if (action.type === "build" && action.structure) this.panelActions.build(action.structure);
+        else if (action.type === "craft" && action.recipe) this.panelActions.craft(action.recipe);
+        else if (action.type === "collect") this.sendCollect();
+      },
+    });
+    this.objectivePanel.schedule();
 
     // Rechazos del servidor: prioridad 0 (se anuncian al momento, sin repetirse) y quedan unos segundos en «Importantes».
     this.room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
       if (reason === "movimiento-demasiado-rapido") return;
-      this.feed.emit({ kind: "error", importance: "relevante", priority: 0, own: true, key: `error:${reason}`, text: [REJECT_TEXT[reason], ...(details ?? [])].join(" ") });
+      const rejectText = [REJECT_TEXT[reason], ...(details ?? [])].join(" ");
+      this.feed.emit({ kind: "error", importance: "relevante", priority: 0, own: true, key: `error:${reason}`, text: rejectText });
+      this.objectivePanel?.noteRejection(reason, rejectText);
     });
     // Las acciones de las notificaciones (aceptar o rechazar una oferta) son operaciones del juego: se envían al servidor.
     this.feed.setActionHandler((key, action) => {

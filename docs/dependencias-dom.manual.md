@@ -56,7 +56,7 @@ Mundo de prueba (`apps/server/test/fixtures/ui-world.json` + `scripts/ui-seed.ts
 |---|---|---|
 | A. Barra superior | `header.zona-barra` | `zona`, `posicion`, `conexion`, `salir` |
 | B. Mundo | `section.zona-mundo` | `game`, `aviso`, `acciones`, `volver` |
-| C. Objetivo actual | `section#objetivo` (reservada, oculta) | — (G3c) |
+| C. Objetivo actual | `section#objetivo.zona-objetivo` (G3c, P1) | `objetivo-titulo`, `objetivo-nombre`, `objetivo-estado`, `objetivo-texto`, `objetivo-porque`, `objetivo-progreso`, `objetivo-requisitos`, `objetivo-alternativas`, `objetivo-rutas`, `objetivo-avisos`, `objetivo-accion`, `objetivo-elegir`, `objetivo-avisos-ir` |
 | G. Conversación | `section#conversacion` (reservada, oculta) | — (F2d) |
 | F. Recursos | `section.zona-recursos` | `.recursos`: `inventario`, `comunidad` |
 | D. Panel contextual | `section#proyecto.zona-panel` | Pestañas `tab-proyecto`, `tab-taller`, `tab-habilidades`, `tab-cadenas`, `tab-comunidad` y sus paneles |
@@ -80,4 +80,12 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Eventos de documento: `sugerir-pestana` (detalle `{tab, key, text}`, lo emite `WorldScene` al recibir una oferta), `mostrar-ayuda` (tecla `?`), `enfocar-consola` (tecla `C`), además de `mostrar-pestana`.
 - Cada insignia de pestaña se añade dentro del botón `tab-*` (`.insignia`); por eso la etiqueta accesible de la pestaña incluye «N novedades» mientras haya sugerencias.
 - `isEditable` (`WorldScene.ts`) incluye ahora pestañas, paneles con desplazamiento, registros y diálogos: en ellos las flechas y las letras no mueven al personaje (KEY-01).
+
+### Zona C — Objetivo actual (puerta P1 de G3c, 2026-10-11)
+
+- `#objetivo` deja de estar reservada y oculta: ocupa toda la anchura bajo la barra (`grid-template-areas`: barra, **objetivo**, mundo y panel, recursos y panel, consola; apilada: barra, objetivo, mundo, recursos, panel, consola). Su esqueleto está en `index.html` y lo rellena `objective-panel.ts`; **no es región viva** (los cambios se anuncian por el bus de eventos, una vez por cambio de identidad).
+- Se crea desde `WorldScene.create()` (necesita la sala): recalcula con `room.onStateChange` (agrupado 250 ms) y cada 500 ms (para que la histéresis de 800 ms avance sin cambios de estado). El objetivo activo vive en `localStorage` con la clave `engremiat.objetivo.<mundo>.<cuenta>`.
+- `WorldScene` pasa al panel el rechazo del servidor (`noteRejection`) y la acción del paso (`perform`, que reutiliza `contribute`, `deposit`, `panelActions.build/craft` y `sendCollect`: la decisión sigue siendo del servidor).
+- Orden real de Tab: enlace de salto → Ayuda → Accesibilidad → Salir → **Elegir objetivo** → (**Ir a la consola** si hay avisos) → mapa → recursos → pestañas → contenido → consola.
+- El diálogo «Elegir objetivo» se crea al abrirlo (`<dialog>` nativo con foco devuelto al botón).
 

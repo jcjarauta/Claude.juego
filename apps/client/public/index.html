@@ -14,14 +14,20 @@
     fieldset { border: 1px solid var(--color-borde); border-radius: 4px; padding: 6px 10px; display: grid; gap: 4px; }
     fieldset label, #edad-bloque label { font-weight: 400; }
     /* Interfaz híbrida (RF-010): mapa y proyecto a la vez en pantallas anchas; uno debajo del otro en estrechas. */
-    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(300px, 1fr); grid-template-areas: "barra barra" "mundo panel" "recursos panel" "consola consola"; gap: 20px; align-items: start; }
+    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(300px, 1fr); grid-template-areas: "barra barra" "objetivo objetivo" "mundo panel" "recursos panel" "consola consola"; gap: 20px; align-items: start; }
     .zona-barra { grid-area: barra; }
+    .zona-objetivo { grid-area: objetivo; border: 1px solid var(--color-borde-campo); border-radius: var(--radio-grande); padding: var(--espacio-2) var(--espacio-3); background: var(--color-superficie); }
+    .zona-objetivo h2 { margin: 0 0 var(--espacio-1); font-size: var(--texto-h3); }
+    .zona-objetivo p, .zona-objetivo ul { margin: var(--espacio-1) 0; }
+    .zona-objetivo ul { padding-left: 1.2em; }
+    .zona-objetivo .acciones { display: flex; gap: var(--espacio-2); flex-wrap: wrap; }
+    #objetivo-estado { margin-right: var(--espacio-1); }
     .zona-mundo { grid-area: mundo; }
     .zona-recursos { grid-area: recursos; }
     .zona-panel { grid-area: panel; }
     .zona-consola { grid-area: consola; }
     /* Con menos de 1100 px se apilan: barra, mundo, recursos y panel. */
-    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; grid-template-areas: "barra" "mundo" "recursos" "panel" "consola"; } }
+    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; grid-template-areas: "barra" "objetivo" "mundo" "recursos" "panel" "consola"; } }
     /* Sin min-width: 0 los hijos de la rejilla no encogen y el mapa fuerza desplazamiento horizontal. */
     .juego > * { min-width: 0; }
     #proyecto p { overflow-wrap: anywhere; }
@@ -106,6 +112,24 @@
           </div>
         </header>
 
+        <!-- C. Objetivo actual (G3c): objetivo activo elegido por la persona, siguiente acción y avisos pendientes -->
+        <section id="objetivo" class="zona-objetivo" aria-labelledby="objetivo-titulo">
+          <h2 id="objetivo-titulo">Objetivo actual</h2>
+          <p id="objetivo-nombre" tabindex="-1"></p>
+          <p><strong id="objetivo-estado"></strong><span id="objetivo-texto"></span></p>
+          <p id="objetivo-porque" class="ayuda"></p>
+          <div id="objetivo-progreso"></div>
+          <ul id="objetivo-requisitos"></ul>
+          <ul id="objetivo-alternativas" class="ayuda"></ul>
+          <ul id="objetivo-rutas"></ul>
+          <p id="objetivo-avisos" class="ayuda"></p>
+          <p class="acciones">
+            <button id="objetivo-accion" type="button" hidden>Hacer</button>
+            <button id="objetivo-elegir" type="button">Elegir objetivo</button>
+            <button id="objetivo-avisos-ir" type="button" hidden>Ir a la consola</button>
+          </p>
+        </section>
+
         <!-- B. Mundo -->
         <section class="zona-mundo" aria-label="Mundo">
           <div id="game" tabindex="0" aria-label="Mapa del mundo. Flechas o WASD para moverte, Espacio o E para recolectar, P para ir al proyecto."></div>
@@ -113,7 +137,7 @@
         </section>
 
         <!-- C. Objetivo actual (reservada para G3c) y G. Conversación (reservada para F2d) -->
-        <section id="objetivo" class="zona-reservada" aria-label="Objetivo actual" hidden></section>
+
         <section id="conversacion" class="zona-reservada" aria-label="Conversación" hidden></section>
 
         <!-- F. Recursos: inventario propio y almacén de la comunidad -->

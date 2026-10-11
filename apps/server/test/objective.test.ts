@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  classifyRejection, createStabilizer, directionText, evaluateObjective, isObsolete, planRoutes, REJECT_TEXT, REJECTION_REASONS,
+  classifyRejection, createStabilizer, directionText, evaluateObjective, isObsolete, objectiveLabel, planRoutes, REJECT_TEXT, REJECTION_REASONS,
   stepAfterRejection, suggestObjectives, type Objective, type RecipeDef, type Snapshot, type Step,
 } from "@juego/shared";
 
@@ -461,4 +461,29 @@ test("dirección y distancia en texto", () => {
   assert.equal(directionText({ x: 4, y: 4 }, { x: 4, y: 5 }), "1 casilla al sur");
   assert.equal(directionText({ x: 4, y: 4 }, { x: 4, y: 4 }), "estás en el destino");
   assert.equal(directionText({ x: 9, y: 0 }, { x: 0, y: 0 }), "9 casillas al oeste");
+});
+
+test("etiqueta legible del objetivo y ruta elegida válida para cualquier tipo de objetivo", () => {
+  const s = snap({ built: [] });
+  assert.equal(objectiveLabel(mission, s), "Misión: Primer pan");
+  assert.equal(objectiveLabel({ kind: "task", project: "p-molino", task: "t1" }, s), "Tarea: Madera del molino (Molino)");
+  assert.equal(objectiveLabel({ kind: "item", item: "pan", amount: 2 }, s), "Obtener 2 de pan");
+  assert.equal(objectiveLabel({ kind: "skill", skill: "molinero", level: 2 }, s), "Habilidad: Molinero (Oficial)");
+  // La ruta elegida sirve también a una misión (el objeto es un subobjetivo).
+  const recipes = [...snap().recipes, RECIPES.find((r) => r.id === "pan-directo")!];
+  const rich = snap({ recipes, stock: { harina: 1, madera: 1, trigo: 3 }, me: { ...snap().me, x: 13, y: 5 } });
+  assert.equal(ev(mission, rich).type, "choose-route");
+  assert.notEqual(ev({ ...mission, route: "pan-directo" } as Objective, rich).type, "choose-route");
+});
+
+test("estabilizador: completar u obsoletar el objetivo se muestra al momento aunque la persona esté ocupada", () => {
+  const stab = createStabilizer(800);
+  const a: Step = { key: "fabricar:x", status: "DISPONIBLE", type: "craft", text: "A", why: "", requirements: [], alternatives: [] };
+  stab.feed({ step: a, now: 0, busy: false });
+  const done: Step = { ...a, key: "mision:m", status: "COMPLETADO", type: "done", text: "Hecho" };
+  const r = stab.feed({ step: done, now: 10, busy: true });
+  assert.equal(r.shown.key, "mision:m");
+  assert.equal(r.announce, true);
+  const gone: Step = { ...a, key: "tarea:p:t", status: "NO_VERIFICADO", obsolete: true, text: "Ya no existe" };
+  assert.equal(createStabilizer().feed({ step: a, now: 0, busy: false }) && stab.feed({ step: gone, now: 20, busy: true }).shown.key, "tarea:p:t");
 });

@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (69 ids)
+## index.html (82 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -26,9 +26,22 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `ayuda-boton` | — | — | — |
 | `accesibilidad-boton` | — | — | — |
 | `salir` | main.ts | — | — |
+| `objetivo` | — | — | `#objetivo-estado` |
+| `objetivo-titulo` | — | aria-labelledby | — |
+| `objetivo-nombre` | — | — | — |
+| `objetivo-estado` | — | — | `#objetivo-estado` |
+| `objetivo-texto` | — | — | — |
+| `objetivo-porque` | — | — | — |
+| `objetivo-progreso` | — | — | — |
+| `objetivo-requisitos` | — | — | — |
+| `objetivo-alternativas` | — | — | — |
+| `objetivo-rutas` | — | — | — |
+| `objetivo-avisos` | — | — | — |
+| `objetivo-accion` | — | — | — |
+| `objetivo-elegir` | — | — | — |
+| `objetivo-avisos-ir` | — | — | — |
 | `game` | main.ts, WorldScene.ts | — | `#game`, `#game canvas` |
 | `volver` | hud.ts | — | — |
-| `objetivo` | — | — | — |
 | `conversacion` | — | — | — |
 | `inventario-titulo` | — | aria-labelledby | — |
 | `inventario` | hud.ts | — | — |

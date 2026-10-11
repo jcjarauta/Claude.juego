@@ -15,12 +15,16 @@ import { recipeProducts, recipeVerb, type MissionDef, type ProjectDef, type Reci
 
 export type StepStatus = "DISPONIBLE" | "BLOQUEADO" | "NO_VERIFICADO" | "COMPLETADO";
 
-export type Objective =
+export type Objective = (
   | { kind: "mission"; id: string }
   | { kind: "task"; project: string; task: string }
-  /** Obtener `amount` unidades del objeto en el almacén común; `route` = receta elegida cuando hay varias rutas viables. */
-  | { kind: "item"; item: string; amount: number; route?: string }
-  | { kind: "skill"; skill: string; level: number };
+  /** Obtener `amount` unidades del objeto en el almacén común. */
+  | { kind: "item"; item: string; amount: number }
+  | { kind: "skill"; skill: string; level: number }
+) & {
+  /** Ruta elegida por la persona (identidad de la ruta) cuando hay varias viables; sirve a cualquier tipo de objetivo. */
+  route?: string;
+};
 
 export interface Requirement {
   /** Código estable (para pruebas y para no repetir). */
@@ -449,10 +453,10 @@ function fromItemObjective(s: Snapshot, obj: Extract<Objective, { kind: "item" }
   if (!isItem(s, obj.item) && !(obj.item in s.resources)) return { ...unknown(key, "Este objeto ya no existe.", "Se ha retirado."), obsolete: true };
   if (have(s.stock, obj.item) >= obj.amount) return step({ key, status: "COMPLETADO", type: "done", text: `Ya hay ${obj.amount} de ${label} en el almacén.`, progress: { done: obj.amount, total: obj.amount } });
   const plan = planRoutes(s, { kind: "item", item: obj.item, amount: obj.amount });
-  return fromPlan(s, plan, key, label, context, progress ?? { done: have(s.stock, obj.item), total: obj.amount }, obj.route);
+  return fromPlan(s, plan, key, label, context, progress ?? { done: have(s.stock, obj.item), total: obj.amount });
 }
 
-function fromPlan(s: Snapshot, plan: PlanResult, key: string, label: string, context: string, progress: Step["progress"], chosen?: string): Step {
+function fromPlan(s: Snapshot, plan: PlanResult, key: string, label: string, context: string, progress: Step["progress"], chosen = chosenRoute): Step {
   if (plan.routes.length === 0) {
     return unknown(key, `No se encuentra cómo obtener ${label}.`, plan.discarded[0] ?? (plan.truncated ? "Demasiadas rutas: elige un objetivo más concreto." : "No hay recetas que lo produzcan."));
   }
@@ -557,12 +561,20 @@ function evaluateMission(s: Snapshot, id: string): Step {
     : evaluateProject(s, o.project, why);
 }
 
+/** Ruta elegida del objetivo que se está evaluando (la evaluación es síncrona, así que basta una variable de módulo). */
+let chosenRoute: string | undefined;
+
 export function evaluateObjective(obj: Objective, s: Snapshot): Step {
-  switch (obj.kind) {
-    case "mission": return evaluateMission(s, obj.id);
-    case "task": return evaluateTask(s, obj.project, obj.task);
-    case "item": return fromItemObjective(s, obj);
-    case "skill": return evaluateSkill(s, obj.skill, obj.level);
+  chosenRoute = obj.route;
+  try {
+    switch (obj.kind) {
+      case "mission": return evaluateMission(s, obj.id);
+      case "task": return evaluateTask(s, obj.project, obj.task);
+      case "item": return fromItemObjective(s, obj);
+      case "skill": return evaluateSkill(s, obj.skill, obj.level);
+    }
+  } finally {
+    chosenRoute = undefined;
   }
 }
 
@@ -584,6 +596,19 @@ export function suggestObjectives(s: Snapshot): Candidate[] {
     if (mine < k.levels.length) out.push({ objective: { kind: "skill", skill: k.id, level: mine + 1 }, label: `Habilidad: ${k.name} (${skillLevelName(k, mine + 1)})` });
   }
   return out;
+}
+
+/** Nombre legible del objetivo para la zona C y los diálogos. */
+export function objectiveLabel(obj: Objective, s: Snapshot): string {
+  switch (obj.kind) {
+    case "mission": return `Misión: ${s.missions.find((m) => m.def.id === obj.id)?.def.name ?? obj.id}`;
+    case "task": {
+      const pv = s.projects.find((p) => p.def.id === obj.project);
+      return `Tarea: ${pv?.def.tasks.find((t) => t.id === obj.task)?.title ?? obj.task}${pv ? ` (${pv.def.name})` : ""}`;
+    }
+    case "item": return `Obtener ${obj.amount} de ${nameOf(s, obj.item).toLowerCase()}`;
+    case "skill": { const d = skillDef(s, obj.skill); return `Habilidad: ${d?.name ?? obj.skill} (${d ? skillLevelName(d, obj.level) : `nivel ${obj.level}`})`; }
+  }
 }
 
 /** ¿El objetivo guardado sigue existiendo? (si no, se pide elegir otro) */
@@ -714,7 +739,9 @@ export function createStabilizer(holdMs = HOLD_MS) {
         return { shown, announce: relevant };
       }
       if (!candidate || candidate.key !== next.key) candidate = { key: next.key, since: now };
-      if (!busy && now - candidate.since >= holdMs) {
+      // Que el objetivo se haya completado o ya no exista es un hecho, no una recomendación: se muestra al momento.
+      const fact = next.status === "COMPLETADO" || next.obsolete === true;
+      if (fact || (!busy && now - candidate.since >= holdMs)) {
         shown = next;
         candidate = undefined;
         return { shown, announce: true };
