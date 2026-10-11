@@ -101,4 +101,15 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba y fusión de G3c por la persona responsable; después, valorar las mejoras listadas en `docs/pruebas.md` (G3c, «Valoración de mejoras») y planificar G3d (gamificación) por preguntas. Quedan planteadas G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación) y F2e (bots).
+**NEXT:** prueba y fusión de G3c por la persona responsable (mejoras M1–M6 ya hechas); después, planificar G3d (gamificación) por preguntas. Quedan planteadas G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación) y F2e (bots).
+
+## 8. Mejoras futuras anotadas (no planificadas)
+
+Surgidas de la valoración de cierre de G3c (`docs/pruebas.md`); se retoman al planificar la etapa que se indica.
+
+| # | Mejora | Cuándo |
+|---|---|---|
+| M8 | Límites del planificador de rutas (profundidad 8, 24 rutas) configurables desde el panel | G1 (límites de diseño editables) |
+| M9 | Guardar el objetivo activo en el servidor para seguirlo entre dispositivos (servidor, migración y privacidad; hoy es local por Q224) | Si se decide revisar Q224 |
+| M10 | Objetivos de equipo (el de la comunidad, compartido) | G3d o F2d |
+

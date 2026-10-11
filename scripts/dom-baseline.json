@@ -230,5 +230,69 @@
         }
       }
     }
+  },
+  "marcoG3c": {
+    "_nota": "Estado esperado de la pantalla del juego tras G3c (2026-10-11). Se comprueba con `await s.g3c()` de scripts/ui-smoke.js (30 comprobaciones, todas deben ser ok) en el mundo de prueba con la sesión iniciada.",
+    "juego": {
+      "pestanas": [
+        "Proyecto",
+        "Taller y recetas",
+        "Habilidades",
+        "Cadenas",
+        "Comunidad",
+        "Guía"
+      ],
+      "zonaC": {
+        "id": "objetivo",
+        "nombreAccesible": "objetivo-titulo",
+        "antesDelMapaEnElDocumento": true,
+        "regionViva": false,
+        "ids": [
+          "objetivo-titulo",
+          "objetivo-nombre",
+          "objetivo-estado",
+          "objetivo-texto",
+          "objetivo-requisitos",
+          "objetivo-alternativas",
+          "objetivo-rutas",
+          "objetivo-detalles",
+          "objetivo-porque",
+          "objetivo-progreso",
+          "objetivo-destino",
+          "objetivo-avisos",
+          "objetivo-accion",
+          "objetivo-mostrar",
+          "objetivo-volver",
+          "objetivo-elegir",
+          "objetivo-avisos-ir"
+        ],
+        "detallesPorOmision": "plegados (se recuerdan en localStorage: engremiat.objetivo-detalles)",
+        "alto1280": "≈157 px con los detalles plegados y ≈272 px abiertos (-115 px)"
+      },
+      "guia": {
+        "ids": [
+          "guia-objetivo",
+          "guia-estado",
+          "guia-paso",
+          "guia-porque",
+          "guia-bloqueos",
+          "guia-alternativas",
+          "guia-destino",
+          "guia-cerca",
+          "guia-consejos",
+          "guia-estados"
+        ],
+        "regionViva": false
+      },
+      "ordenDeTab": "salto → Ayuda → Accesibilidad → Salir → Elegir objetivo → (Ir a la consola) → mapa → recursos → pestaña activa → su panel → contenido → consola",
+      "comprobacionesG3c": 30,
+      "dialogoObjetivo": "dos listas con etiqueta (objetivo de la lista y «obtener un objeto») y cantidad; foco dentro y retorno al botón",
+      "atajos": {
+        "O": "objetivo actual",
+        "L": "oír lo que hay cerca",
+        "C": "consola",
+        "?": "ayuda"
+      }
+    }
   }
 }

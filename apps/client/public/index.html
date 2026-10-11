@@ -20,6 +20,8 @@
     .zona-objetivo h2 { margin: 0 0 var(--espacio-1); font-size: var(--texto-h3); }
     .zona-objetivo p, .zona-objetivo ul { margin: var(--espacio-1) 0; }
     .zona-objetivo ul { padding-left: 1.2em; }
+    .zona-objetivo details { margin: var(--espacio-1) 0; }
+    .zona-objetivo summary { cursor: pointer; }
     .zona-objetivo .acciones { display: flex; gap: var(--espacio-2); flex-wrap: wrap; }
     #objetivo-estado { margin-right: var(--espacio-1); }
     .zona-mundo { grid-area: mundo; }
@@ -117,13 +119,16 @@
           <h2 id="objetivo-titulo">Objetivo actual</h2>
           <p id="objetivo-nombre" tabindex="-1"></p>
           <p><strong id="objetivo-estado"></strong><span id="objetivo-texto"></span></p>
-          <p id="objetivo-porque" class="ayuda"></p>
-          <div id="objetivo-progreso"></div>
           <ul id="objetivo-requisitos"></ul>
           <ul id="objetivo-alternativas" class="ayuda"></ul>
           <ul id="objetivo-rutas"></ul>
-          <p id="objetivo-avisos" class="ayuda"></p>
-          <p id="objetivo-destino" class="ayuda"></p>
+          <details id="objetivo-detalles">
+            <summary>Detalles del paso</summary>
+            <p id="objetivo-porque" class="ayuda"></p>
+            <div id="objetivo-progreso"></div>
+            <p id="objetivo-destino" class="ayuda"></p>
+            <p id="objetivo-avisos" class="ayuda"></p>
+          </details>
           <p class="acciones">
             <button id="objetivo-accion" type="button" hidden>Hacer</button>
             <button id="objetivo-mostrar" type="button" hidden>Mostrar en el mapa</button>

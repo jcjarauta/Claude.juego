@@ -41,6 +41,8 @@ export interface StepAction {
   resource?: string;
   amount?: number;
   recipe?: string;
+  /** Verbo de la receta con mayúscula inicial («Moler»), para el botón de la acción. */
+  verb?: string;
   structure?: string;
   project?: string;
   task?: string;
@@ -328,7 +330,7 @@ export function planRoutes(s: Snapshot, root: Root): PlanResult {
 
 const routeText = (s: Snapshot, r: Route) => {
   const parts = r.actions.map((a) =>
-    a.type === "craft" ? `${recipeVerb(a.recipe).toLowerCase()} ${nameOf(s, a.recipe.output.item).toLowerCase()} (×${a.times})`
+    a.type === "craft" ? `${recipeVerb(a.recipe).toLowerCase()} ${nameOf(s, a.recipe.output.item).toLowerCase()} con «${a.recipe.name}» (×${a.times})`
       : a.type === "collect" ? `recoger ${a.amount} de ${nameOf(s, a.resource).toLowerCase()}` : `depositar ${a.amount} de ${nameOf(s, a.resource).toLowerCase()}`);
   return parts.length ? parts.join("; ") : "ya está en el almacén";
 };
@@ -514,10 +516,10 @@ function fromPlan(s: Snapshot, plan: PlanResult, key: string, label: string, con
     skills: defs, skillLevel: (k) => have(s.me.skills, k), position: s.me, stock: (id) => have(s.stock, id),
   });
   const craftKey = `fabricar:${recipe.id}`;
-  const verb = recipeVerb(recipe);
+  const verb = recipeVerb(recipe).replace(/^./, (c) => c.toUpperCase());
   if (check.ok) {
     return step({ key: craftKey, status: "DISPONIBLE", type: "craft", text: `${verb} ${nameOf(s, recipe.output.item).toLowerCase()}${first.times > 1 ? ` (×${first.times})` : ""}.`, why: context || `Es el paso que produce ${label}.`, progress, alternatives, routes: summaries,
-      target: targetOf(s, structure.def), action: { type: "craft", recipe: recipe.id, amount: first.times, structure: structure.def.id } });
+      target: targetOf(s, structure.def), action: { type: "craft", recipe: recipe.id, amount: first.times, structure: structure.def.id, verb } });
   }
   if (check.reason === "lejos-del-taller") return { ...goTo(s, structure.def, context || `${verb} ${nameOf(s, recipe.output.item).toLowerCase()} exige estar junto a ${structure.def.name}.`), alternatives, routes: summaries };
   const reqText = check.details?.[0] ?? "";
@@ -701,6 +703,33 @@ export function stepAfterRejection(current: Step, reason: RejectReason, serverTe
     case "error-tecnico":
       return { ...current, status: "NO_VERIFICADO", why: "Fallo técnico; inténtalo de nuevo." };
   }
+}
+
+/** Un rechazo del servidor a una acción propia, pendiente de clasificar cuando llegue el siguiente estado. */
+export interface PendingRejection {
+  reason: RejectReason;
+  text: string;
+  /** El paso que se mostraba al actuar. */
+  before: Step;
+  /** Marca de tiempo en ms. */
+  at: number;
+}
+
+export const REJECTION_DELAY_MS = 300;
+export const REJECTION_WINDOW_MS = 15_000;
+/** Un fallo técnico es transitorio: el aviso caduca antes. */
+export const TECHNICAL_WINDOW_MS = 4_000;
+
+/**
+ * Cómo se muestra un paso tras un rechazo: espera un ciclo de sincronización (300 ms) antes de clasificar; se retira si el
+ * paso ya es otro (la causa se resolvió o cambió: se muestra la verdad) o si caduca. Función pura.
+ */
+export function overlayRejection(r: PendingRejection, fresh: Step, now: number): { step: Step; keep: boolean } {
+  const age = now - r.at;
+  const window = classifyRejection(r.reason, true) === "error-tecnico" ? TECHNICAL_WINDOW_MS : REJECTION_WINDOW_MS;
+  if (age > window || fresh.key !== r.before.key) return { step: fresh, keep: false };
+  if (age < REJECTION_DELAY_MS) return { step: fresh, keep: true };
+  return { step: stepAfterRejection(fresh, r.reason, r.text, rejectionStillExplained(r.before, fresh)), keep: true };
 }
 
 // ---------------------------------------------------------------- estabilidad

@@ -56,6 +56,17 @@ export function nearby(s: Snapshot, target?: { x: number; y: number; label: stri
   return { ...(destination ? { destination } : {}), entries };
 }
 
+/** Resumen corto para anunciar bajo demanda (tecla L): el destino y lo más cercano, sin saturar. */
+export function nearbySummary(n: Nearby, max = 3): string {
+  const parts: string[] = [];
+  if (n.destination) parts.push(`Destino del objetivo: ${n.destination.text}`);
+  const first = n.entries.slice(0, max);
+  if (first.length === 0) parts.push("No hay nada a 8 casillas o menos.");
+  else parts.push(`Cerca: ${first.map((e) => `${e.label}, ${e.direction}`).join("; ")}.`);
+  if (n.entries.length > max) parts.push(`Hay ${n.entries.length - max} más en la pestaña Guía.`);
+  return parts.join(" ");
+}
+
 export const STATUS_HELP = [
   "Disponible: según el último estado, puedes hacerlo ahora; el servidor tiene siempre la última palabra.",
   "Bloqueado: te falta algo concreto; el requisito dice qué y cómo resolverlo.",
@@ -84,6 +95,6 @@ export function tipsFor(step: Step | undefined, s: Snapshot): string[] {
   }
   if (s.offers.length) tips.push("Tienes ofertas de enseñanza pendientes en Importantes. Aceptarlas no cambia tu objetivo.");
   tips.push("Los avisos (ofertas, novedades, errores) están en la consola; pulsa C para ir a ella. No cambian tu objetivo.");
-  tips.push("Atajos: O objetivo, P proyecto, M mapa, C consola, ? ayuda.");
+  tips.push("Atajos: O objetivo, L lo que hay cerca, P proyecto, M mapa, C consola, ? ayuda.");
   return tips;
 }

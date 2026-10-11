@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { directionText, nearby, NEARBY_RADIUS, STATUS_HELP, tipsFor, type Snapshot, type Step } from "@juego/shared";
+import { directionText, nearby, nearbySummary, NEARBY_RADIUS, STATUS_HELP, tipsFor, type Snapshot, type Step } from "@juego/shared";
 
 // G3c, P3 (TP-29): «Qué hay cerca» (alternativa textual del mapa) y consejos por situación. Modelos puros.
 
@@ -79,10 +79,17 @@ test("consejos: sin objetivo se invita a elegir uno; con paso, los consejos depe
   assert.ok(tipsFor(step({ status: "BLOQUEADO", requirements: [{ code: "sin-unidades:madera", text: "x", how: "y" }] }), snap()).some((t) => t.includes("regeneran")));
 });
 
+test("resumen hablado (tecla L): destino primero, tres elementos más cercanos y cuántos quedan; sin nada cerca lo dice", () => {
+  const text = nearbySummary(nearby(snap(), { x: 30, y: 10, label: "Fibra" }));
+  assert.match(text, /^Destino del objetivo: Fibra, a 20 casillas al este \(fuera del radio de la lista\)\. Cerca: Molino \(solar sin construir\), estás dentro; Madera \(1 unidad\), 1 casilla al sur; Madera \(3 unidades\), 2 casillas al este\. Hay 2 más en la pestaña Guía\.$/);
+  assert.equal(nearbySummary(nearby(snap({ others: [], structures: [], nodes: [] }))), "No hay nada a 8 casillas o menos.");
+  assert.equal(nearbySummary(nearby(snap(), undefined, 1)), "Cerca: Molino (solar sin construir), estás dentro; Madera (1 unidad), 1 casilla al sur.");
+});
+
 test("consejos: siempre los generales (consola y atajos) y el aviso de ofertas solo si las hay; el estado se explica con texto", () => {
   const base = tipsFor(step({}), snap());
   assert.ok(base.at(-2)!.includes("consola"));
-  assert.ok(base.at(-1)!.includes("O objetivo"));
+  assert.ok(base.at(-1)!.includes("O objetivo") && base.at(-1)!.includes("L lo que hay cerca"));
   assert.equal(base.some((t) => t.includes("ofertas de enseñanza")), false);
   assert.ok(tipsFor(step({}), snap({ offers: [{ id: "o", from: "bea", skill: "s", level: 1 }] })).some((t) => t.includes("ofertas de enseñanza")));
   assert.equal(STATUS_HELP.length, 4);

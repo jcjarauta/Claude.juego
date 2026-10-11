@@ -3,6 +3,7 @@
 // (scripts/ui-seed.ts). Se pega entero en la herramienta de JavaScript del navegador: evalúa a { capture, compare }.
 //   const s = <este archivo>;  const base = s.capture();   → T1–T4 de la pantalla actual
 //   s.compare(baseline, s.capture())                       → diferencias (lista vacía = sin cambios)
+//   await s.g3c()                                           → comprobaciones funcionales de G3c (zona C, Guía, diálogo, marcadores): lista {name, ok, detail}
 // No sustituye a `npm.cmd run dom` (estático) ni al recorrido con teclado: los completa con lo que solo se ve en el navegador.
 (() => {
   const visible = (e) => {
@@ -113,5 +114,63 @@
     return out;
   };
 
-  return { capture, compare };
+  /**
+   * G3c (M3): comprobaciones funcionales de la zona «Objetivo actual», la pestaña «Guía» y el diálogo de objetivo.
+   * Interactúa con la página (cambia de pestaña, abre y cierra el diálogo) y la deja como estaba. Requiere la sesión iniciada.
+   */
+  const g3c = async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const $ = (id) => document.getElementById(id);
+    const checks = [];
+    const check = (n, ok, detail = "") => checks.push({ name: n, ok: Boolean(ok), detail: String(detail) });
+
+    // Estructura de la zona C
+    const zone = $("objetivo");
+    check("Zona C visible y con nombre accesible", zone && visible(zone) && zone.getAttribute("aria-labelledby") === "objetivo-titulo");
+    check("Zona C antes del mapa en el documento (orden de Tab)", zone && (zone.compareDocumentPosition($("game")) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+    check("Zona C no es región viva", zone && !zone.closest("[aria-live]") && !zone.querySelector("[aria-live], [role=alert], [role=status]"));
+    for (const id of ["objetivo-nombre", "objetivo-estado", "objetivo-texto", "objetivo-elegir", "objetivo-detalles", "objetivo-destino", "objetivo-mostrar", "objetivo-volver"]) check(`Existe #${id}`, $(id));
+
+    // Pestañas: seis, un solo panel visible y con texto
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const original = tabs.find((t) => t.getAttribute("aria-selected") === "true");
+    check("Seis pestañas, la última es «Guía»", tabs.length === 6 && tabs.at(-1).id === "tab-guia", tabs.map((t) => t.textContent.trim()).join(" · "));
+    for (const t of tabs) {
+      t.click(); await wait(250);
+      const shown = [...document.querySelectorAll('[role="tabpanel"]')].filter(visible);
+      const panel = $(t.getAttribute("aria-controls"));
+      check(`Pestaña «${t.textContent.trim()}»: solo su panel y con contenido`, shown.length === 1 && shown[0] === panel && panel.textContent.trim().length > 0, shown.map((p) => p.id).join(","));
+    }
+    // Guía: secciones y lista de estados
+    $("tab-guia").click(); await wait(500);
+    check("Guía: siguiente paso, qué hay cerca y consejos con contenido", ["guia-objetivo", "guia-destino", "guia-consejos", "guia-estados"].every((id) => $(id).textContent.trim().length > 0));
+    check("Guía: cuatro estados explicados", $("guia-estados").children.length === 4);
+    check("Guía no es región viva", !$("panel-guia").querySelector("[aria-live], [role=alert], [role=status]"));
+    original?.click(); await wait(150);
+
+    // Diálogo «Elegir objetivo»: se abre con foco dentro, se cierra y el foco vuelve al botón
+    const choose = $("objetivo-elegir");
+    choose.focus(); choose.click(); await wait(300);
+    const dialog = document.querySelector("dialog[open]");
+    check("Diálogo de objetivo abierto con título y foco dentro", dialog && dialog.querySelector("h2")?.textContent === "Elegir objetivo" && dialog.contains(document.activeElement));
+    check("Diálogo: objetivo de la lista y «obtener un objeto» con etiqueta", dialog && dialog.querySelectorAll("select").length === 2 && [...dialog.querySelectorAll("select, input")].every((c) => c.labels && c.labels.length > 0));
+    dialog?.querySelector(".cerrar-dialogo")?.click(); await wait(250);
+    check("Al cerrar, el foco vuelve a «Elegir objetivo»", document.activeElement === choose);
+
+    // Estado coherente: con objetivo hay estado y texto; el destino y «Mostrar en el mapa» van a la vez
+    const hasObjective = !/^Sin objetivo/.test($("objetivo-nombre").textContent);
+    if (hasObjective) check("Con objetivo: estado y texto del paso", $("objetivo-estado").textContent.trim() !== "" && $("objetivo-texto").textContent.trim() !== "");
+    check("«Mostrar en el mapa» visible si y solo si hay destino", visible($("objetivo-mostrar")) === ($("objetivo-destino").textContent.trim() !== ""));
+    check("«Volver a mi personaje» oculto con la cámara en su sitio", !visible($("objetivo-volver")));
+
+    // Medidas
+    check("Sin desplazamiento horizontal", document.documentElement.scrollWidth <= innerWidth + 1, `${document.documentElement.scrollWidth} ≤ ${innerWidth}`);
+    const small = [...document.querySelectorAll("button, a[href], select, input, [role=tab]")].filter((e) => visible(e) && e.type !== "radio" && e.type !== "checkbox" && !(e.tagName === "A" && e.closest("p")))
+      .filter((e) => { const r = e.getBoundingClientRect(); return r.width < 24 || r.height < 24; }).map(name);
+    check("Ningún control menor de 24 px (salvo enlaces dentro de una frase)", small.length === 0, small.join(", "));
+    check("Sin tabindex positivo", [...document.querySelectorAll("[tabindex]")].every((e) => e.tabIndex <= 0));
+    return checks;
+  };
+
+  return { capture, compare, g3c };
 })()

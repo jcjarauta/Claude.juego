@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (103 ids)
+## index.html (104 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -31,13 +31,14 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `objetivo-nombre` | — | — | — |
 | `objetivo-estado` | — | — | `#objetivo-estado` |
 | `objetivo-texto` | — | — | — |
-| `objetivo-porque` | — | — | — |
-| `objetivo-progreso` | — | — | — |
 | `objetivo-requisitos` | — | — | — |
 | `objetivo-alternativas` | — | — | — |
 | `objetivo-rutas` | — | — | — |
-| `objetivo-avisos` | — | — | — |
+| `objetivo-detalles` | — | — | — |
+| `objetivo-porque` | — | — | — |
+| `objetivo-progreso` | — | — | — |
 | `objetivo-destino` | — | — | — |
+| `objetivo-avisos` | — | — | — |
 | `objetivo-accion` | — | — | — |
 | `objetivo-mostrar` | — | — | — |
 | `objetivo-volver` | — | — | — |

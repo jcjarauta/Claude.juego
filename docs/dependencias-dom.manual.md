@@ -105,3 +105,11 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Atajo **O**: evento de documento `enfocar-objetivo` → foco en `#objetivo-nombre` (`tabindex="-1"`); se ignora en campos, pestañas, registros y diálogos, igual que `?` y `C`. La Ayuda lo lista.
 - A-3: el botón de receta no repite el verbo si el nombre ya empieza por él («Moler a mano», no «Moler: Moler a mano») y se describe con su texto de ayuda (`aria-describedby` → `receta-ayuda-<id>`).
 
+### Mejoras de cierre de G3c (M1–M6, 2026-10-11)
+
+- **Zona C compacta (M4):** el porqué, la barra de progreso, el destino en texto y los avisos pendientes pasan a `details#objetivo-detalles` (plegado por omisión, estado recordado en `localStorage`). Quedan fuera del desplegable lo que exige atención: requisitos, alternativas y elección de ruta, el estado y el texto del paso y los botones. Un `summary` nuevo («Detalles del paso») entra en el orden de Tab justo después del texto del paso.
+- **Obtener un objeto (M2):** el diálogo «Elegir objetivo» añade una lista de objetos y una cantidad (`select` y `input[type=number]` con etiqueta). El objeto elegido sustituye al de la lista.
+- **Lo que hay cerca en voz (M5):** tecla **L** → evento `anunciar-cerca` → resumen anunciado por el bus de eventos (prioridad 1: el destino y los tres elementos más cercanos). La Ayuda la lista.
+- **Botón de la acción (M1):** para fabricar usa el verbo de la receta («Moler», «Hornear»).
+- **Guion de humo (M3):** `await s.g3c()` de `scripts/ui-smoke.js` devuelve 30 comprobaciones funcionales (zona C, pestañas, Guía, diálogo, medidas); la línea base está en `scripts/dom-baseline.json` (`marcoG3c`).
+

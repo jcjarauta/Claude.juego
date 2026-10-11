@@ -1,6 +1,6 @@
 import {
-  createStabilizer, directionText, evaluateObjective, objectiveLabel, rejectionStillExplained, stepAfterRejection, suggestObjectives,
-  type Objective, type RejectReason, type Snapshot, type Step, type StepAction, type StepStatus,
+  createStabilizer, directionText, evaluateObjective, nearby, nearbySummary, objectiveLabel, overlayRejection, suggestObjectives,
+  type Objective, type PendingRejection, type RejectReason, type Snapshot, type Step, type StepAction, type StepStatus,
 } from "@juego/shared";
 import type { Feed } from "./feed.ts";
 import { loadObjective, objectiveKey, saveObjective } from "./objective-store.ts";
@@ -31,7 +31,6 @@ const ACTION_LABEL: Partial<Record<StepAction["type"], string>> = {
 
 const MOVE_CODES = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"]);
 const MOVING_MS = 600;
-const REJECTION_WINDOW_MS = 15_000;
 
 export interface ObjectiveHost {
   feed: Feed;
@@ -66,6 +65,10 @@ export function createObjectivePanel(host: ObjectiveHost) {
   const destination = byId("objetivo-destino");
   const showButton = byId<HTMLButtonElement>("objetivo-mostrar");
   const backButton = byId<HTMLButtonElement>("objetivo-volver");
+  const details = byId<HTMLDetailsElement>("objetivo-detalles");
+  const DETAILS_KEY = "engremiat.objetivo-detalles";
+  try { details.open = localStorage.getItem(DETAILS_KEY) === "abiertos"; } catch { /* sin almacenamiento: plegado */ }
+  details.addEventListener("toggle", () => { try { localStorage.setItem(DETAILS_KEY, details.open ? "abiertos" : "plegados"); } catch { /* sin almacenamiento */ } });
   const bar = progressCard("Progreso del paso", "objetivo-barra");
   byId("objetivo-progreso").append(bar.element);
 
@@ -77,7 +80,7 @@ export function createObjectivePanel(host: ObjectiveHost) {
   let lastRender = "";
   let lastRoutes = "";
   let lastTarget = "";
-  let rejection: { reason: RejectReason; text: string; before: Step; at: number } | undefined;
+  let rejection: PendingRejection | undefined;
   let lastMoveAt = -Infinity;
   let timer: number | undefined;
   let lastCandidates: ReturnType<typeof suggestObjectives> = [];
@@ -124,7 +127,7 @@ export function createObjectivePanel(host: ObjectiveHost) {
         requirements.replaceChildren(...step.requirements.map((r) => el("li", {}, el("strong", {}, "Falta: "), `${r.text} `, el("span", { className: "ayuda" }, r.how))));
         alternatives.replaceChildren(...step.alternatives.map((a) => el("li", {}, a)));
       }
-      const label = step.action ? ACTION_LABEL[step.action.type] : undefined;
+      const label = step.action ? (step.action.type === "craft" ? step.action.verb ?? "Fabricar" : ACTION_LABEL[step.action.type]) : undefined;
       doButton.hidden = !(label && step.status === "DISPONIBLE");
       if (label) doButton.textContent = label;
       const routeKey = JSON.stringify(step.routes?.map((r) => [r.id, r.viable]) ?? []);
@@ -165,9 +168,9 @@ export function createObjectivePanel(host: ObjectiveHost) {
     let fresh = evaluateObjective(objective, snap);
     // Tras un rechazo del servidor: se espera a que el estado se sincronice y se clasifica (bloqueo, estado desactualizado, permisos, técnico).
     if (rejection) {
-      const age = Date.now() - rejection.at;
-      if (age > REJECTION_WINDOW_MS || (fresh.key !== rejection.before.key)) rejection = undefined;
-      else if (age >= 300 || force) fresh = stepAfterRejection(fresh, rejection.reason, rejection.text, rejectionStillExplained(rejection.before, fresh));
+      const result = overlayRejection(rejection, fresh, Date.now());
+      fresh = result.step;
+      if (!result.keep) rejection = undefined;
     }
     const result = stabilizer.feed({ step: fresh, now: Date.now(), busy: busy() });
     shownStep = result.shown;
@@ -179,7 +182,13 @@ export function createObjectivePanel(host: ObjectiveHost) {
     }
   }
 
-  doButton.onclick = () => { if (shownStep?.action) host.perform(shownStep.action); };
+  doButton.onclick = () => { rejection = undefined; if (shownStep?.action) host.perform(shownStep.action); };
+  // L: «lo que hay cerca» en voz, bajo demanda (el destino primero y lo más cercano).
+  document.addEventListener("anunciar-cerca", () => {
+    const snap = host.snapshot();
+    if (!snap || dialogOpen()) return;
+    host.feed.emit({ kind: "aviso", importance: "normal", own: true, priority: 1, text: nearbySummary(nearby(snap, shownStep?.target)) });
+  });
   showButton.onclick = () => {
     host.showTarget();
     const snap = host.snapshot();
@@ -195,6 +204,12 @@ export function createObjectivePanel(host: ObjectiveHost) {
     const candidates = suggestObjectives(snap);
     const select = el("select");
     select.append(el("option", { value: "", textContent: "Sin objetivo" }));
+    // «Obtener un objeto» (M2): el planificador busca la ruta; si hay varias viables, la zona C pide elegir.
+    const itemSelect = el("select");
+    itemSelect.append(el("option", { value: "", textContent: "— Ninguno —" }));
+    for (const [id, itemName] of Object.entries(snap.items).sort((a, b) => a[1].localeCompare(b[1], "es"))) itemSelect.append(el("option", { value: id, textContent: itemName }));
+    const amount = el("input", { type: "number", min: "1", max: "1000", value: "1" });
+    if (objective?.kind === "item") { itemSelect.value = objective.item; amount.value = String(objective.amount); }
     candidates.forEach((c, i) => select.append(el("option", { value: String(i), textContent: c.label })));
     const current = objective ? JSON.stringify({ ...objective, route: undefined }) : "";
     const index = candidates.findIndex((c) => JSON.stringify(c.objective) === current);
@@ -204,10 +219,14 @@ export function createObjectivePanel(host: ObjectiveHost) {
       title: "Elegir objetivo",
       content: el("form", { noValidate: true, onsubmit: (e: Event) => e.preventDefault() },
         field("Objetivo activo", select, "El objetivo no cambia solo: ni por ofertas, ni por misiones nuevas, ni al completar uno. Se guarda en este navegador."),
+        field("O bien, obtener un objeto", itemSelect, "Si eliges un objeto, se usa en lugar del objetivo de la lista; el paso te dice cómo conseguirlo."),
+        field("Cantidad que debe haber en el almacén", amount),
         el("p", {}, accept)),
     });
     accept.onclick = () => {
-      const picked = select.value === "" ? undefined : candidates[Number(select.value)]?.objective;
+      const quantity = Math.min(1000, Math.max(1, Math.trunc(Number(amount.value)) || 1));
+      const picked: Objective | undefined = itemSelect.value !== "" ? { kind: "item", item: itemSelect.value, amount: quantity }
+        : select.value === "" ? undefined : candidates[Number(select.value)]?.objective;
       dialog.close();
       setObjective(picked);
     };

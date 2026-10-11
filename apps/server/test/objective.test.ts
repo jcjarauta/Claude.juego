@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  classifyRejection, createStabilizer, directionText, evaluateObjective, isObsolete, objectiveLabel, planRoutes, REJECT_TEXT, REJECTION_REASONS,
+  classifyRejection, createStabilizer, overlayRejection, REJECTION_DELAY_MS, REJECTION_WINDOW_MS, TECHNICAL_WINDOW_MS, directionText, evaluateObjective, isObsolete, objectiveLabel, planRoutes, REJECT_TEXT, REJECTION_REASONS,
   stepAfterRejection, suggestObjectives, type Objective, type RecipeDef, type Snapshot, type Step,
 } from "@juego/shared";
 
@@ -137,7 +137,7 @@ test("cadena: una ruta viable se usa; lejos del edificio pide ir; junto a él, f
   const near = ev({ kind: "item", item: "harina", amount: 1 }, snap({ stock: stocked, me: { ...snap().me, x: 9, y: 5 } }));
   assert.equal(near.status, "DISPONIBLE");
   assert.equal(near.type, "craft");
-  assert.deepEqual(near.action, { type: "craft", recipe: "moler", amount: 1, structure: "molino" });
+  assert.deepEqual(near.action, { type: "craft", recipe: "moler", amount: 1, structure: "molino", verb: "Moler" });
   assert.match(near.text, /^Moler harina/);
 });
 
@@ -486,4 +486,43 @@ test("estabilizador: completar u obsoletar el objetivo se muestra al momento aun
   assert.equal(r.announce, true);
   const gone: Step = { ...a, key: "tarea:p:t", status: "NO_VERIFICADO", obsolete: true, text: "Ya no existe" };
   assert.equal(createStabilizer().feed({ step: a, now: 0, busy: false }) && stab.feed({ step: gone, now: 20, busy: true }).shown.key, "tarea:p:t");
+});
+
+test("rutas alternativas: cada ruta se describe con el nombre de su receta para poder distinguirlas", () => {
+  const recipes = [...snap().recipes, RECIPES.find((r) => r.id === "pan-directo")!];
+  const choose = ev({ kind: "item", item: "pan", amount: 1 }, snap({ recipes, stock: { harina: 1, madera: 1, trigo: 3 } }));
+  const texts = choose.routes!.map((r) => r.text);
+  assert.equal(new Set(texts).size, texts.length, "no hay dos rutas con el mismo texto");
+  assert.ok(texts.some((t) => t.includes("«Hornear pan»")) && texts.some((t) => t.includes("«Pan de grano»")));
+});
+
+test("aviso tras un rechazo: espera un ciclo de sincronización, clasifica, caduca y se retira si el paso ya es otro", () => {
+  const before: Step = { key: "fabricar:x", status: "DISPONIBLE", type: "craft", text: "Moler", why: "", requirements: [], alternatives: [] };
+  const rej = (reason: Parameters<typeof classifyRejection>[0], at = 0) => ({ reason, text: "texto del servidor", before, at });
+  // Antes de 300 ms se muestra el paso tal cual (aún no ha llegado el estado nuevo).
+  assert.equal(overlayRejection(rej("faltan-materiales"), before, REJECTION_DELAY_MS - 1).step.status, "DISPONIBLE");
+  // Mismo paso, sigue DISPONIBLE tras el ciclo: el estado no explica el rechazo → estado desactualizado (NO_VERIFICADO).
+  const stale = overlayRejection(rej("faltan-materiales"), before, REJECTION_DELAY_MS);
+  assert.equal(stale.step.status, "NO_VERIFICADO");
+  assert.match(stale.step.why, /estado cambió/);
+  assert.equal(stale.keep, true);
+  // Mismo paso ya bloqueado por el estado: bloqueo confirmado, con el motivo del servidor, durante 15 s.
+  const blocked: Step = { ...before, status: "BLOQUEADO", requirements: [{ code: "faltan-materiales", text: "Faltan 2 de madera.", how: "Recógela." }] };
+  const confirmed = overlayRejection(rej("faltan-materiales"), blocked, 5_000);
+  assert.equal(confirmed.step.status, "BLOQUEADO");
+  assert.match(confirmed.step.why, /rechazó/);
+  assert.equal(overlayRejection(rej("faltan-materiales"), blocked, REJECTION_WINDOW_MS + 1).keep, false);
+  // Permisos: bloqueado con «Necesitas permiso».
+  assert.match(overlayRejection(rej("sin-permiso"), before, 1_000).step.why, /Necesitas permiso/);
+  // Técnico: transitorio, caduca a los 4 s.
+  const tech = overlayRejection(rej("demasiadas-solicitudes"), before, 1_000);
+  assert.equal(tech.step.status, "NO_VERIFICADO");
+  assert.match(tech.step.why, /técnico/);
+  assert.equal(overlayRejection(rej("demasiadas-solicitudes"), before, TECHNICAL_WINDOW_MS + 1).keep, false);
+  assert.equal(overlayRejection(rej("demasiadas-solicitudes"), before, TECHNICAL_WINDOW_MS + 1).step.status, "DISPONIBLE");
+  // Si el paso ya es otro, se muestra la verdad y el aviso se retira.
+  const other: Step = { ...before, key: "recoger:madera", type: "collect" };
+  const gone = overlayRejection(rej("faltan-materiales"), other, 1_000);
+  assert.equal(gone.step.key, "recoger:madera");
+  assert.equal(gone.keep, false);
 });
