@@ -21,7 +21,9 @@ export function createSkillsView(room: PanelRoom) {
       const { state } = room;
       const defs = [...state.skills.entries()].map(([id, s]) => skillDefFromState(id, s));
       const recipeName = (id: string) => state.recipes.get(id)?.name ?? id;
-      const lines = defs.map((d) => `${d.name}${d.description ? ` — ${d.description}` : ""}. Niveles: ${d.levels
+      // Lo archivado no se lista (G1, Q240), pero quien ya tiene un nivel lo conserva en «Quién las tiene».
+      const active = defs.filter((d) => !state.skills.get(d.id)?.archived);
+      const lines = active.map((d) => `${d.name}${d.description ? ` — ${d.description}` : ""}. Niveles: ${d.levels
         .map((l, i) => `${i + 1}. ${l.name} (fabricar ${l.practice.times} ${l.practice.times === 1 ? "vez" : "veces"} «${recipeName(l.practice.recipe)}»)`).join("; ")}.`);
       const people = [...state.players.values()].filter((p) => p.skills.size > 0).map((p) => {
         const have = [...p.skills.entries()].map(([id, level]) => {

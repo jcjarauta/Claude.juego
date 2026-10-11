@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { DEFAULT_BUILD_LIMITS, MESSAGE } from "@juego/shared";
+import { readFileSync } from "node:fs";
+import {
+  achievementSnapshotFromState, DEFAULT_BUILD_LIMITS, evaluateObjective, MESSAGE, skillBadgesFromState, snapshotFromState,
+  type Objective, type WorldConfig,
+} from "@juego/shared";
 import { MIGRATIONS, openStore, SCHEMA_VERSION } from "../src/store.ts";
 import { fixture, joinWorld, sleep, startServer, tempDb, waitFor, type TestPlayer } from "./helpers.ts";
 
@@ -215,4 +219,42 @@ test("TP-31: archivar y restaurar definiciones (de la configuración y del panel
   assert.equal(store.getItemDefs().length, 2, "nada se borra: los dos objetos «Sal» siguen en la base");
   assert.ok(store.audit().balanced);
   store.close();
+});
+
+// --------------------------------------------------------------- lo archivado en el modelo del juego (P2)
+
+test("TP-31: lo archivado desaparece de las instantáneas del objetivo y de los logros, y el planificador usa los límites vigentes", async () => {
+  const config = JSON.parse(readFileSync(WORLD, "utf8")) as WorldConfig;
+  const dbPath = tempDb();
+  const server = await startServer({ WORLD_CONFIG: WORLD, DB_PATH: dbPath });
+  try {
+    const ana = await joinWorld(server.url, "ana");
+    const luis = await joinWorld(server.url, "luis");
+    await waitFor(() => limit(luis, "plannerDepth") === 8);
+    const snap = () => snapshotFromState(luis.room.state, config, luis.room.sessionId);
+    assert.deepEqual(snap().planner, { depth: 8, routes: 24 }, "el planificador recibe los límites vigentes");
+    assert.ok(snap().recipes.some((r) => r.id === "herramienta"));
+    assert.ok(snap().missions.some((m) => m.def.id === "primera-herramienta"));
+    assert.ok(achievementSnapshotFromState(luis.room.state, luis.room.sessionId).missions.some((m) => m.id === "primera-herramienta"));
+
+    send(ana, MESSAGE.updateLimits, { limits: { plannerDepth: 3, plannerRoutes: 5 } });
+    await waitFor(() => snap().planner?.depth === 3 && snap().planner?.routes === 5);
+
+    // Con la misión y la receta archivadas, el modelo no las propone; el objetivo por misión archivada queda bloqueado.
+    for (const [kind, id] of [["mision", "primera-herramienta"], ["receta", "herramienta"]] as const) {
+      await sleep(150);
+      send(ana, MESSAGE.archiveDef, { kind, id });
+      await waitFor(() => (kind === "mision" ? luis.room.state.missions.get(id)! : luis.room.state.recipes.get(id)!).archived === true);
+    }
+    assert.ok(!snap().recipes.some((r) => r.id === "herramienta"), "la receta archivada no se propone");
+    assert.ok(!snap().missions.some((m) => m.def.id === "primera-herramienta"), "la misión archivada y sin cumplir no cuenta");
+    assert.ok(!achievementSnapshotFromState(luis.room.state, luis.room.sessionId).missions.some((m) => m.id === "primera-herramienta"));
+    const objective: Objective = { kind: "mission", id: "primera-herramienta" };
+    assert.notEqual(evaluateObjective(objective, snap()).status, "disponible", "un objetivo archivado nunca figura como disponible");
+    assert.ok(Array.isArray(skillBadgesFromState(luis.room.state, luis.room.sessionId)));
+    await ana.room.leave();
+    await luis.room.leave();
+  } finally {
+    await server.kill();
+  }
 });

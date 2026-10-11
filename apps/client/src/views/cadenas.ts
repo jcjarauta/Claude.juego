@@ -20,7 +20,7 @@ export function chainsFromState(state: WorldState, config: WorldConfig, stock?: 
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name]));
   const structures = new Map([...state.structures.entries()].map(([id, s]) => [id, { def: structureDefFromState(id, s), built: s.built }]));
   return describeChains({
-    recipes: [...state.recipes.entries()].map(([id, r]) => recipeDefFromState(id, r)),
+    recipes: [...state.recipes.entries()].filter(([, r]) => !r.archived).map(([id, r]) => recipeDefFromState(id, r)),
     building: (id) => { const s = structures.get(id); return s && { name: s.def.name, built: s.built }; },
     entryName: (id) => resourceName.get(id) ?? state.items.get(id)?.name ?? id,
     isItem: (id) => state.items.has(id),

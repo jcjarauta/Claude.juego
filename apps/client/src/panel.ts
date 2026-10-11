@@ -400,7 +400,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
       focused = true;
       container.querySelector<HTMLElement>("h2")?.focus();
     }
-    const items = [...room.state.missions.entries()].map(([id, m]) => {
+    const items = [...room.state.missions.entries()].filter(([, m]) => !m.archived || m.status === "completada").map(([id, m]) => {
       const def = missionDefFromState(id, m);
       if (missionStatus.has(id) && missionStatus.get(id) !== m.status && m.status === "completada") {
         announce(`¡Misión «${def.name}» completada por ${m.completedBy}!`);

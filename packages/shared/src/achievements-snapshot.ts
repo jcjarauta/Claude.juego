@@ -14,7 +14,8 @@ export function achievementSnapshotFromState(state: WorldState, sessionId: strin
     me: { name: me.name, skills: record(me.skills), crafts: record(me.crafts) },
     stock: record(state.community),
     structures: [...state.structures.entries()].map(([id, s]) => ({ id, name: s.name, origin: s.origin, built: s.built, builtBy: s.builtBy, projectId: s.projectId })),
-    missions: [...state.missions.entries()].map(([id, m]) => ({
+    // Lo archivado (G1) no cuenta como pendiente: una misión archivada solo se conserva si ya estaba cumplida.
+    missions: [...state.missions.entries()].filter(([, m]) => !m.archived || m.status === "completada").map(([id, m]) => ({
       id, name: m.name, origin: m.origin, createdBy: m.createdBy, completed: m.status === "completada", completedBy: m.completedBy,
       objective: m.objectiveKind === "project-completed" ? { kind: "project-completed", project: m.objectiveTarget } : { kind: "item-in-community", item: m.objectiveTarget, amount: m.objectiveAmount },
     })),
@@ -23,7 +24,7 @@ export function achievementSnapshotFromState(state: WorldState, sessionId: strin
       contributors: Object.fromEntries([...p.contributors.entries()].map(([name, c]) => [name, [...c.totals.values()].reduce((n, v) => n + v, 0)])),
       tasks: [...p.tasks.values()].map((t) => ({ resource: t.resource, required: t.required, contributed: p.progress.get(t.resource) ?? 0 })),
     })),
-    skills: [...state.skills.entries()].map(([id, k]) => ({ id, name: k.name, levels: k.levels.map((l) => l.name) })),
+    skills: [...state.skills.entries()].filter(([, k]) => !k.archived).map(([id, k]) => ({ id, name: k.name, levels: k.levels.map((l) => l.name) })),
   };
 }
 
@@ -42,7 +43,7 @@ export interface SkillBadgeInfo {
 export function skillBadgesFromState(state: WorldState, sessionId: string): SkillBadgeInfo[] {
   const me = state.players.get(sessionId);
   if (!me) return [];
-  return [...state.skills.entries()].map(([id, k]) => {
+  return [...state.skills.entries()].filter(([id, k]) => !k.archived || (me.skills.get(id) ?? 0) > 0).map(([id, k]) => {
     const def = skillDefFromState(id, k);
     const level = me.skills.get(id) ?? 0;
     const progress = practiceProgress(def, level, (recipe) => me.crafts.get(recipe) ?? 0);

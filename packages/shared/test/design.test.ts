@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  archivedDependencies, checkArchive, checkRestore, checkUpdateLimits, DEFAULT_BUILD_LIMITS, HARD_BUILD_LIMITS, LIMIT_KEYS, LIMIT_LABELS, scaleLevels, SKILL_SCALES,
+  archivedDependencies, checkArchive, checkRestore, checkUpdateLimits, DEFAULT_BUILD_LIMITS, HARD_BUILD_LIMITS, LIMIT_KEYS, LIMIT_LABELS, levelBadge, scaleLevels, SKILL_SCALES,
   similarNames, usedBy, type DesignView, type ItemDef, type MissionDef, type RecipeDef, type SkillDef,
 } from "../src/index.ts";
 
@@ -198,4 +198,16 @@ test("posibles duplicados: mismo nombre sin tildes ni mayúsculas o uno contenid
   assert.deepEqual(similarNames("objeto", entries), groups, "mismo resultado con las mismas entradas");
   assert.ok(groups.every((g) => g.kind === "objeto"));
   assert.deepEqual(similarNames("receta", [{ id: "x", name: "Moler", archived: false }]), []);
+});
+
+test("la insignia de nivel distingue cada nivel con 2, 5 y 20 niveles (forma y texto, sin repetir texto)", () => {
+  for (const n of [2, 5, 20]) {
+    const names = Array.from({ length: n }, (_, i) => `Nivel ${i + 1}`);
+    const badges = names.map((_, i) => levelBadge(i + 1, names));
+    assert.equal(new Set(badges.map((b) => b.label)).size, n, `${n} niveles: cada etiqueta es distinta`);
+    for (const b of badges) assert.ok(b.shape.length > 0 && b.label.startsWith(b.shape), "la forma va también en el texto");
+    assert.equal(levelBadge(0, names).label, "○ Sin nivel");
+  }
+  const five = Array.from({ length: 5 }, (_, i) => levelBadge(i + 1, ["a", "b", "c", "d", "e"]).shape);
+  assert.equal(new Set(five).size, 5, "con 5 niveles cada nivel tiene su forma");
 });

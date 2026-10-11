@@ -509,7 +509,7 @@ export class WorldScene extends Phaser.Scene {
     const row = (amount: (id: string) => number) => this.config.resources.map((r) => ({ id: r.id, name: r.name, amount: amount(r.id) }));
     this.hud.setInventory(row((id) => me.inventory.get(id) ?? 0), this.config.inventoryMax, (resource, amount) => this.deposit(resource, amount));
     const communityRows = [...row((id) => state.community.get(id) ?? 0),
-      ...[...state.items.entries()].map(([id, i]) => ({ id, name: i.name, amount: state.community.get(id) ?? 0 }))];
+      ...[...state.items.entries()].filter(([id, i]) => !i.archived || (state.community.get(id) ?? 0) > 0).map(([id, i]) => ({ id, name: i.name, amount: state.community.get(id) ?? 0 }))];
     this.hud.setCommunity(communityRows, state.communityName);
 
     const projectId = this.selectedProject;
@@ -520,7 +520,7 @@ export class WorldScene extends Phaser.Scene {
       this.projectPanel.render({
         state: projectState,
         structureDef,
-        recipes: structureDef ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureDef.id).map(([id, r]) => recipeDefFromState(id, r)) : [],
+        recipes: structureDef ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureDef.id && !r.archived).map(([id, r]) => recipeDefFromState(id, r)) : [],
         itemName: (id) => state.items.get(id)?.name.toLowerCase() ?? id,
         building: (id) => { const s = state.structures.get(id); return s && { name: s.name, built: s.built }; },
         chains: chainsFromState(state, this.config, (id) => state.community.get(id) ?? 0, (skill) => me.skills.get(skill) ?? 0),
@@ -528,7 +528,7 @@ export class WorldScene extends Phaser.Scene {
         community: (resource) => state.community.get(resource) ?? 0,
         ownName: me.name,
         structure: structureEntry?.[1],
-        missions: [...state.missions.entries()],
+        missions: [...state.missions.entries()].filter(([, m]) => !m.archived || m.status === "completada"),
         projectName: (id) => state.projects.get(id)?.name ?? id,
         position: { x: me.x, y: me.y },
       });
@@ -536,7 +536,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.refreshPlayerList();
     // Habilidades (F2c): tu nivel, tu progreso, ofertas recibidas y a quién puedes enseñar.
-    const skillDefs = [...state.skills.entries()].map(([id, s]) => skillDefFromState(id, s));
+    const skillDefs = [...state.skills.entries()].filter(([id, s]) => !s.archived || (me.skills.get(id) ?? 0) > 0).map(([id, s]) => skillDefFromState(id, s));
     this.skillsPanel.render({
       skills: skillDefs,
       mine: (skill) => me.skills.get(skill) ?? 0,

@@ -23,9 +23,10 @@ export function snapshotFromState(
     nodes: config.nodes.map((n) => ({ id: n.id, resource: n.resource, x: n.x, y: n.y, units: state.nodes.get(n.id) ?? 0 })),
     resources: Object.fromEntries(config.resources.map((r) => [r.id, r.name])),
     items,
-    recipes: [...state.recipes.entries()].map(([id, r]) => recipeDefFromState(id, r)),
+    // Lo archivado (G1, Q240) no se propone: ni recetas, ni habilidades, ni misiones sin cumplir.
+    recipes: [...state.recipes.entries()].filter(([, r]) => !r.archived).map(([id, r]) => recipeDefFromState(id, r)),
     structures: [...state.structures.entries()].map(([id, s]) => ({ def: structureDefFromState(id, s), built: s.built })),
-    skills: [...state.skills.entries()].map(([id, k]) => skillDefFromState(id, k)),
+    skills: [...state.skills.entries()].filter(([, k]) => !k.archived).map(([id, k]) => skillDefFromState(id, k)),
     projects: [...state.projects.entries()].map(([id, p]) => ({
       def: projectDefFromState(id, p),
       contributed: record(p.progress),
@@ -34,7 +35,7 @@ export function snapshotFromState(
       completed: p.status === "construido" || p.status === "completado",
       approvalMissing: p.requiresApproval && [...p.tasks.values()].some((t) => t.decision !== "aprobada"),
     })),
-    missions: [...state.missions.entries()].map(([id, m]) => ({ def: missionDefFromState(id, m), completed: m.status === "completada" })),
+    missions: [...state.missions.entries()].filter(([, m]) => !m.archived || m.status === "completada").map(([id, m]) => ({ def: missionDefFromState(id, m), completed: m.status === "completada" })),
     others: [...state.players.entries()].filter(([id]) => id !== sessionId).map(([, p]) => ({ name: p.name, x: p.x, y: p.y, connected: p.connected, skills: record(p.skills) })),
     offers,
     // Límites del planificador vigentes (G1): los edita la administración desde el panel.

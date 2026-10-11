@@ -62,7 +62,7 @@ export function createMetrics(root: HTMLElement, ctx: ViewContext) {
     if (signature === lastSignature) return;
     lastSignature = signature;
     const all = [...ctx.room.state.projects.values()];
-    const missions = [...ctx.room.state.missions.values()];
+    const missions = [...ctx.room.state.missions.values()].filter((m) => !m.archived || m.status === "completada");
     global.replaceChildren(
       el("dt", {}, "Proyectos abiertos"), el("dd", {}, String(all.filter((p) => p.phase !== "cerrado" && !projectDone(p)).length)),
       el("dt", {}, "Proyectos terminados"), el("dd", {}, String(all.filter(projectDone).length)),
