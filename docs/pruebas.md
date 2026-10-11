@@ -349,3 +349,14 @@ Defectos encontrados y corregidos:
 Defectos encontrados y corregidos:
 - `fetch` se niega a conectar con ciertos puertos (por ejemplo, el 3659). Las pruebas elegían puertos al azar entre 3600 y 4000 y fallaban de vez en cuando; ahora usan 42000–43999.
 - Tras entrar, el foco se quedaba en la página y había que buscar el mapa con el teclado; ahora pasa al mapa.
+
+### G3b — 2026-10-11 (rama `g3b-marco-pantalla`; en curso, puertas superadas hasta ahora)
+
+| Puerta | Qué se comprobó | Resultado | Estado |
+|---|---|---|---|
+| P0 Línea base | Inventario de dependencias del DOM (`docs/dependencias-dom.md`), `npm.cmd run dom` (estático), guion `scripts/ui-smoke.js` (T1–T4) con prueba de que detecta cambios, semilla `scripts/ui-seed.ts`, línea base `scripts/dom-baseline.json` | Línea base registrada y **aprobada por la persona responsable**: a 1280 px el panel del proyecto mide 1117 px y el inventario queda en y = 1108; 27 controles, 19 enfocables, 35 selectores estructurales; efectos de depositar y fabricar medidos | OK |
+| P1 Piezas | Modelos puros (`game-events`, `event-log-model`, `notification-center-model`, `announcer-model`, `preferences-model`, `tab-activity`) con 17 pruebas unitarias nuevas; componentes `console-log`, `announcer`, `dialog`, `badge`, `preferences`; demos en `/estilo`; tema de alto contraste y `a11y` en dos temas | 181 de 181 pruebas; `a11y`: 30 pares en dos temas (alto contraste ≥ 7:1 texto y ≥ 4,5:1 componentes); **la pantalla del juego no cambia**: 61 ids, 27 controles, 19 enfocables, los 35 selectores con las mismas coincidencias, mismos estilos de muestra y mismo orden real de Tab (20 pulsaciones); el panel conserva sus 53 ids, 40 controles y cuatro pestañas | OK |
+
+Comprobado en `/estilo` (navegador integrado): P0 asertivo sin duplicados (el mismo error dos veces se anuncia una); P1 en cola sin pérdidas (tres subidas de nivel seguidas se anuncian las tres, de una en una); 250 eventos normales dejan el historial en 200 sin tocar las notificaciones pendientes; descartar un aviso no cancela la operación; relevantes fusionadas (×3); filtros y plegado de la consola; diálogo con foco dentro y retorno al botón; insignia con texto oculto; preferencias (150 % y 200 % sin desplazamiento horizontal, alto contraste con mínimo 14,77:1, menos movimiento, restablecer).
+
+Defecto encontrado y corregido en P1: con el texto al 200 % el formulario de preferencias desbordaba la página; corregido con `min-width: 0` y anchos contenidos.

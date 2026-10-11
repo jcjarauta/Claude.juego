@@ -3,6 +3,11 @@
  * Usa solo variables de tokens.css. Lo específico de cada pantalla se queda en su página.
  */
 :root { font-family: var(--fuente); font-size: 100%; }
+:root[data-tamano="125"] { font-size: 125%; }
+:root[data-tamano="150"] { font-size: 150%; }
+:root[data-tamano="200"] { font-size: 200%; }
+/* Menos movimiento (preferencia o sistema): sin animaciones ni transiciones. */
+:root[data-movimiento="reducido"] *, :root[data-movimiento="reducido"] *::before, :root[data-movimiento="reducido"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 body { margin: 0; padding: var(--espacio-4); background: var(--color-fondo); color: var(--color-texto); }
 main { max-width: 1280px; margin: 0 auto; }
 p { margin: var(--espacio-2) 0; line-height: var(--interlineado); }
@@ -47,3 +52,33 @@ kbd { background: var(--color-boton); border: 1px solid var(--color-borde-fuerte
 /* Tarjeta de progreso */
 .progreso-tarjeta { display: grid; gap: var(--espacio-1); }
 .progreso-tarjeta progress { width: 100%; height: 14px; accent-color: var(--color-acento); }
+
+/* Consola (G3b): Importantes e Historial */
+.consola { border: 1px solid var(--color-borde); border-radius: var(--radio-grande); background: var(--color-superficie); padding: var(--espacio-2) var(--espacio-4) var(--espacio-3); }
+.consola-cabecera { display: flex; flex-wrap: wrap; gap: var(--espacio-3); align-items: center; }
+.consola-cabecera h2 { margin: 0; font-size: var(--texto-h2); }
+.importantes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--espacio-2); }
+.notificacion { border: 1px solid var(--color-borde-campo); border-radius: var(--radio); padding: var(--espacio-2) var(--espacio-3); }
+.notificacion.critica { border-width: 2px; border-color: var(--color-acento); }
+.notificacion .accion { margin-right: var(--espacio-1); }
+.notificacion .descartar { border-color: var(--color-borde-campo); }
+.filtros { display: flex; flex-wrap: wrap; gap: var(--espacio-2) var(--espacio-4); border: 1px solid var(--color-borde); border-radius: var(--radio); padding: var(--espacio-2) var(--espacio-3); margin: var(--espacio-2) 0; }
+.casilla { font-weight: 400; }
+.historial { list-style: none; margin: var(--espacio-2) 0 0; padding: var(--espacio-2); max-height: 12rem; overflow-y: auto; background: var(--color-campo); border: 1px solid var(--color-borde-campo); border-radius: var(--radio); font-size: var(--texto-pequeno); }
+.historial li { padding: 2px 0; border-bottom: 1px solid var(--color-borde-suave); }
+.consola.plegada .historial { max-height: 0; }
+
+/* Insignia numérica */
+.insignia { display: inline-block; min-width: 1.4em; margin-left: var(--espacio-1); padding: 0 var(--espacio-1); border-radius: 1em; background: var(--color-acento); color: var(--color-fondo); font-weight: 700; text-align: center; font-size: var(--texto-pequeno); }
+
+/* Diálogo modal nativo */
+dialog.dialogo { max-width: min(36rem, 92vw); border: 1px solid var(--color-borde-campo); border-radius: var(--radio-grande); background: var(--color-superficie); color: var(--color-texto); padding: var(--espacio-3) var(--espacio-4); }
+dialog.dialogo::backdrop { background: var(--color-velo); }
+dialog.dialogo h2 { margin-top: 0; font-size: var(--texto-h2); }
+/* minmax(0, 1fr) y min-width: 0: con el texto ampliado nada fuerza desplazamiento horizontal (WCAG 1.4.10). */
+.preferencias { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espacio-3); max-width: none; }
+.preferencias > *, fieldset { min-width: 0; }
+.casilla { overflow-wrap: anywhere; }
+.preferencias .campo { min-width: 0; }
+.preferencias .campo > select, .preferencias .campo > input { width: 100%; box-sizing: border-box; }
+.preferencias fieldset { border: 1px solid var(--color-borde); border-radius: var(--radio); padding: var(--espacio-2) var(--espacio-3); display: flex; flex-wrap: wrap; gap: var(--espacio-2) var(--espacio-4); }
