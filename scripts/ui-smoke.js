@@ -194,6 +194,7 @@
     check("Resumen «n de m logros verificables» con texto", /\d+ de \d+ logros verificables conseguidos/.test($("logros-resumen").textContent));
     check("Aviso: sin clasificaciones ni plazos", /no hay clasificaciones ni plazos/i.test(panel.textContent));
     check("Referencia rotulada como orientativa y que no sustituye el objetivo", /no es una decisión del equipo ni sustituye tu objetivo/.test($("logros-referencia-nota").textContent));
+    check("Aviso de que otro navegador o dispositivo vuelve a ser la primera visita", /vuelve a ser la primera visita/.test($("panel-logros").textContent));
     check("Registro de este navegador rotulado como no verificado", /no es un logro global verificado/.test(panel.textContent));
     check("Tres listas de logros verificables con contenido", ["logros-comunidad", "logros-personal", "logros-cooperacion"].every((id) => $(id).children.length > 0));
     check("Cada logro tiene estado en texto (no solo color)", [...panel.querySelectorAll("#logros-comunidad li, #logros-personal li, #logros-cooperacion li")].every((li) => /(Conseguido|En progreso|Pendiente)/.test(li.textContent)));

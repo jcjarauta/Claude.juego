@@ -89,7 +89,7 @@ test("resumen hablado (tecla L): destino primero, tres elementos más cercanos y
 test("consejos: siempre los generales (consola y atajos) y el aviso de ofertas solo si las hay; el estado se explica con texto", () => {
   const base = tipsFor(step({}), snap());
   assert.ok(base.at(-2)!.includes("consola"));
-  assert.ok(base.at(-1)!.includes("O objetivo") && base.at(-1)!.includes("L lo que hay cerca"));
+  assert.ok(base.at(-1)!.includes("O objetivo") && base.at(-1)!.includes("L lo que hay cerca") && base.at(-1)!.includes("G logros"));
   assert.equal(base.some((t) => t.includes("ofertas de enseñanza")), false);
   assert.ok(tipsFor(step({}), snap({ offers: [{ id: "o", from: "bea", skill: "s", level: 1 }] })).some((t) => t.includes("ofertas de enseñanza")));
   assert.equal(STATUS_HELP.length, 4);

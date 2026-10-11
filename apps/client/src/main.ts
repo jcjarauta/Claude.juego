@@ -53,6 +53,11 @@ function startGame(room: WorldRoom, config: WorldConfig, asked: boolean, prefs: 
   if (first) panelTabs.select(first, false);
   // Regla de actividad, diálogos de Ayuda y Accesibilidad y atajos ? y C (P4).
   frame = setupFrame({ feed, console: gameConsole, announcer, tabs: panelTabs, prefs });
+  // Atajo G: ir a la pestaña «Logros» (acción explícita de la persona, con foco en la pestaña).
+  document.addEventListener("ir-a-logros", () => {
+    const tab = document.getElementById("tab-logros") as HTMLButtonElement | null;
+    if (tab) panelTabs.select(tab, true);
+  });
   // Otras partes (la tecla P, construir un edificio) piden mostrar una pestaña con este evento; cambiar el foco es cosa de quien lo pide.
   document.addEventListener("mostrar-pestana", (event) => {
     const tab = document.getElementById(`tab-${(event as CustomEvent<string>).detail}`) as HTMLButtonElement | null;

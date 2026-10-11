@@ -136,3 +136,9 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - El filtro «Logros» de la consola añade `consola-filtro-logros` al orden de Tab de los filtros.
 - Orden real de Tab (26 pulsaciones, `ana`, sin tarjeta): enlace de salto → Ayuda → Accesibilidad → Salir → «Detalles del paso» → Elegir objetivo → mapa → recursos → pestaña activa → su panel → contenido → consola (con el filtro «Logros») → salto. Con la tarjeta visible entran «Ver logros nuevos» y «Cerrar» tras los botones de la zona C.
 
+### Mejoras de cierre de G3d (N1, N7, N8, 2026-10-11)
+
+- **N1:** un párrafo de ayuda en «Ya conseguidos al empezar» explica que otro navegador u otro dispositivo, o borrar los datos del sitio, vuelve a ser la primera visita (lista larga, sin celebrar ni contar como nuevo). `s.g3d()` lo comprueba.
+- **N8:** tecla **G** → evento de documento `ir-a-logros` → `main.ts` selecciona la pestaña «Logros» **con foco en su botón** (acción explícita); se ignora en campos, pestañas, registros y diálogos como las demás; la Ayuda la lista y la Guía la cita en los atajos.
+- **N7:** la tarjeta se probó con el zoom del navegador (ver `docs/pruebas.md`). **Límite conocido:** apilado (< 1100 px) la tarjeta queda en el flujo y, mientras está visible, el mapa baja lo que mide la tarjeta (≈ 80 px; 170–235 px con el texto al 200 %); es un desplazamiento único y descartable, no ocurre en pantalla ancha.
+

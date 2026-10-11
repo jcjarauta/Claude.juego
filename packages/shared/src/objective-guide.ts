@@ -95,6 +95,6 @@ export function tipsFor(step: Step | undefined, s: Snapshot): string[] {
   }
   if (s.offers.length) tips.push("Tienes ofertas de enseñanza pendientes en Importantes. Aceptarlas no cambia tu objetivo.");
   tips.push("Los avisos (ofertas, novedades, errores) están en la consola; pulsa C para ir a ella. No cambian tu objetivo.");
-  tips.push("Atajos: O objetivo, L lo que hay cerca, P proyecto, M mapa, C consola, ? ayuda.");
+  tips.push("Atajos: O objetivo, L lo que hay cerca, G logros, P proyecto, M mapa, C consola, ? ayuda.");
   return tips;
 }

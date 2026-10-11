@@ -114,3 +114,13 @@ Surgidas de la valoración de cierre de G3c (`docs/pruebas.md`); se retoman al p
 | M9 | Guardar el objetivo activo en el servidor para seguirlo entre dispositivos (servidor, migración y privacidad; hoy es local por Q224) | Si se decide revisar Q224 |
 | M10 | Objetivos de equipo (el de la comunidad, compartido) | G3d o F2d |
 
+Surgidas de la valoración de cierre de G3d (`docs/pruebas.md`):
+
+| # | Mejora | Cuándo |
+|---|---|---|
+| N3 | Cobertura en sala real de retirar un elemento y de los niveles de habilidad (hoy en pruebas de tabla) | G1 / G2, cuando exista la operación de retirada y un mundo con habilidades |
+| N4 | Catálogo de logros definido por datos desde el panel profesional | G2 |
+| N5 | Logros y reconocimientos en el servidor (mismo resultado en cualquier dispositivo, sin «primera visita» por navegador) | Solo si se revisa Q227 |
+| N6 | Logros de equipo con objetivo compartido («Usar como mi objetivo») | F2d / M10 |
+| N9 | Que la tarjeta de logro no desplace el mapa tampoco al apilar (hoy queda en el flujo por no tapar controles) | Si se detecta molestia |
+

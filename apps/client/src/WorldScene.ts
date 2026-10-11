@@ -290,6 +290,10 @@ export class WorldScene extends Phaser.Scene {
         event.preventDefault();
         document.dispatchEvent(new CustomEvent("anunciar-cerca"));
       }
+      if (event.code === "KeyG" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
+        event.preventDefault();
+        document.dispatchEvent(new CustomEvent("ir-a-logros"));
+      }
       if (event.code === "KeyO" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
         event.preventDefault();
         document.dispatchEvent(new CustomEvent("enfocar-objetivo"));
