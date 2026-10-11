@@ -3,7 +3,7 @@
 
 export type EventKind =
   | "recoleccion" | "deposito" | "aporte" | "fabricacion" | "construccion" | "mision"
-  | "habilidad" | "oferta" | "mundo" | "conexion" | "aviso" | "error";
+  | "habilidad" | "oferta" | "logro" | "mundo" | "conexion" | "aviso" | "error";
 
 /** Importancia: decide dónde aparece (Q207). Crítica y relevante crean una notificación; normal solo va al historial. */
 export type Importance = "critica" | "relevante" | "normal";

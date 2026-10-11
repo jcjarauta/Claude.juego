@@ -20,6 +20,8 @@
     .zona-objetivo h2 { margin: 0 0 var(--espacio-1); font-size: var(--texto-h3); }
     .zona-objetivo p, .zona-objetivo ul { margin: var(--espacio-1) 0; }
     .zona-objetivo ul { padding-left: 1.2em; }
+    .tarjeta-logro { margin-top: var(--espacio-2); padding: var(--espacio-1) var(--espacio-2); border: 1px solid var(--color-borde-campo); border-left-width: 6px; border-radius: var(--radio-grande); background: var(--color-superficie); }
+    .tarjeta-logro p { margin: var(--espacio-1) 0; }
     .zona-objetivo details { margin: var(--espacio-1) 0; }
     .zona-objetivo summary { cursor: pointer; }
     .zona-objetivo .acciones { display: flex; gap: var(--espacio-2); flex-wrap: wrap; }
@@ -136,6 +138,13 @@
             <button id="objetivo-elegir" type="button">Elegir objetivo</button>
             <button id="objetivo-avisos-ir" type="button" hidden>Ir a la consola</button>
           </p>
+          <div id="logro-tarjeta" class="tarjeta-logro" hidden>
+            <p><strong id="logro-tarjeta-texto"></strong> <span id="logro-tarjeta-mas"></span></p>
+            <p class="acciones">
+              <button id="logro-tarjeta-ver" type="button">Ver logros nuevos</button>
+              <button id="logro-tarjeta-cerrar" type="button">Cerrar</button>
+            </p>
+          </div>
         </section>
 
         <!-- B. Mundo -->

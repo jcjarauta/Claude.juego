@@ -9,6 +9,8 @@ export type MotionPreference = "sistema" | "reducido" | "normal";
 export type ConsoleDefault = "desplegada" | "plegada";
 /** Etiquetas del mapa (G3c, Q221): todas, solo las de edificios o ninguna. */
 export type MapLabels = "todas" | "edificios" | "ninguna";
+/** Celebraciones de logros (G3d, Q232): aviso, tarjeta y destello; solo el aviso; o ninguna. */
+export type Celebrations = "todas" | "solo-texto" | "ninguna";
 
 export interface Preferences {
   /** Tamaño de texto en %. */
@@ -21,10 +23,11 @@ export interface Preferences {
   autoTabs: boolean;
   console: ConsoleDefault;
   mapLabels: MapLabels;
+  celebrations: Celebrations;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
-  textSize: 100, highContrast: false, motion: "sistema", announcements: "normales", autoTabs: false, console: "desplegada", mapLabels: "todas",
+  textSize: 100, highContrast: false, motion: "sistema", announcements: "normales", autoTabs: false, console: "desplegada", mapLabels: "todas", celebrations: "todas",
 };
 
 export const PREFERENCES_KEY = "engremiat.preferencias";
@@ -47,6 +50,7 @@ export function parsePreferences(raw: unknown): Preferences {
     autoTabs: typeof data.autoTabs === "boolean" ? data.autoTabs : d.autoTabs,
     console: data.console === "plegada" || data.console === "desplegada" ? data.console : d.console,
     mapLabels: data.mapLabels === "todas" || data.mapLabels === "edificios" || data.mapLabels === "ninguna" ? data.mapLabels : d.mapLabels,
+    celebrations: data.celebrations === "todas" || data.celebrations === "solo-texto" || data.celebrations === "ninguna" ? data.celebrations : d.celebrations,
   };
 }
 

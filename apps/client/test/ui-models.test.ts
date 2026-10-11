@@ -289,10 +289,10 @@ test("preferencias: valores por omisión, válidas, datos corruptos y desconocid
   assert.deepEqual(parsePreferences(null), DEFAULT_PREFERENCES);
   assert.deepEqual(parsePreferences("{no es json"), DEFAULT_PREFERENCES);
   assert.deepEqual(parsePreferences("[1,2]"), DEFAULT_PREFERENCES);
-  const custom = { textSize: 150, highContrast: true, motion: "reducido", announcements: "completos", autoTabs: true, console: "plegada", mapLabels: "edificios" } as const;
+  const custom = { textSize: 150, highContrast: true, motion: "reducido", announcements: "completos", autoTabs: true, console: "plegada", mapLabels: "edificios", celebrations: "solo-texto" } as const;
   assert.deepEqual(parsePreferences(serializePreferences(custom)), custom);
   assert.deepEqual(parsePreferences(custom), custom, "también acepta un objeto");
-  const mixed = parsePreferences({ textSize: 175, highContrast: "sí", motion: "mucho", announcements: "todo", autoTabs: 1, console: "?", mapLabels: "algunas" });
+  const mixed = parsePreferences({ textSize: 175, highContrast: "sí", motion: "mucho", announcements: "todo", autoTabs: 1, console: "?", mapLabels: "algunas", celebrations: "mucho" });
   assert.deepEqual(mixed, DEFAULT_PREFERENCES, "cada campo inválido vuelve a su omisión");
   assert.deepEqual(parsePreferences({ textSize: 200, autoTabs: true }), { ...DEFAULT_PREFERENCES, textSize: 200, autoTabs: true }, "los campos válidos se conservan");
   assert.equal(DEFAULT_PREFERENCES.autoTabs, false, "las pestañas no cambian solas por omisión (Q210)");

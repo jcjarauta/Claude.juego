@@ -15,12 +15,13 @@ export const KIND_GROUPS: { id: string; label: string; kinds: EventKind[] }[] = 
   { id: "proyecto", label: "Proyecto", kinds: ["aporte", "construccion", "mision"] },
   { id: "fabricacion", label: "Fabricación", kinds: ["fabricacion"] },
   { id: "habilidades", label: "Habilidades", kinds: ["habilidad", "oferta"] },
+  { id: "logros", label: "Logros", kinds: ["logro"] },
   { id: "mundo", label: "Mundo", kinds: ["mundo", "conexion"] },
   { id: "avisos", label: "Avisos", kinds: ["aviso", "error"] },
 ];
 
 const KIND_LABEL: Record<EventKind, string> = {
-  recoleccion: "Recursos", deposito: "Recursos", aporte: "Proyecto", construccion: "Proyecto", mision: "Misión", habilidad: "Habilidad", oferta: "Oferta",
+  recoleccion: "Recursos", deposito: "Recursos", aporte: "Proyecto", construccion: "Proyecto", mision: "Misión", habilidad: "Habilidad", oferta: "Oferta", logro: "Logro",
   fabricacion: "Fabricación", mundo: "Mundo", conexion: "Conexión", aviso: "Aviso", error: "Error",
 };
 

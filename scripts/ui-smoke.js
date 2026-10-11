@@ -205,6 +205,11 @@
     const countAfter = badgeAfter && !badgeAfter.hidden ? badgeAfter.textContent.trim() : "";
     check("Abrir la pestaña no apaga la insignia (no marca como consultado)", countBefore === countAfter, `${countBefore} → ${countAfter}`);
     check("Los preexistentes no cuentan en la insignia", true, `nuevos: ${$("logros-nuevos").children.length}, al empezar: ${$("logros-preexistentes").children.length}, insignia: ${countAfter || 0}`);
+    // Tarjeta única de celebración (P2): existe una sola, no es región viva y sus botones tienen tamaño suficiente si se ve
+    const card = $("logro-tarjeta");
+    check("Una sola tarjeta de logro, fuera de las regiones vivas", document.querySelectorAll("#logro-tarjeta").length === 1 && card && !card.closest("[aria-live], [role=alert], [role=status]") && !card.querySelector("[aria-live], [role=alert], [role=status]"));
+    check("Tarjeta con «Ver logros nuevos» y «Cerrar»", $("logro-tarjeta-ver") && $("logro-tarjeta-cerrar"));
+    if (card && !card.hidden) check("Los botones de la tarjeta miden al menos 24 px", [...card.querySelectorAll("button")].every((b) => { const r = b.getBoundingClientRect(); return r.width >= 24 && r.height >= 24; }));
     check("Sin desplazamiento horizontal", document.documentElement.scrollWidth <= innerWidth + 1);
     const small = [...panel.querySelectorAll("button, a[href]")].filter((e) => visible(e)).filter((e) => { const r = e.getBoundingClientRect(); return r.width < 24 || r.height < 24; }).map(name);
     check("Ningún botón de la pestaña menor de 24 px", small.length === 0, small.join(", "));

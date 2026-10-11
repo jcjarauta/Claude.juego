@@ -1,13 +1,17 @@
 import {
-  achievedIds, communityReference, creditText, evaluateAchievements, summarize,
+  achievedIds, CATALOG, communityReference, creditText, evaluateAchievements, summarize,
   type AchievementSnapshot, type AchievementState, type SkillBadgeInfo,
 } from "@juego/shared";
 import {
   achievementKey, addLocalRecognition, applyAchieved, badgeCount, emptyStore, loadStore, markConsulted, markStartingConsulted, newOnes, saveStore, startingOnes,
   type AchievementStore, type ParsedStore,
 } from "./achievement-store.ts";
+import { cardText, nextCard, planCelebration, type CardState } from "./achievement-celebration.ts";
+import type { Feed } from "./feed.ts";
 import { createBadge } from "./ui/badge.ts";
 import { el } from "./ui/dom.ts";
+import { loadPreferences } from "./ui/preferences.ts";
+import type { Celebrations } from "./ui/preferences-model.ts";
 import { progressCard } from "./ui/progress.ts";
 
 // Pestaña «Logros» (G3d, P1). Los logros VERIFICABLES salen del estado sincronizado (iguales en cualquier navegador); lo que solo
@@ -26,6 +30,9 @@ const executedVerb = (id: string) => (id.startsWith("primera-mision") || id.star
 const STATUS_TEXT = { conseguido: "✔ Conseguido", "en-progreso": "◐ En progreso", pendiente: "○ Pendiente" } as const;
 
 export interface AchievementsHost {
+  feed: Feed;
+  /** Un destello corto sobre el personaje (el mapa lo omite con «menos movimiento»). */
+  flash(): void;
   world: string;
   snapshot(): AchievementSnapshot | undefined;
   skillBadges(): SkillBadgeInfo[];
@@ -50,6 +57,44 @@ export function createAchievementsPanel(host: AchievementsHost) {
   const localBook = byId("logros-libro");
   const refBar = progressCard("Progreso de la referencia", "logros-referencia-barra");
   byId("logros-referencia-progreso").append(refBar.element);
+
+  // Tarjeta única de celebración (zona Objetivo): se reutiliza, nunca se apilan varias.
+  const card = byId("logro-tarjeta");
+  const cardTextNode = byId("logro-tarjeta-texto");
+  const cardMore = byId("logro-tarjeta-mas");
+  let cardState: CardState | null = null;
+  let mode: Celebrations = loadPreferences().celebrations;
+  document.addEventListener("preferencias-cambiadas", (event) => { mode = (event as CustomEvent<{ celebrations: Celebrations }>).detail.celebrations; });
+  const renderCard = () => {
+    card.hidden = cardState === null;
+    if (!cardState) return;
+    const t = cardText(cardState);
+    cardTextNode.textContent = t.text;
+    cardMore.textContent = t.more;
+  };
+  const closeCard = () => {
+    const hadFocus = card.contains(document.activeElement);
+    cardState = null;
+    renderCard();
+    if (hadFocus) byId("objetivo-elegir").focus(); // el foco no se pierde al desaparecer la tarjeta
+  };
+  byId("logro-tarjeta-cerrar").onclick = closeCard;
+  byId("logro-tarjeta-ver").onclick = () => {
+    cardState = null;
+    renderCard();
+    // Acción explícita de la persona: abre la pestaña «Logros» (nunca se abre sola).
+    document.dispatchEvent(new CustomEvent("mostrar-pestana", { detail: "logros" }));
+    byId("tab-logros").focus();
+  };
+
+  /** Una tanda de logros nuevos: un aviso (resumen), historial, una tarjeta y un destello, según la preferencia. */
+  function celebrate(ids: readonly string[]) {
+    const names = ids.map((id) => CATALOG.find((d) => d.id === id)?.name).filter((n): n is string => Boolean(n));
+    const plan = planCelebration(names, mode);
+    for (const event of plan.events) host.feed.emit(event);
+    if (plan.card) { cardState = nextCard(cardState, names); renderCard(); }
+    if (plan.flash) host.flash();
+  }
 
   const tabBadge = createBadge("logro nuevo", "logros nuevos");
   byId("tab-logros").append(tabBadge.element);
@@ -150,6 +195,7 @@ export function createAchievementsPanel(host: AchievementsHost) {
       parsed = { ...parsed, store: applied.store };
       if (changed) persist();
       render();
+      if (applied.nuevos.length) celebrate(applied.nuevos);
       return applied.nuevos;
     },
     /** El libro local (enseñar y aprender) lo alimenta la escena con los `teach-result` aceptados; no es un logro. */

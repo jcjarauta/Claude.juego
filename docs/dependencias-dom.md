@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (131 ids)
+## index.html (136 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -44,6 +44,11 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `objetivo-volver` | — | — | — |
 | `objetivo-elegir` | — | — | — |
 | `objetivo-avisos-ir` | — | — | — |
+| `logro-tarjeta` | — | — | — |
+| `logro-tarjeta-texto` | — | — | — |
+| `logro-tarjeta-mas` | — | — | — |
+| `logro-tarjeta-ver` | — | — | — |
+| `logro-tarjeta-cerrar` | — | — | — |
 | `game` | main.ts, WorldScene.ts | — | `#game`, `#game canvas` |
 | `volver` | hud.ts | — | — |
 | `conversacion` | — | — | — |
@@ -296,3 +301,12 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - La rellena `achievements-panel.ts`; `WorldScene` la recalcula cada segundo con la instantánea del estado (`achievementSnapshotFromState`) y las insignias de nivel (`skillBadgesFromState`). **Nunca cambia de pestaña por sí sola** y abrirla no marca nada como consultado.
 - Almacén local `engremiat.logros.<mundo>.<cuenta>` (`achievement-store.ts`): `schemaVersion`, `vistos`, `notificados`, `consultados`, `preexistentes`, `retirados` y `libro`. Primera visita: lo existente va a `preexistentes` (notificado, **no** consultado) y no cuenta en la insignia. Una versión posterior a la conocida se lee sin escribir encima.
 - Guion de humo: `await s.g3d()` de `scripts/ui-smoke.js` (17 comprobaciones de la pestaña). `s.g3c()` acepta seis o siete pestañas.
+
+### Celebración de logros (puerta P2 de G3d, 2026-10-11)
+
+- **Tarjeta única** en la zona C: `#logro-tarjeta` (`logro-tarjeta-texto`, `logro-tarjeta-mas`, `logro-tarjeta-ver`, `logro-tarjeta-cerrar`), oculta por omisión, **no es región viva** (el anuncio lo hace el bus de eventos). Una sola; se reutiliza («Logro conseguido: X» y «y N más»). «Ver logros nuevos» abre la pestaña «Logros» (acción explícita; foco en `tab-logros`); «Cerrar» devuelve el foco a `objetivo-elegir`. Cerrarla **no marca nada como consultado**.
+- Tipo de evento nuevo `logro` (consola: grupo de filtro «Logros»). Una tanda → un resumen relevante y anunciado (prioridad 1) y, si son varios, una línea por logro en el historial.
+- **Destello:** `createFlash` en `map-markers.ts` (anillo de doble contorno que crece y se desvanece en 600 ms, uno por tanda); con `data-movimiento="reducido"` no se dibuja.
+- Preferencia nueva **«Celebraciones de logros»** (*Todas / Solo texto / Ninguna*, por omisión *Todas*) en el diálogo de Accesibilidad; la lee `achievements-panel.ts` y reacciona al evento `preferencias-cambiadas`.
+- Libro local: `WorldScene` cuenta los `teach-result` aceptados (`recordLocal`) en el almacén de este navegador; no crea logros ni celebraciones.
+- `s.g3d()` suma 3 comprobaciones de la tarjeta (una sola, fuera de las regiones vivas, con sus dos botones y tamaño suficiente).
