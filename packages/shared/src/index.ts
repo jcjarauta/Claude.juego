@@ -15,3 +15,7 @@ export * from "./objective-guide.ts";
 export * from "./achievements.ts";
 export * from "./achievements-snapshot.ts";
 export * from "./design.ts";
+export * from "./canonical.ts";
+export * from "./versions.ts";
+export * from "./retire.ts";
+export * from "./cascade.ts";

@@ -31,7 +31,7 @@ test("migración v10 → v11: conserva los datos, crea ajustes y archivo vacíos
   v10.close();
   const store = openStore(path);
   assert.equal(store.schemaVersion(), SCHEMA_VERSION);
-  assert.equal(SCHEMA_VERSION, 11);
+  assert.ok(SCHEMA_VERSION >= 11);
   assert.ok(existsSync(`${path}.v10.bak`), "copia antes de migrar");
   assert.equal(store.getComments("p", "t").length, 1);
   assert.deepEqual(store.getItemDefs().map((i) => i.def.name), ["Sal"], "las definiciones se conservan");
@@ -48,7 +48,7 @@ test("migración v10 → v11: conserva los datos, crea ajustes y archivo vacíos
   assert.deepEqual([store.getSetting("buildLimits"), store.getArchived()], [undefined, []]);
   store.close();
   const again = openStore(path);
-  assert.equal(again.schemaVersion(), 11, "reabrir no migra de nuevo");
+  assert.equal(again.schemaVersion(), SCHEMA_VERSION, "reabrir no migra de nuevo");
   assert.deepEqual(again.getItemDefs().map((i) => i.def.id), ["sal-1"]);
   again.close();
 });

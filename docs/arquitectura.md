@@ -86,6 +86,34 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 - **Panel profesional (M5b):** página `/panel` (segunda entrada de esbuild, `panel.js`) que entra en la misma sala con `view: "panel"`: observador sin personaje, hasta `MAX_PANELS` = 4 además de los 4 jugadores (el límite de jugadores se comprueba en `onJoin`). Desde un panel, `move`, `collect`, `transfer`, `build` y `craft` se rechazan con `sin-personaje`.
 - **Proyectos (M4):** ámbito de inventario `project` (una tarea por recurso); aportes con evento `contribute`; quién aportó, actividad reciente y novedades se calculan desde el registro de eventos. El cliente pide sus novedades (`news`) cuando su manejador está listo.
 
+### 4.2 Versiones de definiciones y recuperación (G2, Q243–Q253)
+
+**Estado:** P0 construido (reglas puras y migración v12); las operaciones del servidor llegan en P1.
+
+- **Versiones con id estable.** La v1 de una definición sigue en su tabla `*_def` y no se toca; `def_version(kind, id, version ≥ 2, definition, changed_by, changed_at, note)` guarda las siguientes y la vigente es la de mayor número. Volver a una versión crea una versión nueva.
+- **Dos contadores.** `version` (contenido) solo sube al editar o volver a una versión; `rev` (concurrencia, tabla `def_rev`, sin fila = 1) sube con cualquier cambio de estado: editar, archivar, restaurar, retirar. Toda operación lleva `expectedRev`; un análisis (`analyzeEdit`, `analyzeRetire`) devuelve su forma canónica y el servidor la firma con SHA-256 (`apps/server/src/projects/hash.ts`): esa firma es la `basis` que la confirmación reenvía.
+- **Qué registro histórico puede llevar la versión usada** (inventario verificado en el código en P0; `HISTORICAL_RECORDS` en `packages/shared/src/versions.ts` y probado en `apps/server/test/versions.test.ts`):
+
+| Registro | Dónde vive | Guarda hoy | Versión usada |
+|---|---|---|---|
+| Fabricar una receta | evento `craft` | recipe, consumed, produced | `recipeVersion` (P1) |
+| Subir de nivel practicando | evento `skill-level` | skill, level, recipe | `skillVersion` (P1) |
+| Aprender enseñado | evento `skill-taught` | teacher, skill, level | `skillVersion` (P1) |
+| Habilidad concedida | evento `skill-granted` | player, skill, level | `skillVersion` (P1) |
+| Misión cumplida | evento `mission-complete` | mission | `missionVersion` (P1) |
+| Construir un edificio | evento `build` | structure, project, consumed | `structureVersion` (P1) |
+| Nivel de una persona | tabla `player_skill` | level, source, at | columna `def_version` (creada en v12, nula) |
+| Edificio construido | tabla `structure` | built_at, built_by | columna `def_version` (creada en v12, nula) |
+| Misión cumplida | tabla `mission` | completed_at, completed_by | columna `def_version` (creada en v12, nula) |
+| Oferta de enseñanza | memoria de la sala (`WorldRoom.offers`, no se persiste) | id, from, to, skill, level, expiresAt | `skillVersion` y revalidación al aceptar (P1) |
+| Aportación a una tarea | evento `contribute` | project, task, resource, amount, from | no hace falta: la tarea se identifica por recurso |
+| Veces fabricadas por receta | tabla `craft_count` | player, recipe, n | no hace falta: contador agregado por receta |
+
+- **Solo hacia delante (Q251).** Las filas y eventos anteriores a v12 **no se rellenan ni se infieren**: quedan sin versión (`NULL` o campo ausente) y la interfaz los mostrará como «anterior a G2 (versión no registrada)», nunca como «v1». La migración no toca ninguna fila existente y una prueba lo comprueba.
+- **Reversibilidad en tres niveles (Q250), separados:** (1) restauración funcional (archivo y versiones, con `expectedRev`); (2) restauración de construcciones, con reglas propias (solar libre y dentro del mapa, proyecto no cerrado); (3) recuperación de bases de datos, que es lo siguiente.
+
+**Procedimiento de recuperación de la base de datos.** Antes de migrar una base con datos, `openStore` guarda una copia coherente `*.v<N>.bak` con `VACUUM INTO` (para v12: `*.v11.bak`; no se sobrescribe si ya existe). Si hay que volver atrás: (1) **detener el servidor**; (2) conservar la base actual aparte (`mv base.db base.db.malo`) y borrar sus `-wal` y `-shm`; (3) copiar `base.db.v11.bak` como `base.db`; (4) arrancar la versión anterior del código (o la nueva: reabrir la copia vuelve a migrar a v12 y recrea las tablas vacías); (5) comprobar con `npm.cmd test` en un clon y con la auditoría. **Se pierde todo lo escrito después de migrar**, por eso la copia es el último recurso y la reversión funcional (versiones y archivo) es la vía normal. Este procedimiento se prueba **exclusivamente con bases temporales** (`tempDb`, comprobado en la propia prueba); nunca se ejecuta sobre la base de la persona responsable sin su orden expresa.
+
 ## 5. Autenticación, privacidad y seguridad
 
 Cuentas locales al inicio (adultos); autorización por acción/recurso; mínimos datos; secretos fuera del código; validación del input del cliente; logs redactados sin datos sensibles. No trasladar credenciales ni documentos privados a IA externa sin consentimiento específico y evaluación de riesgos.

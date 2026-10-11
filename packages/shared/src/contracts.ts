@@ -410,7 +410,10 @@ export type RejectReason =
   | "demasiadas-construcciones"
   | "demasiados-objetos"
   | "demasiadas-recetas"
-  | "definicion-en-uso";
+  | "definicion-en-uso"
+  | "version-obsoleta"
+  | "analisis-desactualizado"
+  | "plan-desactualizado";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -468,6 +471,9 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "demasiados-objetos": "Hay demasiados objetos creados desde el panel (se ha alcanzado el límite vigente).",
   "demasiadas-recetas": "Hay demasiadas recetas creadas desde el panel (se ha alcanzado el límite vigente).",
   "definicion-en-uso": "Esa definición está en uso o depende de algo archivado: mira el detalle.",
+  "version-obsoleta": "Otra persona ha cambiado esto mientras lo mirabas: vuelve a abrirlo con lo vigente.",
+  "analisis-desactualizado": "Lo que depende de este cambio ha variado desde que lo revisaste: revisa de nuevo el análisis.",
+  "plan-desactualizado": "El plan de archivado ha cambiado desde que lo previsualizaste: revisa el plan nuevo.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

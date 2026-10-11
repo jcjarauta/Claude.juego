@@ -6,7 +6,16 @@ import type { ItemDef, MissionDef, ProjectDef, RecipeDef, SkillDef, StructureDef
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
+
+/** Una versión de contenido guardada (G2): `definition` es la definición completa de esa versión. */
+export interface DefVersionRow {
+  version: number;
+  definition: unknown;
+  changedBy: string;
+  changedAt: number;
+  note: string;
+}
 
 export type Scope =
   | { type: "player"; id: string }
@@ -235,6 +244,34 @@ export const MIGRATIONS: Record<number, string> = {
       PRIMARY KEY (kind, id)
     );
   `,
+  // G2: edición por versiones (Q243, Q249, Q251). La v1 de cada definición sigue en su tabla *_def y NO se toca; `def_version` guarda
+  // las siguientes (la vigente es la de mayor número). `def_rev` es la revisión de CONCURRENCIA (sube con cualquier cambio de estado,
+  // no solo de contenido); sin fila vale 1. Las columnas `def_version` de los registros históricos son nuevas y quedan a NULL en
+  // las filas anteriores: NO se rellenan ni se infieren (Q251); solo se rellenarán hacia delante.
+  12: `
+    CREATE TABLE def_version (
+      kind TEXT NOT NULL,
+      id TEXT NOT NULL,
+      version INTEGER NOT NULL CHECK (version >= 2),
+      definition TEXT NOT NULL,
+      changed_by TEXT NOT NULL,
+      changed_at INTEGER NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (kind, id, version)
+    );
+    CREATE TABLE def_rev (
+      kind TEXT NOT NULL,
+      id TEXT NOT NULL,
+      rev INTEGER NOT NULL CHECK (rev >= 2),
+      changed_by TEXT NOT NULL,
+      changed_at INTEGER NOT NULL,
+      change TEXT NOT NULL,
+      PRIMARY KEY (kind, id)
+    );
+    ALTER TABLE player_skill ADD COLUMN def_version INTEGER;
+    ALTER TABLE structure ADD COLUMN def_version INTEGER;
+    ALTER TABLE mission ADD COLUMN def_version INTEGER;
+  `,
 };
 
 export function openStore(path: string) {
@@ -331,6 +368,12 @@ export function openStore(path: string) {
     getArchived: db.prepare("SELECT kind, id, archived_by AS archivedBy, archived_at AS archivedAt FROM archive ORDER BY archived_at, kind, id"),
     addArchive: db.prepare("INSERT INTO archive (kind, id, archived_by, archived_at) VALUES (?, ?, ?, ?)"),
     removeArchive: db.prepare("DELETE FROM archive WHERE kind = ? AND id = ?"),
+    getDefVersions: db.prepare("SELECT version, definition, changed_by AS changedBy, changed_at AS changedAt, note FROM def_version WHERE kind = ? AND id = ? ORDER BY version"),
+    getAllDefVersions: db.prepare("SELECT kind, id, version, definition, changed_by AS changedBy, changed_at AS changedAt, note FROM def_version ORDER BY kind, id, version"),
+    addDefVersion: db.prepare("INSERT INTO def_version (kind, id, version, definition, changed_by, changed_at, note) VALUES (?, ?, ?, ?, ?, ?, ?)"),
+    getDefRevs: db.prepare("SELECT kind, id, rev, changed_by AS changedBy, changed_at AS changedAt, change FROM def_rev ORDER BY kind, id"),
+    putDefRev: db.prepare("INSERT INTO def_rev (kind, id, rev, changed_by, changed_at, change) VALUES (?, ?, 2, ?, ?, ?) ON CONFLICT(kind, id) DO UPDATE SET rev = rev + 1, changed_by = excluded.changed_by, changed_at = excluded.changed_at, change = excluded.change"),
+    getDefRev: db.prepare("SELECT rev FROM def_rev WHERE kind = ? AND id = ?"),
     getItemDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM item_def ORDER BY created_at, id"),
     addItemDef: db.prepare("INSERT INTO item_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     getRecipeDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM recipe_def ORDER BY created_at, id"),
@@ -537,6 +580,25 @@ export function openStore(path: string) {
     },
     removeArchive(kind: string, id: string) {
       q.removeArchive.run(kind, id);
+    },
+    /** Versiones de contenido a partir de la 2 de una definición (la 1 está en su tabla *_def). */
+    getDefVersions(kind: string, id: string): DefVersionRow[] {
+      return (q.getDefVersions.all(kind, id) as unknown as DefVersionRow[]).map((r) => ({ version: Number(r.version), definition: JSON.parse(r.definition as unknown as string), changedBy: r.changedBy, changedAt: Number(r.changedAt), note: r.note }));
+    },
+    getAllDefVersions(): (DefVersionRow & { kind: string; id: string })[] {
+      return (q.getAllDefVersions.all() as unknown as (DefVersionRow & { kind: string; id: string })[]).map((r) => ({ kind: r.kind, id: r.id, version: Number(r.version), definition: JSON.parse(r.definition as unknown as string), changedBy: r.changedBy, changedAt: Number(r.changedAt), note: r.note }));
+    },
+    addDefVersion(kind: string, id: string, version: number, definition: unknown, by: string, at: number, note = "") {
+      q.addDefVersion.run(kind, id, version, JSON.stringify(definition), by, at, note);
+    },
+    /** Revisiones de concurrencia con fila propia (las demás valen 1). */
+    getDefRevs(): { kind: string; id: string; rev: number; changedBy: string; changedAt: number; change: string }[] {
+      return (q.getDefRevs.all() as unknown as { kind: string; id: string; rev: number; changedBy: string; changedAt: number; change: string }[]).map((r) => ({ kind: r.kind, id: r.id, rev: Number(r.rev), changedBy: r.changedBy, changedAt: Number(r.changedAt), change: r.change }));
+    },
+    /** Sube la revisión de concurrencia de una definición (1 → 2 → 3…) y devuelve la nueva. */
+    bumpDefRev(kind: string, id: string, by: string, at: number, change: string): number {
+      q.putDefRev.run(kind, id, by, at, change);
+      return Number((q.getDefRev.get(kind, id) as { rev: number }).rev);
     },
     getItemDefs(): { def: ItemDef; createdBy: string; createdAt: number }[] {
       return (q.getItemDefs.all() as { definition: string; createdBy: string; createdAt: number }[])
