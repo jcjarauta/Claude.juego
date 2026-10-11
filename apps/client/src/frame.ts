@@ -26,6 +26,7 @@ const SHORTCUTS: [string, string][] = [
   ["Flechas o W A S D", "Mover al personaje (mantener pulsado para seguir andando)"],
   ["Espacio o E", "Recolectar lo que tienes delante"],
   ["O", "Ir al objetivo actual"],
+  ["G", "Ir a la pestaña Logros"],
   ["L", "Oír lo que hay cerca (el destino del objetivo y lo más cercano)"],
   ["P", "Ir al panel del proyecto"],
   ["M", "Volver al mapa"],

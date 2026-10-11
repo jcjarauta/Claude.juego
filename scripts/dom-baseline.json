@@ -294,5 +294,58 @@
         "?": "ayuda"
       }
     }
+  },
+  "marcoG3d": {
+    "_nota": "Estado esperado de la pantalla del juego tras G3d (2026-10-11). Se comprueba con `await s.g3d()` de scripts/ui-smoke.js (20 comprobaciones) además de `s.g3c()`, con la sesión iniciada en el mundo de prueba.",
+    "juego": {
+      "pestanas": [
+        "Proyecto",
+        "Taller y recetas",
+        "Habilidades",
+        "Cadenas",
+        "Comunidad",
+        "Guía",
+        "Logros"
+      ],
+      "pestanaLogros": {
+        "ids": [
+          "tab-logros",
+          "panel-logros",
+          "logros-resumen",
+          "logros-nuevos",
+          "logros-marcar-nuevos",
+          "logros-preexistentes",
+          "logros-marcar-preexistentes",
+          "logros-referencia",
+          "logros-referencia-nota",
+          "logros-ir-objetivo",
+          "logros-insignias",
+          "logros-comunidad",
+          "logros-personal",
+          "logros-cooperacion",
+          "logros-registro",
+          "logros-libro"
+        ],
+        "regionViva": false,
+        "insignia": "solo los nuevos no consultados"
+      },
+      "tarjeta": {
+        "ids": [
+          "logro-tarjeta",
+          "logro-tarjeta-texto",
+          "logro-tarjeta-mas",
+          "logro-tarjeta-ver",
+          "logro-tarjeta-cerrar"
+        ],
+        "unica": true,
+        "regionViva": false,
+        "posicion": "superpuesta en la esquina de la zona Objetivo con ≥ 1101 px (sin cambiar la altura de la zona C: 157 px con y sin tarjeta); en el flujo al apilar"
+      },
+      "consola": {
+        "filtroNuevo": "Logros (tipo de evento `logro`)"
+      },
+      "almacenLocal": "engremiat.logros.<mundo>.<cuenta> (schemaVersion 1; vistos, notificados, consultados, preexistentes, retirados, libro)",
+      "preferencia": "Celebraciones de logros: Todas (por omisión) / Solo texto / Ninguna"
+    }
   }
 }

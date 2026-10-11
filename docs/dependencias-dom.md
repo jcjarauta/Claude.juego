@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (104 ids)
+## index.html (136 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -44,6 +44,11 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `objetivo-volver` | — | — | — |
 | `objetivo-elegir` | — | — | — |
 | `objetivo-avisos-ir` | — | — | — |
+| `logro-tarjeta` | — | — | — |
+| `logro-tarjeta-texto` | — | — | — |
+| `logro-tarjeta-mas` | — | — | — |
+| `logro-tarjeta-ver` | — | — | — |
+| `logro-tarjeta-cerrar` | — | — | — |
 | `game` | main.ts, WorldScene.ts | — | `#game`, `#game canvas` |
 | `volver` | hud.ts | — | — |
 | `conversacion` | — | — | — |
@@ -58,6 +63,7 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `tab-cadenas` | — | aria-labelledby | — |
 | `tab-comunidad` | — | aria-labelledby | — |
 | `tab-guia` | — | aria-labelledby | — |
+| `tab-logros` | main.ts | aria-labelledby | — |
 | `panel-proyecto` | — | aria-controls | — |
 | `proyecto-selector` | WorldScene.ts | for | — |
 | `proyecto-titulo` | project-panel.ts | — | — |
@@ -111,6 +117,32 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `guia-consejos-titulo` | — | aria-labelledby | — |
 | `guia-consejos` | — | — | — |
 | `guia-estados` | — | — | — |
+| `panel-logros` | — | aria-controls | — |
+| `logros-titulo` | — | aria-labelledby | — |
+| `logros-resumen` | — | — | — |
+| `logros-nuevos-titulo` | — | aria-labelledby | — |
+| `logros-nuevos-vacio` | — | — | — |
+| `logros-nuevos` | — | — | — |
+| `logros-marcar-nuevos` | — | — | — |
+| `logros-empezar-titulo` | — | aria-labelledby | — |
+| `logros-preexistentes-vacio` | — | — | — |
+| `logros-preexistentes` | — | — | — |
+| `logros-marcar-preexistentes` | — | — | — |
+| `logros-referencia-titulo` | — | aria-labelledby | — |
+| `logros-referencia` | — | — | — |
+| `logros-referencia-progreso` | — | — | — |
+| `logros-referencia-nota` | — | — | — |
+| `logros-ir-objetivo` | — | — | — |
+| `logros-insignias-titulo` | — | aria-labelledby | — |
+| `logros-insignias` | — | — | — |
+| `logros-verificables-titulo` | — | aria-labelledby | — |
+| `logros-comunidad` | — | — | — |
+| `logros-personal` | — | — | — |
+| `logros-cooperacion` | — | — | — |
+| `logros-registro-titulo` | — | aria-labelledby | — |
+| `logros-registro` | — | — | — |
+| `logros-registro-vacio` | — | — | — |
+| `logros-libro` | — | — | — |
 | `zona-consola` | main.ts | — | — |
 
 ## panel.html (29 ids)
@@ -253,3 +285,40 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Modelos puros en `@juego/shared` (`objective-guide.ts`): `nearby` (≤ 8 casillas, por cercanía, con el destino del objetivo siempre arriba aunque esté fuera del radio) y `tipsFor` (consejos por situación).
 - Atajo **O**: evento de documento `enfocar-objetivo` → foco en `#objetivo-nombre` (`tabindex="-1"`); se ignora en campos, pestañas, registros y diálogos, igual que `?` y `C`. La Ayuda lo lista.
 - A-3: el botón de receta no repite el verbo si el nombre ya empieza por él («Moler a mano», no «Moler: Moler a mano») y se describe con su texto de ayuda (`aria-describedby` → `receta-ayuda-<id>`).
+
+### Mejoras de cierre de G3c (M1–M6, 2026-10-11)
+
+- **Zona C compacta (M4):** el porqué, la barra de progreso, el destino en texto y los avisos pendientes pasan a `details#objetivo-detalles` (plegado por omisión, estado recordado en `localStorage`). Quedan fuera del desplegable lo que exige atención: requisitos, alternativas y elección de ruta, el estado y el texto del paso y los botones. Un `summary` nuevo («Detalles del paso») entra en el orden de Tab justo después del texto del paso.
+- **Obtener un objeto (M2):** el diálogo «Elegir objetivo» añade una lista de objetos y una cantidad (`select` y `input[type=number]` con etiqueta). El objeto elegido sustituye al de la lista.
+- **Lo que hay cerca en voz (M5):** tecla **L** → evento `anunciar-cerca` → resumen anunciado por el bus de eventos (prioridad 1: el destino y los tres elementos más cercanos). La Ayuda la lista.
+- **Botón de la acción (M1):** para fabricar usa el verbo de la receta («Moler», «Hornear»).
+- **Guion de humo (M3):** `await s.g3c()` de `scripts/ui-smoke.js` devuelve 30 comprobaciones funcionales (zona C, pestañas, Guía, diálogo, medidas); la línea base está en `scripts/dom-baseline.json` (`marcoG3c`).
+
+### Pestaña «Logros» (puerta P1 de G3d, 2026-10-11)
+
+- Séptima pestaña del panel: `tab-logros` / `panel-logros` (al final; `main.ts` la añade a `TABS` y se recuerda como las demás). Insignia numérica dentro del botón de la pestaña (`.insignia`), con texto oculto «N logros nuevos»: cuenta **solo los nuevos no consultados**.
+- Ids del panel: `logros-resumen`, `logros-nuevos` (+ `logros-nuevos-vacio`, `logros-marcar-nuevos`), `logros-preexistentes` (+ `logros-preexistentes-vacio`, `logros-marcar-preexistentes`), `logros-referencia`, `logros-referencia-progreso` (barra `logros-referencia-barra`), `logros-referencia-nota`, `logros-ir-objetivo`, `logros-insignias`, `logros-comunidad`, `logros-personal`, `logros-cooperacion`, `logros-registro` (+ `logros-registro-vacio`), `logros-libro`. No es región viva.
+- La rellena `achievements-panel.ts`; `WorldScene` la recalcula cada segundo con la instantánea del estado (`achievementSnapshotFromState`) y las insignias de nivel (`skillBadgesFromState`). **Nunca cambia de pestaña por sí sola** y abrirla no marca nada como consultado.
+- Almacén local `engremiat.logros.<mundo>.<cuenta>` (`achievement-store.ts`): `schemaVersion`, `vistos`, `notificados`, `consultados`, `preexistentes`, `retirados` y `libro`. Primera visita: lo existente va a `preexistentes` (notificado, **no** consultado) y no cuenta en la insignia. Una versión posterior a la conocida se lee sin escribir encima.
+- Guion de humo: `await s.g3d()` de `scripts/ui-smoke.js` (17 comprobaciones de la pestaña). `s.g3c()` acepta seis o siete pestañas.
+
+### Celebración de logros (puerta P2 de G3d, 2026-10-11)
+
+- **Tarjeta única** en la zona C: `#logro-tarjeta` (`logro-tarjeta-texto`, `logro-tarjeta-mas`, `logro-tarjeta-ver`, `logro-tarjeta-cerrar`), oculta por omisión, **no es región viva** (el anuncio lo hace el bus de eventos). Una sola; se reutiliza («Logro conseguido: X» y «y N más»). «Ver logros nuevos» abre la pestaña «Logros» (acción explícita; foco en `tab-logros`); «Cerrar» devuelve el foco a `objetivo-elegir`. Cerrarla **no marca nada como consultado**.
+- Tipo de evento nuevo `logro` (consola: grupo de filtro «Logros»). Una tanda → un resumen relevante y anunciado (prioridad 1) y, si son varios, una línea por logro en el historial.
+- **Destello:** `createFlash` en `map-markers.ts` (anillo de doble contorno que crece y se desvanece en 600 ms, uno por tanda); con `data-movimiento="reducido"` no se dibuja.
+- Preferencia nueva **«Celebraciones de logros»** (*Todas / Solo texto / Ninguna*, por omisión *Todas*) en el diálogo de Accesibilidad; la lee `achievements-panel.ts` y reacciona al evento `preferencias-cambiadas`.
+- Libro local: `WorldScene` cuenta los `teach-result` aceptados (`recordLocal`) en el almacén de este navegador; no crea logros ni celebraciones.
+- `s.g3d()` suma 3 comprobaciones de la tarjeta (una sola, fuera de las regiones vivas, con sus dos botones y tamaño suficiente).
+
+### Cierre de G3d (puerta P3, 2026-10-11)
+
+- **La tarjeta de logro no desplaza el mapa:** con ≥ 1101 px se superpone en la esquina de la zona Objetivo (`.tarjeta-logro` en `position: absolute`) y la zona C reserva ese hueco a la derecha mientras la tarjeta está visible (`:has(.tarjeta-logro:not([hidden]))`); medido: la zona C mide 157 px con y sin tarjeta y el mapa no se mueve (y = 343 en los dos casos). Apilado (< 1100 px) queda en el flujo.
+- El filtro «Logros» de la consola añade `consola-filtro-logros` al orden de Tab de los filtros.
+- Orden real de Tab (26 pulsaciones, `ana`, sin tarjeta): enlace de salto → Ayuda → Accesibilidad → Salir → «Detalles del paso» → Elegir objetivo → mapa → recursos → pestaña activa → su panel → contenido → consola (con el filtro «Logros») → salto. Con la tarjeta visible entran «Ver logros nuevos» y «Cerrar» tras los botones de la zona C.
+
+### Mejoras de cierre de G3d (N1, N7, N8, 2026-10-11)
+
+- **N1:** un párrafo de ayuda en «Ya conseguidos al empezar» explica que otro navegador u otro dispositivo, o borrar los datos del sitio, vuelve a ser la primera visita (lista larga, sin celebrar ni contar como nuevo). `s.g3d()` lo comprueba.
+- **N8:** tecla **G** → evento de documento `ir-a-logros` → `main.ts` selecciona la pestaña «Logros» **con foco en su botón** (acción explícita); se ignora en campos, pestañas, registros y diálogos como las demás; la Ayuda la lista y la Guía la cita en los atajos.
+- **N7:** la tarjeta se probó con el zoom del navegador (ver `docs/pruebas.md`). **Límite conocido:** apilado (< 1100 px) la tarjeta queda en el flujo y, mientras está visible, el mapa baja lo que mide la tarjeta (≈ 80 px; 170–235 px con el texto al 200 %); es un desplazamiento único y descartable, no ocurre en pantalla ancha.

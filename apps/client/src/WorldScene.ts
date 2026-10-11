@@ -1,16 +1,17 @@
 import { chainsFromState } from "./views/cadenas.ts";
 import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
 import type { Feed } from "./feed.ts";
+import { createAchievementsPanel } from "./achievements-panel.ts";
 import { createGuidePanel } from "./guide-panel.ts";
 import { createObjectivePanel } from "./objective-panel.ts";
-import { createTargetMarker, reducedMotion, type MapTarget } from "./map-markers.ts";
+import { createFlash, createTargetMarker, reducedMotion, type MapTarget } from "./map-markers.ts";
 import { layoutLabels, type LabelGroup, type Rect } from "./ui/label-layout.ts";
 import { loadPreferences } from "./ui/preferences.ts";
 import type { MapLabels } from "./ui/preferences-model.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillDefFromState, skillLevelName, snapshotFromState, structureDefFromState,
+  achievementSnapshotFromState, createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillBadgesFromState, skillDefFromState, skillLevelName, snapshotFromState, structureDefFromState,
   type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
   type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TeachOfferedMessage, type TeachOfferMessage, type TeachRespondMessage,
   type TeachResultMessage, type TransferMessage, type WorldConfig, type WorldIndex,
@@ -96,6 +97,8 @@ export class WorldScene extends Phaser.Scene {
   private feed!: Feed;
   private objectivePanel: ReturnType<typeof createObjectivePanel> | undefined;
   private marker: ReturnType<typeof createTargetMarker> | undefined;
+  private flash: ReturnType<typeof createFlash> | undefined;
+  private achievements: ReturnType<typeof createAchievementsPanel> | undefined;
   private labelMode: MapLabels = "todas";
   /** La cámara solo se separa del personaje cuando la persona pulsa «Mostrar en el mapa». */
   private cameraDetached = false;
@@ -132,6 +135,7 @@ export class WorldScene extends Phaser.Scene {
     const { width, height } = this.config.map;
     this.cameras.main.setBounds(0, 0, width * this.tile, height * this.tile);
     this.marker = createTargetMarker(this, this.tile);
+    this.flash = createFlash(this, this.tile);
     this.labelMode = loadPreferences().mapLabels;
     // Preferencias: etiquetas del mapa y «menos movimiento» (el anillo deja de pulsar).
     const onPrefs = (event: Event) => {
@@ -172,6 +176,17 @@ export class WorldScene extends Phaser.Scene {
     this.refreshResources();
 
     // Zona C (G3c): objetivo activo, siguiente acción y estado; el servidor decide siempre si la acción es válida.
+    // Pestaña «Logros» (G3d): se recalcula con el estado; nunca cambia de pestaña por sí sola.
+    const achievements = createAchievementsPanel({
+      feed: this.feed,
+      flash: () => { const body = this.views.get(this.room.sessionId)?.body; if (body) this.flash?.play(body.x, body.y); },
+      world: this.config.community.id,
+      snapshot: () => (this.room.state.players.get(this.room.sessionId) ? achievementSnapshotFromState(this.room.state, this.room.sessionId) : undefined),
+      skillBadges: () => skillBadgesFromState(this.room.state, this.room.sessionId),
+    });
+    this.achievements = achievements;
+    const achievementsTimer = window.setInterval(() => achievements.update(), 1000);
+    this.events.once("shutdown", () => window.clearInterval(achievementsTimer));
     const guide = createGuidePanel();
     const onFocusObjective = () => this.objectivePanel?.focus();
     document.addEventListener("enfocar-objetivo", onFocusObjective);
@@ -235,6 +250,12 @@ export class WorldScene extends Phaser.Scene {
       const own = result.to === this.room.state.players.get(this.room.sessionId)?.name;
       const skill = this.room.state.skills.get(result.skill)?.name ?? result.skill;
       const who = own ? result.from : result.to;
+      // Reconocimientos LOCALES (no son logros globales): lo que este navegador ha visto aceptarse con la pestaña abierta.
+      if (result.status === "aceptada") {
+        const me = this.room.state.players.get(this.room.sessionId)?.name;
+        if (result.from === me) this.achievements?.recordLocal("ensenado");
+        else if (result.to === me) this.achievements?.recordLocal("aprendido");
+      }
       // El resultado de la operación RESUELVE la notificación (no es lo mismo que descartar el aviso).
       this.feed.resolve(`oferta:${result.offerId}`);
       this.feed.emit({
@@ -268,6 +289,10 @@ export class WorldScene extends Phaser.Scene {
       if (event.code === "KeyL" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
         event.preventDefault();
         document.dispatchEvent(new CustomEvent("anunciar-cerca"));
+      }
+      if (event.code === "KeyG" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
+        event.preventDefault();
+        document.dispatchEvent(new CustomEvent("ir-a-logros"));
       }
       if (event.code === "KeyO" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
         event.preventDefault();

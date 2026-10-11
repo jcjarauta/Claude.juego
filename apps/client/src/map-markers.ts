@@ -14,6 +14,23 @@ export const reducedMotion = () => document.documentElement.dataset.movimiento =
 
 const EDGE = 26;
 
+/** Destello corto de celebración sobre el personaje (anillo que crece y se desvanece); con «menos movimiento» no se dibuja. */
+export function createFlash(scene: Phaser.Scene, tile: number) {
+  const g = scene.add.graphics().setDepth(55).setVisible(false);
+  let plays = 0;
+  return {
+    /** Veces que se ha lanzado un destello (las pruebas lo leen). */
+    get plays() { return plays; },
+    play(x: number, y: number) {
+      if (reducedMotion()) return;
+      plays++;
+      g.clear().lineStyle(6, 0x000000, 0.9).strokeCircle(0, 0, tile / 2 + 2).lineStyle(3, 0xffffff, 1).strokeCircle(0, 0, tile / 2 + 2);
+      g.setPosition(x, y).setScale(0.6).setAlpha(1).setVisible(true);
+      scene.tweens.add({ targets: g, scale: 2.2, alpha: 0, duration: 600, ease: "Sine.easeOut", onComplete: () => g.setVisible(false) });
+    },
+  };
+}
+
 export function createTargetMarker(scene: Phaser.Scene, tile: number) {
   const ring = scene.add.graphics().setDepth(50).setVisible(false);
   const arrow = scene.add.graphics().setDepth(60).setScrollFactor(0).setVisible(false);

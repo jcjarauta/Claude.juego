@@ -32,7 +32,7 @@ Se elige **HUD no diegético por zonas más capa espacial**: es un juego de gest
 | A. Barra superior | Fija | Identidad, conexión, zona y posición, ayuda y accesibilidad (tamaño de texto, contraste, menos movimiento) | **Construida (G3b):** `header.zona-barra` con zona, posición, conexión, Ayuda (?), Accesibilidad y Salir |
 | B. Mundo | Fija | Mapa + capa espacial de marcadores | **Construida (G3b):** `section.zona-mundo`, sin cambios de controles |
 | C. Objetivo actual | Fija | Una tarea destacada con su progreso y «Mostrar en el mapa» | **Construida (G3c):** `section#objetivo` bajo la barra, a todo el ancho: objetivo activo elegido por la persona, siguiente acción con estado, requisitos, alternativas, progreso, destino en texto y «Mostrar en el mapa» |
-| D. Panel contextual | Variable | Pestañas: Proyecto · Taller y recetas · Habilidades · Cadenas · Comunidad · Guía (G3c) | **Construida (G3b):** `section#proyecto` con cinco pestañas, insignias y regla de actividad |
+| D. Panel contextual | Variable | Pestañas: Proyecto · Taller y recetas · Habilidades · Cadenas · Comunidad · Guía (G3c) · Logros (G3d) | **Construida (G3b):** `section#proyecto` con cinco pestañas, insignias y regla de actividad |
 | E. Consola | Fija, plegable | Registro cronológico y filtrable, región `aria-live` educada | **Construida (G3b):** `#zona-consola` con Importantes e Historial, plegable; anunciador con dos regiones ocultas |
 | F. Barra de recursos | Fija | Inventario propio y almacén de la comunidad | **Construida (G3b):** `section.zona-recursos` bajo el mapa |
 | G. Conversación | Reservada | La Guía y el canal común (F2d) | Región `#conversacion` reservada y oculta |
@@ -96,7 +96,7 @@ Adoptados hoy: el panel de administración (`admin-forms.ts`) y las pestañas de
 
 Cooperativa y **sin presión** (Octalysis: significado, desarrollo y logro, creatividad y retroalimentación, influencia social; evitar impulsos de presión).
 
-- **Sí:** progreso visible (barras y texto), insignias de nivel con forma y texto, meta comunitaria, logros cooperativos, reconocimiento de quién aportó, celebraciones desactivables.
+- **Sí:** progreso visible (barras y texto), insignias de nivel con forma y texto, referencia de la comunidad, logros cooperativos, reconocimiento de quién contribuyó, celebraciones desactivables. **Construido en G3d** (pestaña «Logros», tarjeta única en la zona Objetivo, destello en el mapa; Q227–Q236).
 - **No:** clasificaciones competitivas entre personas, rachas diarias, cuentas atrás que penalicen, avisos que interrumpan el foco.
 
 ## 10. Lista de comprobación por componente (WCAG 2.2 AA y APG)

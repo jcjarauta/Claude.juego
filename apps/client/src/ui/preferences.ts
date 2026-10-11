@@ -58,5 +58,6 @@ export function createPreferencesForm(initial: Preferences, onChange: (prefs: Pr
     field("Anuncios por lector de pantalla", announcements, "Qué se anuncia en voz alta; todo queda siempre en la consola."),
     checkbox("Abrir pestañas sugeridas automáticamente", "Desactivado por omisión: las pestañas no cambian solas. Aun activado, no cambia mientras escribes, tienes el foco en el panel o hace menos de 30 s que elegiste una.", prefs.autoTabs, (v) => change({ autoTabs: v })),
     radios("pref-etiquetas", "Etiquetas del mapa", [["todas", "Todas"], ["edificios", "Solo edificios"], ["ninguna", "Ninguna"]], prefs.mapLabels, (v) => change({ mapLabels: v as Preferences["mapLabels"] })),
+    radios("pref-celebraciones", "Celebraciones de logros", [["todas", "Todas: aviso, tarjeta y destello"], ["solo-texto", "Solo texto: aviso en la consola"], ["ninguna", "Ninguna: se anotan en Logros sin avisar"]], prefs.celebrations, (v) => change({ celebrations: v as Preferences["celebrations"] })),
     radios("pref-consola", "Consola al cargar", [["desplegada", "Desplegada"], ["plegada", "Plegada"]], prefs.console, (v) => change({ console: v as Preferences["console"] })));
 }
