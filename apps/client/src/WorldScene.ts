@@ -180,6 +180,7 @@ export class WorldScene extends Phaser.Scene {
       // Cambio de vista (RF-010): P al proyecto, M al mapa; el juego sigue y nada se pierde.
       if (event.code === "KeyP" && !isTextInput(event.target)) {
         event.preventDefault();
+        document.dispatchEvent(new CustomEvent("mostrar-pestana", { detail: "proyecto" }));
         this.projectPanel?.focus();
       }
       if (event.code === "KeyM" && !isTextInput(event.target)) {

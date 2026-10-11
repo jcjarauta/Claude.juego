@@ -3,6 +3,8 @@ import { Client } from "@colyseus/sdk";
 import { MAX_PLAYERS, ROOM_NAME, WorldState, type JoinOptions, type WorldConfig } from "@juego/shared";
 import { enter, logout } from "./account.ts";
 import { createHud } from "./hud.ts";
+import { setupTabs } from "./ui/tabs.ts";
+import { rememberedTab } from "./ui/tab-activity.ts";
 import { WorldScene, type WorldRoom, type WorldSceneData } from "./WorldScene.ts";
 
 const VIEW_WIDTH = 800;
@@ -19,6 +21,22 @@ function startGame(room: WorldRoom, config: WorldConfig, asked: boolean) {
   byId<HTMLFormElement>("entrada").hidden = true;
   byId<HTMLElement>("partida").hidden = false;
   const hud = createHud(MAX_PLAYERS);
+
+  // Panel contextual con pestañas (G3b, Q206): se recuerda la última pestaña elegida (con try/catch: el almacenamiento puede no estar disponible).
+  const TAB_KEY = "engremiat.pestana";
+  const TABS = ["proyecto", "taller", "habilidades", "cadenas", "comunidad"];
+  const panelTabs = setupTabs(byId<HTMLElement>("proyecto"), (tab) => {
+    try { localStorage.setItem(TAB_KEY, tab.id.replace("tab-", "")); } catch { /* sin almacenamiento: no se recuerda */ }
+  });
+  let saved: string | null = null;
+  try { saved = localStorage.getItem(TAB_KEY); } catch { /* sin almacenamiento */ }
+  const first = document.getElementById(`tab-${rememberedTab(saved, TABS, "proyecto")}`) as HTMLButtonElement | null;
+  if (first) panelTabs.select(first, false);
+  // Otras partes (la tecla P, construir un edificio) piden mostrar una pestaña con este evento; cambiar el foco es cosa de quien lo pide.
+  document.addEventListener("mostrar-pestana", (event) => {
+    const tab = document.getElementById(`tab-${(event as CustomEvent<string>).detail}`) as HTMLButtonElement | null;
+    if (tab) panelTabs.select(tab, false);
+  });
 
   // Reconexión automática del SDK también en los primeros segundos de sesión.
   room.reconnection.minUptime = 0;

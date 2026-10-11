@@ -48,3 +48,29 @@ Mundo de prueba (`apps/server/test/fixtures/ui-world.json` + `scripts/ui-seed.ts
 - **T2 (controles y efectos):** 27 controles (19 enfocables visibles); los únicos sin manejador propio son `#volver` (lo asigna `offerRejoin` al perder la conexión) y `#ensenar-opciones` (un `select` que no necesita manejador). Efectos medidos: depositar 1 de madera → inventario 3→2 y almacén 3→4 con aviso en `#acciones`; depositar todo de piedra → inventario 2→0 y almacén 2→4; fabricar la herramienta → almacén madera −2, piedra −1, herramienta +1, aviso en `#proyecto-aviso` y misión «Primera herramienta» completada por `ana`.
 - **T3 (foco):** el recorrido real con 24 pulsaciones de Tab coincide con el orden del documento: enlace de salto → `#game` → «Salir de la cuenta» → selector de proyecto → enlace al panel → aportar (seis botones) → fabricar → depositar (seis botones) → «Ofrecer enseñar» → vuelta al enlace de salto. Sin `tabindex` positivo ni trampas.
 - **T4 (CSS):** 35 selectores estructurales (tabla anterior) y estilos calculados de muestra (tamaño, peso, `display`, márgenes y relleno de `#game`, `#proyecto`, `#proyecto-titulo`, `#inventario`, `#jugadores`, `.recursos th`, `.tareas li`, `h1`, `h2`, `h3`…) en `scripts/dom-baseline.json`.
+
+### Marco de pantalla (puerta P2, 2026-10-11)
+
+`index.html` se reorganiza en zonas **conservando todos los ids** (los elementos se han movido enteros; solo se han añadido contenedores y los cinco botones de pestaña con sus paneles):
+
+| Zona | Contenedor | Contenido (ids que alberga) |
+|---|---|---|
+| A. Barra superior | `header.zona-barra` | `zona`, `posicion`, `conexion`, `salir` |
+| B. Mundo | `section.zona-mundo` | `game`, `aviso`, `acciones`, `volver` |
+| C. Objetivo actual | `section#objetivo` (reservada, oculta) | — (G3c) |
+| G. Conversación | `section#conversacion` (reservada, oculta) | — (F2d) |
+| F. Recursos | `section.zona-recursos` | `.recursos`: `inventario`, `comunidad` |
+| D. Panel contextual | `section#proyecto.zona-panel` | Pestañas `tab-proyecto`, `tab-taller`, `tab-habilidades`, `tab-cadenas`, `tab-comunidad` y sus paneles |
+
+Paneles de pestañas: **Proyecto** (`proyecto-selector`, `proyecto-titulo`, `proyecto-comunidad`, `proyecto-descripcion`, `proyecto-estado`, `proyecto-fecha`, `proyecto-tareas`, `construir`, `proyecto-aviso`); **Taller y recetas** (`taller`, `taller-titulo`, `taller-construido`, `taller-recetas`); **Habilidades** (`habilidades-seccion` y sus hijos); **Cadenas** (`cadenas-juego`); **Comunidad** (`misiones`, `proyecto-novedades`, `proyecto-aportes`, `proyecto-actividad`, `jugadores`, `presencia`).
+
+Cambios de comportamiento necesarios por el movimiento (los únicos de código):
+- `main.ts` activa las pestañas con `ui/tabs.ts`, recuerda la última (`localStorage`, con `try/catch`) y escucha el evento `mostrar-pestana` para cambiar de pestaña **a petición de quien actúa** (no sola).
+- La tecla **P** envía `mostrar-pestana: proyecto` y enfoca `#proyecto-titulo` (antes bastaba enfocarlo; ahora puede estar en otra pestaña).
+- Al construir un edificio, si el botón de construir tenía el foco, se envía `mostrar-pestana: taller` y se enfoca `#taller-titulo`.
+
+Selectores estructurales tras el marco: sin ninguno huérfano. Cambian solo las cifras por la nueva estructura y el estado: `[hidden]` 5→11 (paneles ocultos), `.pestanas [role="tab"]` 0→5 y su variante seleccionada 0→1 (reglas de `base.css` ya en uso), `.juego > *` 2→6 (zonas), `#proyecto p` 12→18 (contenido que ahora vive dentro del panel), `button[aria-disabled="true"]` 9→11 (estado de la sesión).
+
+Orden real de Tab tras el marco (22 pulsaciones, ana): enlace de salto → `salir` → `game` → seis botones de depositar → `tab-proyecto` → `panel-proyecto` (región con desplazamiento, `tabindex="0"`) → selector de proyecto → enlace al panel → seis botones de aportar → vuelta al enlace de salto. Solo la pestaña activa está en el orden del foco. El orden visual coincide con el del documento (barra, mundo, recursos, panel).
+
+Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de **900 px de alto** (antes 1660 px), zonas barra y=102, mundo y=166, recursos y=601 y panel a la derecha (y=166, 373 px de alto); a 800 px las cuatro zonas se apilan; con el texto al 200 % no hay desplazamiento horizontal en ninguno de los dos anchos.

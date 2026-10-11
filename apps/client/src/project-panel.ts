@@ -225,6 +225,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         say(`¡${structure!.builtBy} ha construido el ${structureDef?.name.toLowerCase() ?? "edificio"}!`);
         // El botón de construir desaparece: si tenía el foco, pasa a la sección del taller.
         if (document.activeElement === buildButton || document.activeElement === document.body) {
+          // El botón de construir desaparece: el foco pasa al taller, que está en otra pestaña (la acción la ha pedido la persona).
+          document.dispatchEvent(new CustomEvent("mostrar-pestana", { detail: "taller" }));
           workshop.hidden = false;
           byId("taller-titulo").focus();
         }
