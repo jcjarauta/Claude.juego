@@ -1,6 +1,7 @@
 import type { RejectReason } from "./contracts.ts";
 import type { Position } from "./movement.ts";
-import type { MissionDef, RecipeDef, StructureDef } from "./world-config.ts";
+import { missingSkills } from "./skills.ts";
+import type { MissionDef, RecipeDef, SkillDef, StructureDef } from "./world-config.ts";
 
 // Reglas puras de construcción, fabricación y misiones (M5). El servidor las aplica
 // dentro de una transacción con los datos leídos de la base de datos.
@@ -49,6 +50,9 @@ export interface CraftInput {
   structureBuilt: boolean;
   /** Edificios extra construidos o no (`alsoNeeds`), con su nombre para el aviso (F2b, Q191). Sin ellos no se exige ninguno. */
   extraBuildings?: readonly { id: string; name: string; built: boolean }[];
+  /** Habilidades del mundo y nivel de quien fabrica (F2c); sin ellas no se exige ninguna. */
+  skills?: ReadonlyMap<string, SkillDef>;
+  skillLevel?: (skill: string) => number;
   position: Position;
   /** Existencias del almacén de la comunidad. */
   stock: (id: string) => number;
@@ -57,12 +61,14 @@ export interface CraftInput {
 export type CraftResult = { ok: true; recipe: RecipeDef } | { ok: false; reason: RejectReason; details?: string[] };
 
 /** Q157, Q191: edificio construido, jugador junto a él, edificios extra construidos y materiales en el almacén común. */
-export function checkCraft({ recipe, structure, structureBuilt, extraBuildings = [], position, stock }: CraftInput): CraftResult {
+export function checkCraft({ recipe, structure, structureBuilt, extraBuildings = [], skills, skillLevel, position, stock }: CraftInput): CraftResult {
   if (!recipe || !structure) return { ok: false, reason: "receta-desconocida" };
   if (!structureBuilt) return { ok: false, reason: "taller-sin-construir" };
   if (!isNextTo(position, structure)) return { ok: false, reason: "lejos-del-taller" };
   const missing = extraBuildings.filter((b) => !b.built).map((b) => b.name);
   if (missing.length) return { ok: false, reason: "faltan-edificios", details: [`Falta construir: ${missing.join(", ")}.`] };
+  const lacking = missingSkills(recipe, skills ?? new Map(), skillLevel ?? (() => 0));
+  if (lacking.length) return { ok: false, reason: "falta-habilidad", details: lacking.map((l) => `Te falta la habilidad ${l}.`) };
   if (Object.entries(recipe.inputs).some(([resource, amount]) => stock(resource) < amount)) {
     return { ok: false, reason: "faltan-materiales" };
   }

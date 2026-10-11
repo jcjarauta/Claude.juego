@@ -1,4 +1,4 @@
-import { makeId, DEFAULT_BUILD_LIMITS, footprintProblems, recipeCycle, validateItemDef, validateRecipeDef, validateStructureDef, type BuildLimits, type ItemDef, type PlacementContext, type ProjectDef, type RecipeDef, type StructureDef } from "./world-config.ts";
+import { makeId, DEFAULT_BUILD_LIMITS, footprintProblems, recipeCycle, validateItemDef, validateRecipeDef, validateStructureDef, type BuildLimits, type ItemDef, type PlacementContext, type ProjectDef, type RecipeDef, type SkillDef, type StructureDef } from "./world-config.ts";
 import { authorize, checkCreateProject, type CreateResult } from "./projects.ts";
 
 // Editor de construcciones (F2a, Q186–Q188): la administración crea desde el panel estructuras
@@ -124,6 +124,8 @@ export interface CreateRecipeInput {
   recipes?: readonly RecipeDef[];
   /** Nombre de un recurso u objeto por id, para describir el ciclo. */
   entryName?: (id: string) => string;
+  /** Habilidades existentes, para las que exige la receta (F2c). */
+  skills?: ReadonlyMap<string, SkillDef>;
   limits?: BuildLimits;
   idSuffix: string;
 }
@@ -140,9 +142,9 @@ export function checkCreateRecipe(input: CreateRecipeInput): CreateResult<Recipe
   if (existingIds.has(id)) return { ok: false, reason: "solicitud-invalida" };
   const output = isRecord(raw.output) ? { item: raw.output.item, amount: raw.output.amount } : raw.output;
   const def: Record<string, unknown> = { id, name, structureId: raw.structureId, inputs: raw.inputs, output };
-  for (const key of ["verb", "alsoNeeds", "byproducts"] as const) if (raw[key] !== undefined) def[key] = raw[key];
+  for (const key of ["verb", "alsoNeeds", "byproducts", "requiresSkills"] as const) if (raw[key] !== undefined) def[key] = raw[key];
   if (typeof def.verb === "string") def.verb = def.verb.trim();
-  const errors = validateRecipeDef(def, { resourceIds, itemIds, structureIds, limits: "panel", buildLimits: limits, where: "receta" });
+  const errors = validateRecipeDef(def, { resourceIds, itemIds, structureIds, limits: "panel", buildLimits: limits, skills: input.skills, where: "receta" });
   if (!errors.length) {
     const cycle = recipeCycle(input.recipes ?? [], def as unknown as RecipeDef);
     if (cycle) errors.push(`forma un ciclo: ${cycle.map((id) => input.entryName?.(id) ?? id).join(" → ")}`);

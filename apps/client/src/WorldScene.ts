@@ -1,10 +1,12 @@
 import { chainsFromState } from "./views/cadenas.ts";
+import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, structureDefFromState,
+  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillDefFromState, skillLevelName, structureDefFromState,
   type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
-  type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TransferMessage, type WorldConfig, type WorldIndex,
+  type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TeachOfferedMessage, type TeachOfferMessage, type TeachRespondMessage,
+  type TeachResultMessage, type TransferMessage, type WorldConfig, type WorldIndex,
   type WorldState,
 } from "@juego/shared";
 import type { Hud } from "./hud.ts";
@@ -75,6 +77,9 @@ export class WorldScene extends Phaser.Scene {
   /** Última acción propia que reduce el inventario: decide cómo se anuncia la bajada. */
   private lastOwnAction: "deposit" | "contribute" | undefined;
   private projectPanel: ProjectPanel | undefined;
+  /** Panel de habilidades (F2c) y ofertas de enseñanza recibidas. */
+  private skillsPanel!: SkillsPanel;
+  private offers: TeachOfferedMessage[] = [];
   /** Proyecto que se ve en el panel (F1a: hay varios; por defecto, el primero de la configuración). */
   private selectedProject: string | undefined;
   private projectOptions = "";
@@ -132,8 +137,25 @@ export class WorldScene extends Phaser.Scene {
     this.room.onStateChange(() => this.refreshResources());
     this.refreshResources();
 
-    this.room.onMessage(MESSAGE.rejected, ({ reason }: RejectedMessage) => {
-      if (reason !== "movimiento-demasiado-rapido") this.hud.notify(REJECT_TEXT[reason]);
+    this.room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
+      if (reason !== "movimiento-demasiado-rapido") this.hud.notify([REJECT_TEXT[reason], ...(details ?? [])].join(" "));
+    });
+
+    // Habilidades (F2c): ofertas de enseñanza recibidas y su desenlace.
+    this.skillsPanel = createSkillsPanel({
+      offer: (to, skill) => this.room.send(MESSAGE.teachOffer, { requestId: newRequestId(), to, skill } satisfies TeachOfferMessage),
+      respond: (offerId, accept) => this.room.send(MESSAGE.teachRespond, { requestId: newRequestId(), offerId, accept } satisfies TeachRespondMessage),
+    });
+    this.room.onMessage(MESSAGE.teachOffered, (offer: TeachOfferedMessage) => { this.offers.push(offer); this.refreshResources(); });
+    this.room.onMessage(MESSAGE.teachResult, (result: TeachResultMessage) => {
+      this.offers = this.offers.filter((o) => o.offerId !== result.offerId);
+      const own = result.to === this.room.state.players.get(this.room.sessionId)?.name;
+      const skill = this.room.state.skills.get(result.skill)?.name ?? result.skill;
+      const who = own ? result.from : result.to;
+      this.skillsPanel.say(result.status === "aceptada" ? (own ? `Has aprendido ${skill}.` : `${who} ha aceptado y ha aprendido ${skill}.`)
+        : result.status === "rechazada" ? (own ? "Has rechazado la oferta." : `${who} ha rechazado tu oferta de ${skill}.`)
+          : result.status === "caducada" ? "La oferta ha caducado." : "La oferta se ha anulado.");
+      this.refreshResources();
     });
 
     const keyboard = this.input.keyboard;
@@ -325,7 +347,7 @@ export class WorldScene extends Phaser.Scene {
         recipes: structureDef ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureDef.id).map(([id, r]) => recipeDefFromState(id, r)) : [],
         itemName: (id) => state.items.get(id)?.name.toLowerCase() ?? id,
         building: (id) => { const s = state.structures.get(id); return s && { name: s.name, built: s.built }; },
-        chains: chainsFromState(state, this.config, (id) => state.community.get(id) ?? 0),
+        chains: chainsFromState(state, this.config, (id) => state.community.get(id) ?? 0, (skill) => me.skills.get(skill) ?? 0),
         held: (resource) => me.inventory.get(resource) ?? 0,
         community: (resource) => state.community.get(resource) ?? 0,
         ownName: me.name,
@@ -335,11 +357,29 @@ export class WorldScene extends Phaser.Scene {
         position: { x: me.x, y: me.y },
       });
     }
+
+    this.refreshPlayerList();
+    // Habilidades (F2c): tu nivel, tu progreso, ofertas recibidas y a quién puedes enseñar.
+    const skillDefs = [...state.skills.entries()].map(([id, s]) => skillDefFromState(id, s));
+    this.skillsPanel.render({
+      skills: skillDefs,
+      mine: (skill) => me.skills.get(skill) ?? 0,
+      crafts: (recipe) => me.crafts.get(recipe) ?? 0,
+      recipeName: (id) => state.recipes.get(id)?.name ?? id,
+      me: { name: me.name, at: { x: me.x, y: me.y } },
+      others: [...state.players.entries()].filter(([sessionId]) => sessionId !== this.room.sessionId)
+        .map(([, p]) => ({ name: p.name, at: { x: p.x, y: p.y }, connected: p.connected, level: (skill: string) => p.skills.get(skill) ?? 0 })),
+      offers: this.offers,
+    });
   }
 
   private refreshPlayerList() {
     this.hud.setPlayers([...this.room.state.players.entries()].map(([sessionId, p]) => ({
       name: p.name, connected: p.connected, own: sessionId === this.room.sessionId,
+      skills: [...p.skills.entries()].map(([id, level]) => {
+        const s = this.room.state.skills.get(id);
+        return s ? `${s.name} (${skillLevelName(skillDefFromState(id, s), level)})` : id;
+      }).join(", "),
     })));
   }
 

@@ -1,5 +1,5 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
-import type { ItemDef, MissionDef, ProjectDef, RecipeDef, StructureDef } from "./world-config.ts";
+import type { ItemDef, MissionDef, ProjectDef, RecipeDef, SkillDef, StructureDef } from "./world-config.ts";
 
 // Estado sincronizado: lo modifica solo el servidor; el cliente lo recibe tipado
 // pasando WorldState a client.join(). De los nodos solo se sincronizan las
@@ -13,6 +13,10 @@ export const Player = schema({
   connected: t.boolean(),
   /** Inventario individual: recurso → cantidad. */
   inventory: t.map("uint16"),
+  /** Habilidades (F2c): habilidad → nivel (permanente). */
+  skills: t.map("uint8"),
+  /** Veces que ha fabricado cada receta de práctica (F2c, Q196): receta → número. */
+  crafts: t.map("uint16"),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 
@@ -139,6 +143,23 @@ export const ItemState = schema({
 }, "ItemState");
 export type ItemState = SchemaType<typeof ItemState>;
 
+/** Nivel de una habilidad (F2c): nombre y receta que se practica. */
+export const SkillLevelState = schema({
+  name: t.string(),
+  recipe: t.string(),
+  times: t.uint16(),
+}, "SkillLevelState");
+export type SkillLevelState = SchemaType<typeof SkillLevelState>;
+
+/** Habilidad creada o de la configuración (F2c). */
+export const SkillState = schema({
+  name: t.string(),
+  description: t.string(),
+  levels: t.array(SkillLevelState),
+  origin: t.string(),
+}, "SkillState");
+export type SkillState = SchemaType<typeof SkillState>;
+
 /** Receta (F2a, F2b): entradas del almacén común (recursos u objetos), salida principal y subproductos. */
 export const RecipeState = schema({
   name: t.string(),
@@ -152,6 +173,8 @@ export const RecipeState = schema({
   alsoNeeds: t.array("string"),
   /** Subproductos: objeto → cantidad. */
   byproducts: t.map("uint16"),
+  /** Habilidades necesarias: habilidad → nivel mínimo (F2c). */
+  requiresSkills: t.map("uint8"),
   origin: t.string(),
 }, "RecipeState");
 export type RecipeState = SchemaType<typeof RecipeState>;
@@ -169,6 +192,7 @@ export const WorldState = schema({
   missions: t.map(MissionState),
   items: t.map(ItemState),
   recipes: t.map(RecipeState),
+  skills: t.map(SkillState),
 }, "WorldState");
 export type WorldState = SchemaType<typeof WorldState>;
 
@@ -209,5 +233,10 @@ export function recipeDefFromState(id: string, r: RecipeState): RecipeDef {
     ...(r.verb ? { verb: r.verb } : {}),
     ...(r.alsoNeeds.length ? { alsoNeeds: [...r.alsoNeeds] } : {}),
     ...(r.byproducts.size ? { byproducts: [...r.byproducts.entries()].map(([item, amount]) => ({ item, amount })) } : {}),
+    ...(r.requiresSkills.size ? { requiresSkills: [...r.requiresSkills.entries()].map(([skill, level]) => ({ skill, level })) } : {}),
   };
+}
+
+export function skillDefFromState(id: string, s: SkillState): SkillDef {
+  return { id, name: s.name, description: s.description, levels: s.levels.map((l) => ({ name: l.name, practice: { recipe: l.recipe, times: l.times } })) };
 }

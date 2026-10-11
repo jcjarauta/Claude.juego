@@ -1,113 +1,32 @@
 import {
   MESSAGE, PANEL_LIMITS,
+  skillDefFromState, skillLevelName,
   type CreateConstructionMessage, type CreateItemMessage, type CreateMissionMessage, type CreateProjectMessage, type CreateRecipeMessage,
-  type NewTask, type WorldConfig, type WorldState,
+  type CreateSkillMessage, type GrantSkillMessage, type NewTask, type SkillGrantedMessage, type WorldConfig, type WorldState,
 } from "@juego/shared";
 import type { Room } from "@colyseus/sdk";
 import { newRequestId } from "./request-id.ts";
-import { el } from "./views/common.ts";
+import { dynamicList } from "./ui/dynamic-list.ts";
+import { el } from "./ui/dom.ts";
+import { formFeedback } from "./ui/feedback.ts";
+import { field } from "./ui/field.ts";
+import { syncGroupedOptions, syncOptions, type Option } from "./ui/select-options.ts";
 import { createMinimap } from "./views/minimap.ts";
 
 // Formularios de administración del panel (F1a, FUT-05, Q171–Q174): crear proyectos y misiones
 // sin programar. El servidor valida todo; aquí solo se ayuda a rellenar y se muestran sus motivos.
 
-let fieldCount = 0;
-/** Campo con etiqueta asociada y ayuda opcional. */
-function field<T extends HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(label: string, control: T, help?: string) {
-  control.id ||= `campo-${++fieldCount}`;
-  const wrapper = el("div", { className: "campo" }, el("label", { htmlFor: control.id }, label), control);
-  if (help) {
-    const p = el("p", { id: `${control.id}-ayuda`, className: "ayuda" }, help);
-    control.setAttribute("aria-describedby", p.id);
-    wrapper.append(p);
-  }
-  return wrapper;
-}
-
 /** Mensajes de validación del servidor en lenguaje del formulario (sin ids internos ni nombres de campo en inglés). */
 function readable(detail: string): string {
   return detail
-    .replace(/^(proyecto|misión|construcción|objeto|receta) "[^"]*": /, "")
+    .replace(/^(proyecto|misión|construcción|objeto|receta|habilidad) "[^"]*": /, "")
     .replace(/^(proyecto|misión|construcción)\.tasks\[(\d+)\]: /, (_m, _w, n: string) => `Tarea ${Number(n) + 1}: `)
     .replace(/\bname\b/g, "nombre").replace(/\bdescription\b/g, "descripción").replace(/\btitle\b/g, "título")
     .replace(/\brequired\b/g, "cantidad").replace(/\bacceptance\b/g, "criterio de aceptación")
     .replace(/\bcoordinators\b/g, "coordinación").replace(/\btasks\b/g, "tareas").replace(/\bobjective\b/g, "objetivo")
     .replace(/\binputs\b/g, "entradas").replace(/\boutput\.amount\b/g, "cantidad de salida")
-    .replace(/\bbyproducts\b/g, "subproductos").replace(/\bverb\b/g, "acción").replace(/\balsoNeeds\b/g, "edificios extra").replace(/\bcolor\b/g, "color")
+    .replace(/\bbyproducts\b/g, "subproductos").replace(/\bverb\b/g, "acción").replace(/\balsoNeeds\b/g, "edificios extra").replace(/\brequiresSkills\b/g, "habilidades necesarias").replace(/\blevels\b/g, "niveles").replace(/\bpractice\.times\b/g, "veces").replace(/\bcolor\b/g, "color")
     .replace(/^./, (c) => c.toUpperCase());
-}
-
-/** Una fila de una lista dinámica: sus controles, las etiquetas a renumerar y el control que recibe el foco. */
-interface DynamicRow {
-  controls: HTMLElement[];
-  labels: HTMLLabelElement[];
-  first: HTMLElement;
-  names: (index: number) => string[];
-}
-
-/**
- * Lista de filas que se añaden con «Añadir …» y se quitan con «Quitar» (F2b): mínimo y máximo, etiquetas renumeradas,
- * el foco pasa a la fila nueva o al botón de añadir, y cada cambio se anuncia (el botón se desactiva con aria-disabled
- * para no perder el foco).
- */
-function dynamicList<R extends DynamicRow>(opts: {
-  legend: string; addLabel: string; noun: string; min: number; max: number; announce: (text: string) => void;
-  build: () => R; onChange: () => void;
-}) {
-  const rows: R[] = [];
-  const boxes = new Map<R, HTMLElement>();
-  const list = el("div", { className: "filas" });
-  const add = el("button", { type: "button" });
-  const element = el("fieldset", {}, el("legend", {}, opts.legend), list, add);
-
-  function renumber() {
-    rows.forEach((row, i) => {
-      row.names(i).forEach((name, k) => { row.labels[k]!.textContent = name; });
-      const remove = boxes.get(row)!.querySelector("button")!;
-      remove.textContent = "Quitar";
-      remove.setAttribute("aria-label", `Quitar ${opts.noun} ${i + 1}`);
-      remove.setAttribute("aria-disabled", String(rows.length <= opts.min));
-    });
-    add.textContent = `${opts.addLabel} (${rows.length} de ${opts.max})`;
-    add.setAttribute("aria-disabled", String(rows.length >= opts.max));
-  }
-  function addRow(focus: boolean, silent = false) {
-    const row = opts.build();
-    const remove = el("button", { type: "button" });
-    remove.onclick = () => {
-      if (remove.getAttribute("aria-disabled") === "true") return;
-      const at = rows.indexOf(row);
-      rows.splice(at, 1);
-      boxes.get(row)!.remove();
-      boxes.delete(row);
-      renumber();
-      (rows[Math.min(at, rows.length - 1)]?.first ?? add).focus();
-      opts.announce(`${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)} quitada. Quedan ${rows.length}.`);
-    };
-    const box = el("div", { className: "entrada-receta" }, ...row.controls, remove);
-    rows.push(row);
-    boxes.set(row, box);
-    list.append(box);
-    renumber();
-    if (!silent) opts.onChange();
-    if (focus) {
-      row.first.focus();
-      opts.announce(`${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)} ${rows.length} añadida.`);
-    }
-  }
-  add.onclick = () => {
-    if (add.getAttribute("aria-disabled") === "true") { opts.announce(`No caben más: el máximo es ${opts.max}.`); return; }
-    addRow(true);
-  };
-  // `silent`: al crearse, las listas que `onChange` consulta aún no existen; las opciones se rellenan en el primer render().
-  const reset = (silent = false) => {
-    for (const row of [...rows]) { boxes.get(row)!.remove(); boxes.delete(row); }
-    rows.length = 0;
-    for (let i = 0; i < opts.min; i++) addRow(false, silent);
-    renumber();
-  };
-  reset(true);
-  return { element, rows, reset };
 }
 
 export function createAdminForms(container: HTMLElement, config: WorldConfig, room: Room<unknown, WorldState>, announce: (text: string) => void) {
@@ -222,7 +141,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   addTaskRow();
 
   /** Lo último enviado y aún sin confirmar: dónde mostrar un rechazo y qué esperar en el estado. */
-  let pending: { kind: "proyecto" | "mision" | "objeto" | "receta"; name: string } | undefined;
+  let pending: { kind: "proyecto" | "mision" | "objeto" | "receta" | "habilidad" | "concesion"; name: string } | undefined;
   projectForm.onsubmit = (event) => {
     event.preventDefault();
     projectErrors.replaceChildren();
@@ -297,8 +216,9 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
 
   // --- Nuevo objeto (F2a) ---
   const itemName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
-  const itemErrors = el("div", { className: "error", role: "alert" });
-  const itemConfirm = el("p", { className: "confirmacion", role: "status" });
+  const itemFeedback = formFeedback();
+  const itemErrors = itemFeedback.errors;
+  const itemConfirm = itemFeedback.confirm;
   const itemList = el("div", { className: "lista-creados" });
   const itemForm = el("form", { noValidate: true },
     el("h3", { id: "nuevo-objeto-titulo" }, "Nuevo objeto"),
@@ -325,6 +245,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   // Opciones vigentes de los selectores de las filas (se rellenan en render()).
   let itemEntries: [string, string][] = [];
   let buildingEntries: [string, string][] = [];
+  let skillEntries: [string, string][] = [];
 
   // Entradas, subproductos y edificios extra: filas que se añaden y se quitan (F2b, Q190); el tope es el límite configurado.
   const inputList = dynamicList({
@@ -333,7 +254,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     build: () => {
       const entry = el("select");
       const amount = el("input", { type: "number", min: "1", max: String(limits.inputAmount), value: "1", inputMode: "numeric" });
-      const a = field("", entry), b = field("", amount);
+      const a = field("", entry, undefined, { deferredLabel: true }), b = field("", amount, undefined, { deferredLabel: true });
       return { entry, amount, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: entry,
         names: (i: number) => [`Entrada ${i + 1}: recurso u objeto`, `Cantidad de la entrada ${i + 1}`] };
     },
@@ -344,7 +265,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     build: () => {
       const item = el("select");
       const amount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
-      const a = field("", item), b = field("", amount);
+      const a = field("", item, undefined, { deferredLabel: true }), b = field("", amount, undefined, { deferredLabel: true });
       return { item, amount, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: item,
         names: (i: number) => [`Subproducto ${i + 1}: objeto`, `Cantidad del subproducto ${i + 1}`] };
     },
@@ -354,19 +275,41 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     onChange: () => syncRecipeSelects(),
     build: () => {
       const building = el("select");
-      const a = field("", building);
+      const a = field("", building, undefined, { deferredLabel: true });
       return { building, controls: [a], labels: [a.querySelector("label")!], first: building,
         names: (i: number) => [`Edificio necesario ${i + 1} (debe estar construido, en cualquier lugar)`] };
     },
   });
+  // Habilidades necesarias (F2c, Q199): habilidad y nivel mínimo; el selector de nivel depende de la habilidad elegida.
+  const levelEntries = (skillId: string): [string, string][] => {
+    const skill = room.state.skills.get(skillId);
+    return skill ? skillDefFromState(skillId, skill).levels.map((l, i): [string, string] => [String(i + 1), `${i + 1}. ${l.name}`]) : [];
+  };
+  const skillList = dynamicList({
+    legend: "Habilidades necesarias (opcionales)", addLabel: "Añadir habilidad", noun: "habilidad", min: 0, max: limits.recipeSkills, announce,
+    onChange: () => syncRecipeSelects(),
+    build: () => {
+      const skill = el("select");
+      const level = el("select");
+      skill.onchange = () => syncRecipeSelects();
+      const a = field("", skill, undefined, { deferredLabel: true }), b = field("", level, undefined, { deferredLabel: true });
+      return { skill, level, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: skill,
+        names: (i: number) => [`Habilidad necesaria ${i + 1}`, `Nivel mínimo de la habilidad ${i + 1}`] };
+    },
+  });
   function syncRecipeSelects() {
-    inputList.rows.forEach((r, i) => syncEntries(r.entry, itemEntries, i === 0 ? "Elige una entrada" : "Elige una entrada"));
+    for (const r of skillList.rows) {
+      syncOptions(r.skill, skillEntries, "Elige una habilidad");
+      syncOptions(r.level, levelEntries(r.skill.value), "Elige el nivel mínimo");
+    }
+    inputList.rows.forEach((r) => syncGroupedOptions(r.entry, [{ label: "Recursos", entries: resources.map((r): Option => [r.id, r.name]) }, { label: "Objetos", entries: itemEntries }], "Elige una entrada"));
     for (const r of byproductList.rows) syncOptions(r.item, itemEntries, "Elige un objeto");
     for (const r of extraList.rows) syncOptions(r.building, buildingEntries, "Elige un edificio");
   }
 
-  const recipeErrors = el("div", { className: "error", role: "alert" });
-  const recipeConfirm = el("p", { className: "confirmacion", role: "status" });
+  const recipeFeedback = formFeedback();
+  const recipeErrors = recipeFeedback.errors;
+  const recipeConfirm = recipeFeedback.confirm;
   const recipeForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-receta-titulo" }, "Nueva receta"),
     el("p", { className: "ayuda" }, `Una receta es una acción que se hace junto a un edificio construido: consume entradas del almacén de la comunidad (recursos u objetos; hasta ${limits.recipeInputs}) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
@@ -377,6 +320,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     field("Objeto que se obtiene", recipeOutput), field("Cantidad que se obtiene", outputAmount),
     byproductList.element,
     extraList.element,
+    skillList.element,
     recipeErrors,
     el("button", { type: "submit", textContent: "Crear la receta" }), recipeConfirm);
   recipeForm.setAttribute("aria-labelledby", "nueva-receta-titulo");
@@ -392,51 +336,109 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     const byproducts = byproductList.rows.filter((r) => r.item.value).map((r) => ({ item: r.item.value, amount: Number(r.amount.value) }));
     const alsoNeeds = [...new Set(extraList.rows.map((r) => r.building.value).filter(Boolean))];
     const verb = recipeVerb.value.trim();
+    const requiresSkills = skillList.rows.filter((r) => r.skill.value && r.level.value).map((r) => ({ skill: r.skill.value, level: Number(r.level.value) }));
+    if (skillList.rows.some((r) => r.skill.value && !r.level.value)) {
+      recipeErrors.append(el("p", {}, "Elige el nivel mínimo de cada habilidad necesaria."));
+      return;
+    }
     const message: CreateRecipeMessage = {
       requestId: newRequestId(), name: recipeName.value.trim(), structureId: recipeStructure.value,
       inputs: Object.fromEntries(used.map((r) => [r.entry.value, Number(r.amount.value)])),
       output: { item: recipeOutput.value, amount: Number(outputAmount.value) },
       ...(verb ? { verb } : {}), ...(alsoNeeds.length ? { alsoNeeds } : {}), ...(byproducts.length ? { byproducts } : {}),
+      ...(requiresSkills.length ? { requiresSkills } : {}),
     };
     pending = { kind: "receta", name: message.name };
     room.send(MESSAGE.createRecipe, message);
   };
 
-  /** Opciones de un selector a partir del estado (se rehacen solo si cambian; se conserva la elección). */
-  function syncOptions(select: HTMLSelectElement, entries: [string, string][], placeholder?: string) {
-    const signature = `${placeholder ?? ""}#${entries.map(([id, label]) => `${id}|${label}`).join(";")}`;
-    if (select.dataset.options === signature) return;
-    const selected = select.value;
-    select.replaceChildren(...(placeholder === undefined ? [] : [el("option", { value: "", textContent: placeholder })]),
-      ...entries.map(([id, label]) => el("option", { value: id, textContent: label })));
-    if (entries.some(([id]) => id === selected)) select.value = selected;
-    select.dataset.options = signature;
+  // --- Nueva habilidad (F2c, Q195) ---
+  let practiceEntries: [string, string][] = [];
+  const skillName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
+  const skillDescription = el("input", { maxLength: 200, autocomplete: "off" });
+  const levelList = dynamicList({
+    legend: "Niveles, de menor a mayor", addLabel: "Añadir nivel", noun: "nivel", min: 1, max: limits.skillLevels, announce,
+    onChange: () => syncSkillSelects(),
+    build: () => {
+      const levelName = el("input", { maxLength: 30, autocomplete: "off" });
+      const recipe = el("select");
+      const times = el("input", { type: "number", min: "1", max: "1000", value: "3", inputMode: "numeric" });
+      const a = field("", levelName, undefined, { deferredLabel: true }), b = field("", recipe, undefined, { deferredLabel: true }), c = field("", times, undefined, { deferredLabel: true });
+      return { levelName, recipe, times, controls: [a, b, c], labels: [a, b, c].map((w) => w.querySelector("label")!), first: levelName,
+        names: (i: number) => [`Nivel ${i + 1}: nombre`, `Nivel ${i + 1}: receta que se practica`, `Nivel ${i + 1}: veces que hay que fabricarla`] };
+    },
+  });
+  function syncSkillSelects() {
+    for (const r of levelList.rows) syncOptions(r.recipe, practiceEntries, "Elige una receta");
   }
-
-  /** Entradas de receta agrupadas en «Recursos» y «Objetos» (F2b, Q190). */
-  function syncEntries(select: HTMLSelectElement, items: [string, string][], placeholder: string) {
-    const signature = `${placeholder}#${items.map(([id, label]) => `${id}|${label}`).join(";")}`;
-    if (select.dataset.options === signature) return;
-    const selected = select.value;
-    const group = (label: string, entries: [string, string][]) => {
-      const node = el("optgroup", { label });
-      node.append(...entries.map(([id, text]) => el("option", { value: id, textContent: text })));
-      return node;
+  const skillFeedback = formFeedback();
+  const skillErrors = skillFeedback.errors;
+  const skillConfirm = skillFeedback.confirm;
+  const skillForm = el("form", { noValidate: true },
+    el("h3", { id: "nueva-habilidad-titulo" }, "Nueva habilidad"),
+    el("p", { className: "ayuda" }, `Una habilidad es permanente y tiene hasta ${limits.skillLevels} niveles. Cada nivel se gana fabricando varias veces una receta abierta (que no exija esta habilidad), o por concesión de la administración, o porque alguien con más nivel te lo enseñe. Máximo ${limits.skills} habilidades creadas aquí.`),
+    field("Nombre de la habilidad", skillName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`),
+    field("Descripción", skillDescription, "Opcional, hasta 200 caracteres."),
+    levelList.element,
+    skillErrors,
+    el("button", { type: "submit", textContent: "Crear la habilidad" }), skillConfirm);
+  skillForm.setAttribute("aria-labelledby", "nueva-habilidad-titulo");
+  skillForm.onsubmit = (event) => {
+    event.preventDefault();
+    skillErrors.replaceChildren();
+    skillConfirm.textContent = "";
+    const message: CreateSkillMessage = {
+      requestId: newRequestId(), name: skillName.value.trim(), description: skillDescription.value.trim(),
+      levels: levelList.rows.map((r) => ({ name: r.levelName.value.trim(), recipe: r.recipe.value, times: Number(r.times.value) })),
     };
-    select.replaceChildren(el("option", { value: "", textContent: placeholder }),
-      group("Recursos", resources.map((r) => [r.id, r.name])), ...(items.length ? [group("Objetos", items)] : []));
-    if ([...resources.map((r) => r.id), ...items.map(([id]) => id)].includes(selected)) select.value = selected;
-    select.dataset.options = signature;
-  }
+    pending = { kind: "habilidad", name: message.name };
+    room.send(MESSAGE.createSkill, message);
+  };
 
-  section.append(projectForm, itemForm, recipeForm, missionForm);
+  // --- Conceder una habilidad (F2c, Q197): solo sube de nivel ---
+  const grantName = el("input", { maxLength: 20, autocomplete: "off" });
+  const grantSkill = el("select");
+  const grantLevel = el("select");
+  const grantFeedback = formFeedback();
+  const grantErrors = grantFeedback.errors;
+  const grantConfirm = grantFeedback.confirm;
+  grantSkill.onchange = () => syncGrant();
+  const grantForm = el("form", { noValidate: true },
+    el("h3", { id: "conceder-habilidad-titulo" }, "Conceder una habilidad"),
+    el("p", { className: "ayuda" }, "Sube a una persona (con cuenta, esté o no conectada) a un nivel de una habilidad. Solo se puede subir de nivel, nunca bajar."),
+    field("Cuenta de la persona", grantName), field("Habilidad", grantSkill), field("Nivel", grantLevel),
+    grantErrors,
+    el("button", { type: "submit", textContent: "Conceder" }), grantConfirm);
+  grantForm.setAttribute("aria-labelledby", "conceder-habilidad-titulo");
+  function syncGrant() {
+    syncOptions(grantSkill, skillEntries, "Elige una habilidad");
+    syncOptions(grantLevel, levelEntries(grantSkill.value), "Elige el nivel");
+  }
+  grantForm.onsubmit = (event) => {
+    event.preventDefault();
+    grantErrors.replaceChildren();
+    grantConfirm.textContent = "";
+    const message: GrantSkillMessage = { requestId: newRequestId(), name: grantName.value.trim(), skill: grantSkill.value, level: Number(grantLevel.value) };
+    pending = { kind: "concesion", name: message.name };
+    room.send(MESSAGE.grantSkill, message);
+  };
+  room.onMessage(MESSAGE.skillGranted, (m: SkillGrantedMessage) => {
+    const skill = room.state.skills.get(m.skill);
+    const text = `${m.player} tiene ahora ${skill ? skillLevelName(skillDefFromState(m.skill, skill), m.level) : `el nivel ${m.level}`} en ${skill?.name ?? m.skill}.`;
+    grantConfirm.textContent = text;
+    announce(text);
+    pending = undefined;
+  });
+
+  section.append(projectForm, itemForm, recipeForm, skillForm, grantForm, missionForm);
   container.before(section); // antes de la lista de proyectos
 
   let knownProjects: Set<string> | undefined;
   let knownMissions: Set<string> | undefined;
   let knownItems: Set<string> | undefined;
   let knownRecipes: Set<string> | undefined;
-  const errorBox = { proyecto: projectErrors, mision: missionErrors, objeto: itemErrors, receta: recipeErrors };
+  let knownSkills: Set<string> | undefined;
+  const errorBox = { proyecto: projectErrors, mision: missionErrors, objeto: itemErrors, receta: recipeErrors, habilidad: skillErrors, concesion: grantErrors };
   refreshSolar();
   return {
     /** Motivo de rechazo del servidor junto al formulario que lo provocó. */
@@ -455,6 +457,10 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       syncOptions(projectSelect, open.map(([id, p]) => [id, p.name]));
       // Objetos y edificios del estado (F2a): también los creados desde el panel.
       syncOptions(itemSelect, [...state.items.entries()].map(([id, i]) => [id, i.name]));
+      skillEntries = [...state.skills.entries()].map(([id, s]): [string, string] => [id, s.name]);
+      practiceEntries = [...state.recipes.entries()].filter(([, r]) => r.requiresSkills.size === 0).map(([id, r]): [string, string] => [id, r.name]);
+      syncSkillSelects();
+      syncGrant();
       itemEntries = [...state.items.entries()].map(([id, i]): [string, string] => [id, i.name]);
       buildingEntries = [...state.structures.entries()].map(([id, s]): [string, string] => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]);
       syncOptions(recipeOutput, itemEntries);
@@ -510,11 +516,23 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
           recipeConfirm.textContent = `Receta «${pending.name}» creada. Se fabricará en el edificio elegido cuando esté construido.`;
           pending = undefined;
           recipeForm.reset();
-          for (const list of [inputList, byproductList, extraList]) list.reset();
+          for (const list of [inputList, byproductList, extraList, skillList]) list.reset();
           recipeName.focus();
         }
       }
       knownRecipes = recipeIds;
+      const skillIds = new Set(state.skills.keys());
+      for (const id of skillIds) {
+        if (knownSkills && !knownSkills.has(id) && pending?.kind === "habilidad" && state.skills.get(id)!.name === pending.name) {
+          announce(`Habilidad «${pending.name}» creada.`);
+          skillConfirm.textContent = `Habilidad «${pending.name}» creada. Ya puedes exigirla en las recetas y conceder sus niveles.`;
+          pending = undefined;
+          skillForm.reset();
+          levelList.reset();
+          skillName.focus();
+        }
+      }
+      knownSkills = skillIds;
     },
   };
 }

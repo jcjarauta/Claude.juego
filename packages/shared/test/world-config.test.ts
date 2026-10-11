@@ -14,6 +14,7 @@ const base = (): WorldConfig => ({
   community: { id: "aldea", name: "Aldea" },
   admins: ["ana"],
   buildLimits: { ...DEFAULT_BUILD_LIMITS },
+  skills: [],
   projects: [{
     id: "construir-taller", name: "Construir taller", description: "",
     tasks: [{ id: "madera", title: "Aportar madera", resource: "madera", required: 20, acceptance: "Aportar 20 de madera" }],

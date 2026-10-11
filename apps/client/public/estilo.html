@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENGREMIAT — Guía de estilo</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/base.css">
+  <style>
+    h1 { font-size: var(--texto-h1); margin: 0 0 var(--espacio-3); }
+    h2 { font-size: var(--texto-h2); margin: var(--espacio-4) 0 var(--espacio-1); border-top: 1px solid var(--color-borde); padding-top: var(--espacio-3); }
+    h3 { font-size: var(--texto-h3); }
+    nav ul { display: flex; flex-wrap: wrap; gap: var(--espacio-3); list-style: none; padding: 0; }
+    section { max-width: 760px; }
+    form { display: grid; gap: var(--espacio-2); max-width: 420px; margin: var(--espacio-3) 0; }
+    input, select, textarea { padding: 6px 8px; }
+    button { padding: 4px 12px; }
+    .muestras { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--espacio-2); list-style: none; padding: 0; }
+    .muestras li { display: flex; align-items: center; gap: var(--espacio-2); }
+    .muestra { width: 28px; height: 28px; border-radius: var(--radio); border: 1px solid var(--color-texto); flex: none; }
+    .tabla table { border-collapse: collapse; width: 100%; }
+    caption { text-align: left; font-weight: 600; padding: var(--espacio-1) 0; }
+    th, td { text-align: left; padding: var(--espacio-2); border-bottom: 1px solid var(--color-borde-suave); }
+    .panel-demo { border: 1px solid var(--color-borde); border-radius: var(--radio-grande); padding: var(--espacio-3); background: var(--color-superficie); }
+  </style>
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <main id="contenido" tabindex="-1">
+    <h1>ENGREMIAT · Guía de estilo</h1>
+    <p class="ayuda">Componentes reutilizables y reglas visuales (G3a). Cada ejemplo funciona con teclado; sirve de referencia y de banco de pruebas. Las reglas completas están en <code>docs/arquitectura-visual.md</code>. <a href="/">Ir al mundo</a> · <a href="/panel">Ir al panel</a></p>
+    <p id="estilo-aviso" class="aviso" role="status" aria-live="polite"></p>
+    <nav aria-label="Secciones de la guía"><ul id="indice"></ul></nav>
+    <div id="demo"></div>
+  </main>
+  <script type="module" src="/estilo.js"></script>
+</body>
+</html>

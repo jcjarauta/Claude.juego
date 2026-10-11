@@ -1,5 +1,5 @@
 import {
-  chainDiagram, chainLine, chainMissing, describeChains, recipeDefFromState, structureDefFromState,
+  chainDiagram, chainLine, chainMissing, describeChains, recipeDefFromState, skillDefFromState, structureDefFromState,
   type ChainEntry, type WorldConfig, type WorldState,
 } from "@juego/shared";
 import { el, type PanelRoom } from "./common.ts";
@@ -16,7 +16,7 @@ const svg = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
 };
 
 /** Recetas del estado sincronizado descritas para mostrarlas (con existencias si se pasa `stock`). */
-export function chainsFromState(state: WorldState, config: WorldConfig, stock?: (id: string) => number): ChainEntry[] {
+export function chainsFromState(state: WorldState, config: WorldConfig, stock?: (id: string) => number, mySkill?: (skill: string) => number): ChainEntry[] {
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name]));
   const structures = new Map([...state.structures.entries()].map(([id, s]) => [id, { def: structureDefFromState(id, s), built: s.built }]));
   return describeChains({
@@ -24,7 +24,9 @@ export function chainsFromState(state: WorldState, config: WorldConfig, stock?: 
     building: (id) => { const s = structures.get(id); return s && { name: s.def.name, built: s.built }; },
     entryName: (id) => resourceName.get(id) ?? state.items.get(id)?.name ?? id,
     isItem: (id) => state.items.has(id),
+    skills: new Map([...state.skills.entries()].map(([id, s]) => [id, skillDefFromState(id, s)])),
     ...(stock ? { stock } : {}),
+    ...(mySkill ? { skillLevel: mySkill } : {}),
   });
 }
 

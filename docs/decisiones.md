@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q194 (BORRADOR)
+# Registro de decisiones — Q001 a Q205 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -197,6 +197,17 @@
 | Q192 | Producción | Una receta puede dejar subproductos además de su salida principal; la fabricación es instantánea y el tiempo de fabricación queda como evolución futura. Aprobado con el plan de F2b | VERIFICADO (decisión); F2b |
 | Q193 | Construcciones | Los límites de construcción (entradas, cantidades, subproductos, edificios extra, número de construcciones, objetos y recetas, lado del solar) son configurables en `buildLimits` de `content/world.json`, con valores por omisión y techos duros en el código; se aplican a lo nuevo, no a lo ya creado. Sustituye a las cifras fijas de Q188. Aprobado con el plan de F2b | VERIFICADO (decisión); F2b |
 | Q194 | Construcciones | Los nombres de objetos y recetas creados en el panel no se repiten (sin distinguir mayúsculas ni acentos; los objetos, tampoco con los recursos). Pedido por la persona responsable al probar F2a | VERIFICADO (decisión); F2b |
+| Q195 | Habilidades | Una habilidad es permanente y tiene niveles definidos por la administración (nombre y práctica de cada uno); solo sube. Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
+| Q196 | Habilidades | Cada nivel se alcanza practicando: fabricar N veces una receta R declarada por la habilidad; el contador es por persona y receta y el ascenso ocurre en la transacción de la fabricación. Las recetas de práctica son abiertas: no pueden exigir la propia habilidad (una receta no puede nombrar una habilidad que aún no existe; ajuste surgido al implementar F2c, confirmado al aceptar F2c) | VERIFICADO (decisión); F2c |
+| Q197 | Habilidades | La administración crea y concede habilidades; conceder solo sube de nivel (puede saltar niveles). Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
+| Q198 | Habilidades | Enseñar exige estar a ≤ 2 casillas y la aceptación de la otra persona; solo se enseña hasta un nivel por debajo del del maestro y de un nivel en un nivel; las ofertas caducan a los 60 s y son 3 por minuto y maestro. Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
+| Q199 | Habilidades | Una receta puede exigir varias habilidades, cada una con su nivel mínimo; los límites `skills`, `skillLevels` y `recipeSkills` son configurables en `buildLimits` (Q193). Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
+| Q200 | Visual | La interfaz del juego se organiza en zonas fijas (barra superior, mundo, objetivo actual, consola, recursos) y variables (panel contextual con pestañas), con HUD no diegético más una capa espacial de marcadores. Aprobado con el plan de G3a; se construye en G3b–G3d | VERIFICADO (decisión); G3 |
+| Q201 | Visual | Una sola consola/registro `aria-live` es el lugar de los avisos que no son errores; los errores y confirmaciones van junto al formulario; las celebraciones son opcionales y respetan «menos movimiento». Aprobado con el plan de G3a | VERIFICADO (decisión); G3 |
+| Q202 | Visual | `apps/client/public/tokens.css` es la única fuente de colores, tipografía, espaciado y tamaños; todo par de colores cumple 4,5:1 (texto) o 3:1 (bordes y foco) y lo comprueba `npm.cmd run a11y`. Implementado en G3a | VERIFICADO (decisión); G3a |
+| Q203 | Visual | Los componentes reutilizables (`apps/client/src/ui/`) usan elementos nativos y obligan a etiqueta, leyenda o nombre accesible; siguen los patrones de WAI-ARIA Authoring Practices; los botones se desactivan con `aria-disabled`; objetivo mínimo de 24×24 px. Implementado en G3a | VERIFICADO (decisión); G3a |
+| Q204 | Visual | La gamificación es cooperativa y sin presión (progreso, metas compartidas, logros de equipo, celebraciones desactivables); sin clasificaciones competitivas ni rachas. Aprobado con el plan de G3a | VERIFICADO (decisión); G3 |
+| Q205 | Diseño | Para G1/G2 (se confirma al planificarlas): edición de definiciones por versiones con archivado; límites de diseño editables desde el panel y sin tope práctico; escala de niveles configurable con desplegable. Respuestas de la persona responsable al planificar G3 | PROPUESTA; G1/G2 |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

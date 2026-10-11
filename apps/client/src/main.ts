@@ -15,7 +15,7 @@ async function join(token: string): Promise<WorldRoom> {
   return new Client(location.origin).join(ROOM_NAME, options, WorldState);
 }
 
-function startGame(room: WorldRoom, config: WorldConfig) {
+function startGame(room: WorldRoom, config: WorldConfig, asked: boolean) {
   byId<HTMLFormElement>("entrada").hidden = true;
   byId<HTMLElement>("partida").hidden = false;
   const hud = createHud(MAX_PLAYERS);
@@ -37,8 +37,9 @@ function startGame(room: WorldRoom, config: WorldConfig) {
     location.reload();
   };
 
-  // Al entrar, el foco pasa al mapa: se puede jugar con el teclado sin buscarlo (TP-11).
-  byId<HTMLElement>("game").focus();
+  // Tras rellenar el formulario de entrada, el foco pasa al mapa: se puede jugar con el teclado sin buscarlo (TP-11).
+  // Si la sesión ya estaba guardada no se mueve el foco: el primer Tab llega al enlace «Saltar al contenido» (WCAG 2.4.1).
+  if (asked) byId<HTMLElement>("game").focus();
 
   const data: WorldSceneData = { room, config, hud };
   new Phaser.Game({
@@ -55,8 +56,8 @@ function startGame(room: WorldRoom, config: WorldConfig) {
 async function start() {
   // La configuración llega ya validada por el servidor (content/world.json).
   const config = (await (await fetch("/config")).json()) as WorldConfig;
-  const { room } = await enter(join);
-  startGame(room, config);
+  const { room, asked } = await enter(join);
+  startGame(room, config, asked);
 }
 
 start();

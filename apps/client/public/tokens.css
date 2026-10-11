@@ -1,0 +1,62 @@
+/*
+ * Tokens de diseño de ENGREMIAT (G3a, Q202): única fuente de colores, tipografía, espaciado y tamaños.
+ * Ningún otro archivo del cliente declara colores en hexadecimal (lo comprueba `npm.cmd run a11y`).
+ * Cada par texto/fondo y borde/fondo que se usa en pantalla está declarado en scripts/a11y.ts con su razón de contraste mínima.
+ * Tema oscuro (único por ahora). Documento: docs/arquitectura-visual.md.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Fondos y superficies */
+  --color-fondo: #15191e;            /* página */
+  --color-superficie: #1b2128;       /* tarjetas, paneles, pestaña activa */
+  --color-campo: #0f1317;            /* campos, lienzos y diagramas */
+  --color-boton: #2a323b;            /* botones */
+  --color-mapa: #1b2630;             /* fondo de los minimapas y diagramas */
+
+  /* Texto */
+  --color-texto: #f2f2f2;
+  --color-texto-suave: #c4ccd4;      /* ayudas y notas */
+  --color-texto-apagado: #9aa4ad;    /* personas desconectadas */
+
+  /* Bordes (no texto: 3:1 como mínimo) */
+  --color-borde-suave: #2f3842;      /* filas de tabla */
+  --color-borde: #3a4652;            /* paneles y separadores */
+  --color-borde-campo: #8a99a8;      /* campos y selectores */
+  --color-borde-fuerte: #5b6b7a;     /* lienzo del juego, teclas */
+
+  /* Semánticos */
+  --color-acento: #ffd166;           /* foco, avisos, botones principales */
+  --color-info: #9fd8ff;             /* enlaces e información */
+  --color-error: #ff9b85;
+  --color-exito: #8fe3a1;
+
+  /* Cadenas de producción y diagramas */
+  --color-nodo-recurso: #1d3326;
+  --color-nodo-objeto: #2c2a1a;
+  --color-flecha: #9fb2c4;
+  --color-texto-nodo: #c9d4de;
+
+  /* Tipografía */
+  --fuente: system-ui, sans-serif;
+  --texto-base: 1rem;
+  --texto-pequeno: 0.9rem;
+  --texto-h1: 1.3rem;
+  --texto-h2: 1.1rem;
+  --texto-h3: 1rem;
+  --interlineado: 1.4;
+
+  /* Espaciado y formas */
+  --espacio-1: 4px;
+  --espacio-2: 6px;
+  --espacio-3: 10px;
+  --espacio-4: 16px;
+  --radio: 4px;
+  --radio-grande: 6px;
+  --foco-grosor: 3px;
+  --foco-separacion: 2px;
+
+  /* Tamaños mínimos de objetivo táctil/puntero (WCAG 2.2, criterio 2.5.8: 24×24 px como mínimo) */
+  --objetivo-min: 24px;
+  --objetivo-principal: 44px;
+}

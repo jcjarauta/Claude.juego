@@ -63,6 +63,12 @@ const STATIC_FILES: Record<string, { file: string; type: string }> = {
   "/panel": { file: "panel.html", type: "text/html; charset=utf-8" },
   "/panel.js": { file: "panel.js", type: "text/javascript; charset=utf-8" },
   "/panel.js.map": { file: "panel.js.map", type: "application/json" },
+  // Estilos compartidos y guía de estilo (G3a): tokens de diseño, base y página de componentes.
+  "/tokens.css": { file: "tokens.css", type: "text/css; charset=utf-8" },
+  "/base.css": { file: "base.css", type: "text/css; charset=utf-8" },
+  "/estilo": { file: "estilo.html", type: "text/html; charset=utf-8" },
+  "/estilo.js": { file: "estilo.js", type: "text/javascript; charset=utf-8" },
+  "/estilo.js.map": { file: "estilo.js.map", type: "application/json" },
 };
 
 const MAX_BODY_BYTES = 4096;

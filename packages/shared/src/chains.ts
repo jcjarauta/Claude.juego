@@ -1,4 +1,5 @@
-import { recipeProducts, recipeVerb, type RecipeDef } from "./world-config.ts";
+import { skillLevelName } from "./skills.ts";
+import { recipeProducts, recipeVerb, type RecipeDef, type SkillDef } from "./world-config.ts";
 
 // Cadenas de producción (F2b): descripción legible de las recetas y su diagrama de flechas.
 // Reglas puras: el panel y el panel P del juego las leen del estado sincronizado; no deciden nada.
@@ -19,6 +20,9 @@ export interface ChainInputs {
   isItem: (id: string) => boolean;
   /** Existencias del almacén común, si se quiere saber qué falta. */
   stock?: (id: string) => number;
+  /** Habilidades del mundo y nivel de quien mira (F2c); sin `skillLevel` solo se describen. */
+  skills?: ReadonlyMap<string, SkillDef>;
+  skillLevel?: (skill: string) => number;
 }
 
 export interface ChainEntry {
@@ -30,10 +34,12 @@ export interface ChainEntry {
   extra: ChainBuilding[];
   inputs: { id: string; name: string; amount: number; item: boolean; have?: number }[];
   products: { id: string; name: string; amount: number; main: boolean }[];
+  /** Habilidades exigidas (F2c): nombre, nivel mínimo y, si se conoce, el nivel de quien mira. */
+  skills: { id: string; name: string; level: number; levelName: string; have?: number; haveName?: string }[];
 }
 
 /** Una entrada por receta, en el orden en que llegan. */
-export function describeChains({ recipes, building, entryName, isItem, stock }: ChainInputs): ChainEntry[] {
+export function describeChains({ recipes, building, entryName, isItem, stock, skills, skillLevel }: ChainInputs): ChainEntry[] {
   const place = (id: string): ChainBuilding => ({ id, name: building(id)?.name ?? id, built: building(id)?.built ?? false });
   return recipes.map((r) => ({
     id: r.id,
@@ -43,6 +49,14 @@ export function describeChains({ recipes, building, entryName, isItem, stock }: 
     extra: (r.alsoNeeds ?? []).map(place),
     inputs: Object.entries(r.inputs).map(([id, amount]) => ({ id, name: entryName(id).toLowerCase(), amount, item: isItem(id), ...(stock ? { have: stock(id) } : {}) })),
     products: recipeProducts(r).map((p, i) => ({ id: p.item, name: entryName(p.item).toLowerCase(), amount: p.amount, main: i === 0 })),
+    skills: (r.requiresSkills ?? []).map((q) => {
+      const def = skills?.get(q.skill);
+      const have = skillLevel?.(q.skill);
+      return {
+        id: q.skill, name: def?.name ?? q.skill, level: q.level, levelName: def ? skillLevelName(def, q.level) : `nivel ${q.level}`,
+        ...(have !== undefined ? { have, haveName: def ? skillLevelName(def, have) : `nivel ${have}` } : {}),
+      };
+    }),
   }));
 }
 
@@ -50,7 +64,7 @@ const marked = (b: ChainBuilding) => `${b.name}${b.built ? "" : " (sin construir
 
 /** Línea de texto de una receta: «Hornear — hornear en Horno, con Molino: 2 harina → 1 pan». */
 export function chainLine(c: ChainEntry): string {
-  const where = `${marked(c.building)}${c.extra.length ? `, con ${c.extra.map(marked).join(" y ")}` : ""}`;
+  const where = `${marked(c.building)}${c.extra.length ? `, con ${c.extra.map(marked).join(" y ")}` : ""}${c.skills.length ? `, con habilidad ${c.skills.map((s) => `${s.name} (${s.levelName})`).join(" y ")}` : ""}`;
   const inputs = c.inputs.map((i) => `${i.amount} ${i.name}`).join(" + ");
   const products = c.products.map((p) => `${p.amount} ${p.name}`).join(" + ");
   return `${c.name} — ${c.verb} en ${where}: ${inputs} → ${products}`;
@@ -60,6 +74,7 @@ export function chainLine(c: ChainEntry): string {
 export function chainMissing(c: ChainEntry): string[] {
   const missing: string[] = [];
   for (const b of [c.building, ...c.extra]) if (!b.built) missing.push(`construir ${b.name}`);
+  for (const s of c.skills) if (s.have !== undefined && s.have < s.level) missing.push(`ser ${s.levelName} en ${s.name} (${s.have > 0 ? `eres ${s.haveName}` : "no la tienes"})`);
   for (const i of c.inputs) if ((i.have ?? 0) < i.amount) missing.push(`${i.amount - (i.have ?? 0)} más de ${i.name}`);
   return missing;
 }

@@ -6,10 +6,12 @@ import {
 } from "@juego/shared";
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
+import { setupTabs } from "./ui/tabs.ts";
 import { createBoard } from "./views/board.ts";
 import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
 import { createChains } from "./views/cadenas.ts";
+import { createSkillsView } from "./views/habilidades.ts";
 import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
 import { isOverdue, localDay, type AssignMessage, type RescheduleMessage } from "@juego/shared";
@@ -287,7 +289,7 @@ const MISSION_KIND_TEXT = (m: { objectiveKind: string; objectiveTarget: string; 
     ? `completar el proyecto «${room.state.projects.get(m.objectiveTarget)?.name ?? m.objectiveTarget}»`
     : `tener ${m.objectiveAmount} ${room.state.items.get(m.objectiveTarget)?.name.toLowerCase() ?? m.objectiveTarget} en el almacén de la comunidad`;
 
-function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
+function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: boolean) {
   byId("entrada").hidden = true;
   byId("panel").hidden = false;
   const notice = byId("aviso");
@@ -335,27 +337,11 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   const board = createBoard(byId("vista-tablero"), ctx);
   const timeline = createTimeline(byId("vista-cronograma"), ctx);
   const metrics = createMetrics(byId("vista-indicadores"), ctx);
-  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  const selectTab = (tab: HTMLButtonElement, focus = true) => {
-    for (const t of tabs) {
-      const selected = t === tab;
-      t.setAttribute("aria-selected", String(selected));
-      t.tabIndex = selected ? 0 : -1;
-      byId(t.getAttribute("aria-controls")!).hidden = !selected;
-    }
+  // Pestañas de las vistas de gestión (patrón APG, G3a): el comportamiento está en ui/tabs.ts.
+  setupTabs(document, (tab) => {
     metrics.setActive(tab.id === "tab-indicadores");
-    if (focus) tab.focus();
     render();
-  };
-  for (const tab of tabs) {
-    tab.onclick = () => selectTab(tab);
-    tab.onkeydown = (event) => {
-      const i = tabs.indexOf(tab);
-      const next = event.key === "ArrowRight" ? tabs[(i + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(i - 1 + tabs.length) % tabs.length]
-        : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : undefined;
-      if (next) { event.preventDefault(); selectTab(next); }
-    };
-  }
+  });
   projectFilter.onchange = () => render();
 
   let rejectionTimer: number | undefined;
@@ -375,10 +361,13 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   // Cadenas de producción (F2b): lista de texto y diagrama, para todas las personas.
   const chains = createChains(room, config);
   missionsSection.after(chains.element);
+  const skillsView = createSkillsView(room);
+  chains.element.after(skillsView.element);
 
   // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
   const views = new Map<string, ReturnType<typeof createProjectView>>();
-  let focused = false;
+  // Al entrar con el formulario, el foco va al primer proyecto (TP-11); con la sesión ya guardada no se mueve, para que el primer Tab llegue al enlace de salto.
+  let focused = !asked;
   const render = () => {
     const quien = [...room.state.projects.values()].filter((p) => p.coordinators.includes(name)).map((p) => p.name);
     byId("quien").textContent = `Conectado como ${name}${admin ? " (administración)" : ""}${quien.length ? ` (coordinación de ${quien.join(", ")})` : admin ? "" : " (participante)"}.`;
@@ -424,6 +413,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
     });
     missions.replaceChildren(...items);
     chains.render();
+    skillsView.render();
     adminForms?.render();
   };
   room.onStateChange(render);
@@ -433,8 +423,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
 
 async function start() {
   const config = (await (await fetch("/config")).json()) as WorldConfig;
-  const { room, session } = await enter(join);
-  startPanel(room, config, session.name);
+  const { room, session, asked } = await enter(join);
+  startPanel(room, config, session.name, asked);
 }
 
 start();

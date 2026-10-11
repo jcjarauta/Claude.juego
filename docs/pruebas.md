@@ -42,6 +42,7 @@ Antiguo `07_PLAN_PRUEBAS`. La trazabilidad requisito → evidencia → prueba es
 | TP-24 | Construcciones desde el panel | Solo la administración; solares válidos (no fuera del mapa, nodos, aparición ni solapes); solar visible para todos; aportar, construir junto al solar, bloqueo y misión; cerrar sin construir lo retira; persiste |
 | TP-25 | Objetos y recetas desde el panel | Objeto y receta creados con permiso y validación; fabricar exige edificio construido, cercanía y materiales; misión de objetos nuevos; auditoría cuadrada |
 | TP-26 | Cadenas de producción | Objeto como entrada; subproductos; verbo; edificio extra exigido (`faltan-edificios`); ciclo rechazado con su camino; límites configurables; misión con el objeto final; persiste; auditoría cuadrada |
+| TP-27 | Habilidades | Habilidad creada solo por la administración, con niveles y práctica; receta que exige un nivel (`falta-habilidad` sin gastar nada); practicar sube de nivel; conceder solo sube; enseñar cerca, con aceptación y un nivel por debajo del maestro (lejos, sin nivel, oferta repetida, rechazo y caducidad); persiste; auditoría cuadrada |
 | TA-01 | Cambiar contrato entre módulos | Pruebas de integración detectan incompatibilidad |
 | TA-02 | Forzar caída de servicio durante operación | Errores registrados; ninguna falsa confirmación de éxito |
 | TA-03 | Intentar integración sin gate humano | Proceso de integración queda bloqueado |
@@ -289,6 +290,42 @@ Defectos encontrados y corregidos durante la verificación:
 - En la prueba del usuario: el formulario de receta tenía 4 entradas fijas y mostraba objetos repetidos creados antes de F2a-Q194; ahora las entradas, subproductos y edificios se añaden y quitan, y `scripts/dedupe-defs.ts` limpia los duplicados de una base existente.
 - Al crear las listas dinámicas, una referencia anticipada impedía arrancar el panel; corregido al verificarlo en el navegador.
 - Tras crear una receta, los campos numéricos del formulario quedaban vacíos al reiniciarlo (los valores iniciales no eran los de `reset()`; venía de F2a). Ahora hay una sola función `el()` compartida que los fija.
+
+### F2c — 2026-10-10 (rama `f2c-habilidades`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| Unitarias | `npm.cmd test` | Validación de habilidad (niveles, nombres repetidos, receta de práctica conocida y abierta); `requiresSkills` (existente, nivel válido, repetida, máximo); `missingSkills` y su texto; práctica (umbral exacto, nivel máximo, cuentas previas); crear y conceder (solo administración, solo sube, motivos); enseñar (un nivel por debajo del maestro, un nivel cada vez, cercanía, conexión); límites `skills`, `skillLevels`, `recipeSkills`; habilidades de serie en `world.json`; cadenas con habilidades | OK |
+| TP-27 | `npm.cmd test` | «Molinero» creada en el panel con 3 niveles; sin permiso → `sin-permiso`; definiciones inválidas y nombre repetido rechazados; receta que exige Oficial; sin la habilidad → `falta-habilidad` sin gastar nada; practicar sube Aprendiz, Oficial y Maestro (progreso sincronizado); enseñar: sin nivel, lejos, oferta repetida, quien no es el destinatario, rechazo, aceptación (un nivel cada vez) y tope «un nivel por debajo del maestro»; conceder a una cuenta desconectada, sin permiso, a una cuenta inexistente y sin bajar de nivel; niveles y cuentas de práctica persisten tras SIGKILL; auditoría cuadrada | OK |
+| Migración v9 → v10 | `npm.cmd test` | Datos conservados y copia `*.v9.bak` | OK |
+| Navegador | Navegador integrado, servidor y base temporales | Habilidad con niveles que se añaden (contador «n de máximo»); recetas de práctica ofrecidas solo las abiertas; receta con «Añadir habilidad» (habilidad y nivel mínimo; error si falta el nivel); conceder (cuenta inexistente rechazada con motivo, concesión confirmada, repetida rechazada); la vista de cadenas dice «con habilidad Molinero (Oficial)»; vista «Habilidades»; panel del juego «Tus habilidades» con el nivel, «Falta: …» y la ayuda de enseñar | OK |
+| Contraste | Medición por script en el juego | Habilidades, ayuda, botón y etiquetas: mínimo 10,87:1 | OK |
+| Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea la cadena, la habilidad «Molinero del soak» y «Moler fino» (exige Oficial); 173 comprobaciones, 0 divergencias, convergencia máx. 2 ms; los cuatro bots ganaron el nivel Aprendiz practicando; auditoría cuadrada (harina producida 42 = consumida 42; pan 21; herramienta 5; madera 120 = 33 + 87; piedra 80 = 48 + 32; fibra 100 = 85 + 15). Ningún bot llegó a Oficial en este soak: ese camino (y «Moler fino») lo cubre TP-27 | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 164 de 164 | OK |
+| Prueba del usuario | Persona responsable, 2026-10-11 | «ya está probado»; fusión y subida autorizadas (junto con G3a) | OK |
+
+Totales F2c: `npm.cmd test` 164 de 164.
+
+Observación: la enseñanza entre dos sesiones se verifica en TP-27 (servidor); en el navegador integrado solo hay una sesión, así que la interfaz de ofertas (aceptar y rechazar) queda para tu prueba.
+
+### G3a — 2026-10-11 (rama `g3a-fundamentos-visuales`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| `npm.cmd run a11y` | Script nuevo | 30 pares de color (texto ≥ 4,5:1 y bordes/foco ≥ 3:1; el más ajustado, borde del lienzo 3,22:1), tamaños de objetivo 24 y 44 px, ningún color fuera de `tokens.css`, estructura de las tres páginas. Comprobado también el caso de fallo: con un color de ayuda oscurecido el script marca 3 errores y sale con código 1 | OK |
+| Regresión | `npm.cmd test` | 164 de 164 (el servidor solo ganó rutas estáticas) | OK |
+| Guía `/estilo` | Navegador integrado, teclado | Los 11 bloques funcionan: pestañas (flechas, Inicio y Fin, solo la activa en el orden del foco), lista dinámica (máximo con `aria-disabled` y aviso, renumerado y foco al quitar), formulario con error y confirmación junto a él, botón desactivado enfocable, progreso con texto, tabla con leyenda | OK |
+| Panel de administración | Navegador integrado | Sin cambios de comportamiento tras adoptar los componentes: pestañas de gestión, objeto con confirmación y duplicado rechazado, receta con entradas dinámicas y confirmación, selector Proyecto/Construcción con solar | OK |
+| Contraste en pantalla | Medición por script | Juego: 68 textos, mínimo 9,99:1; panel: 186 textos, mínimo 7,94:1; guía: 109 textos, mínimo 10,87:1 | OK |
+| Tamaño de objetivo | Medición por script | Ningún botón, campo ni selector menor de 24 px en juego, panel y guía | OK |
+| Zoom al 200 % | Texto ampliado en el navegador integrado | Panel y guía sin desplazamiento horizontal; en el juego, la tabla del almacén lo forzaba (defecto A-7): corregido con contenedor desplazable | OK |
+| Enlace de salto | Navegador integrado | Fallo encontrado en tu prueba: en el mundo y el panel la aplicación movía el foco al cargar (al mapa; al primer proyecto) y el primer Tab no llegaba al enlace. Corregido: el foco solo se mueve tras rellenar el formulario de entrada (TP-11 se conserva); con la sesión guardada el primer Tab enfoca «Saltar al contenido», que se muestra a 10 px y, con Intro, lleva el foco a `main` (comprobado con Tab real en mundo y panel) | OK |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build`, `a11y` | Sin errores; 164 de 164 | OK |
+| Prueba del usuario | Persona responsable, 2026-10-11 | Encontró el fallo del enlace de salto (corregido); «ya está probado»; fusión y subida autorizadas | OK |
+
+Defectos encontrados y corregidos durante la verificación:
+- La tabla del almacén del juego desbordaba la página con el texto ampliado al 200 %.
+- Con la sesión guardada, el foco automático al cargar impedía que el primer Tab llegara al enlace de salto en el mundo y el panel (detectado en la prueba del usuario).
 
 Defectos encontrados en la prueba del usuario y corregidos:
 - Al crear un objeto o una receta, la confirmación solo salía en la línea de avisos de la cabecera; ahora aparece junto al formulario, con la lista de objetos existentes.
