@@ -10,7 +10,7 @@ import { setupTabs } from "./ui/tabs.ts";
 import { createBoard } from "./views/board.ts";
 import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
-import { createChains } from "./views/cadenas.ts";
+import { createChains } from "./views/cadenas.ts";
 import { createSkillsView } from "./views/habilidades.ts";
 import { createMetrics } from "./views/metrics.ts";
 import { createTimeline } from "./views/timeline.ts";
@@ -289,7 +289,7 @@ const MISSION_KIND_TEXT = (m: { objectiveKind: string; objectiveTarget: string; 
     ? `completar el proyecto «${room.state.projects.get(m.objectiveTarget)?.name ?? m.objectiveTarget}»`
     : `tener ${m.objectiveAmount} ${room.state.items.get(m.objectiveTarget)?.name.toLowerCase() ?? m.objectiveTarget} en el almacén de la comunidad`;
 
-function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
+function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: boolean) {
   byId("entrada").hidden = true;
   byId("panel").hidden = false;
   const notice = byId("aviso");
@@ -366,7 +366,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
 
   // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
   const views = new Map<string, ReturnType<typeof createProjectView>>();
-  let focused = false;
+  // Al entrar con el formulario, el foco va al primer proyecto (TP-11); con la sesión ya guardada no se mueve, para que el primer Tab llegue al enlace de salto.
+  let focused = !asked;
   const render = () => {
     const quien = [...room.state.projects.values()].filter((p) => p.coordinators.includes(name)).map((p) => p.name);
     byId("quien").textContent = `Conectado como ${name}${admin ? " (administración)" : ""}${quien.length ? ` (coordinación de ${quien.join(", ")})` : admin ? "" : " (participante)"}.`;
@@ -422,8 +423,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
 
 async function start() {
   const config = (await (await fetch("/config")).json()) as WorldConfig;
-  const { room, session } = await enter(join);
-  startPanel(room, config, session.name);
+  const { room, session, asked } = await enter(join);
+  startPanel(room, config, session.name, asked);
 }
 
 start();

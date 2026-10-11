@@ -319,12 +319,13 @@ Observación: la enseñanza entre dos sesiones se verifica en TP-27 (servidor); 
 | Contraste en pantalla | Medición por script | Juego: 68 textos, mínimo 9,99:1; panel: 186 textos, mínimo 7,94:1; guía: 109 textos, mínimo 10,87:1 | OK |
 | Tamaño de objetivo | Medición por script | Ningún botón, campo ni selector menor de 24 px en juego, panel y guía | OK |
 | Zoom al 200 % | Texto ampliado en el navegador integrado | Panel y guía sin desplazamiento horizontal; en el juego, la tabla del almacén lo forzaba (defecto A-7): corregido con contenedor desplazable | OK |
-| Enlace de salto | Navegador integrado | Presente en las tres páginas con `main` de destino; se muestra al recibir el foco (el navegador integrado no activa `:focus` sin foco de ventana: comprobado por la regla CSS) | WARN |
+| Enlace de salto | Navegador integrado | Fallo encontrado en tu prueba: en el mundo y el panel la aplicación movía el foco al cargar (al mapa; al primer proyecto) y el primer Tab no llegaba al enlace. Corregido: el foco solo se mueve tras rellenar el formulario de entrada (TP-11 se conserva); con la sesión guardada el primer Tab enfoca «Saltar al contenido», que se muestra a 10 px y, con Intro, lleva el foco a `main` (comprobado con Tab real en mundo y panel) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build`, `a11y` | Sin errores; 164 de 164 | OK |
 | Prueba del usuario | Persona responsable | Pendiente | — |
 
 Defectos encontrados y corregidos durante la verificación:
 - La tabla del almacén del juego desbordaba la página con el texto ampliado al 200 %.
+- Con la sesión guardada, el foco automático al cargar impedía que el primer Tab llegara al enlace de salto en el mundo y el panel (detectado en la prueba del usuario).
 
 Defectos encontrados en la prueba del usuario y corregidos:
 - Al crear un objeto o una receta, la confirmación solo salía en la línea de avisos de la cabecera; ahora aparece junto al formulario, con la lista de objetos existentes.

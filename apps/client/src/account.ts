@@ -112,16 +112,19 @@ function askForSession(initialError: string): Promise<Session> {
  * Tras recargar, la salida de la página anterior puede llegar al servidor después de esta
  * entrada: con la sesión guardada se reintenta brevemente si la cuenta o la plaza siguen ocupadas.
  */
-export async function enter<R>(join: (token: string) => Promise<R>): Promise<{ room: R; session: Session }> {
+export async function enter<R>(join: (token: string) => Promise<R>): Promise<{ room: R; session: Session; asked: boolean }> {
   let session = savedSession();
   let error = "";
+  /** ¿Se ha pedido la cuenta en esta carga? Solo entonces se mueve el foco al entrar (si no, el primer Tab llega al enlace de salto). */
+  let asked = false;
   for (let attempt = 1; ; attempt++) {
     if (!session) {
       session = await askForSession(error);
+      asked = true;
       attempt = 1;
     }
     try {
-      return { room: await join(session.token), session };
+      return { room: await join(session.token), session, asked };
     } catch (err) {
       const message = (err as Error).message;
       const transient = message.includes("nombre-en-uso") || message.includes("no rooms found") || message.includes("mundo-lleno");
