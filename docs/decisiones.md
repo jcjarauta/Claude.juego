@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q241 (BORRADOR)
+# Registro de decisiones — Q001 a Q242 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -244,6 +244,7 @@
 | Q239 | Visual | Las escalas de niveles son plantillas predefinidas en un desplegable (aprendiz-oficial-maestro, bronce-plata-oro, básico-experto, cinco grados, numérica) con nombres editables; lo guardado sigue siendo la lista de niveles | VERIFICADO (decidido; construido en G1) |
 | Q240 | Arquitectura | Objetos, recetas, habilidades y misiones se archivan, no se borran (tabla `archive`, migración v11, también para lo de la configuración): lo archivado no se usa ni se muestra pero conserva historial; archivar exige que no esté en uso (con la lista de usos y la razón `definicion-en-uso`); restaurar exige nombre libre y dependencias activas; «posibles duplicados» solo señala | VERIFICADO (decidido; construido en G1) |
 | Q241 | Arquitectura | Las definiciones siguen siendo inmutables (Q187): archivar y restaurar solo añaden o quitan una marca; la edición por versiones queda para G2 | VERIFICADO (decidido; construido en G1) |
+| Q242 | Visual | El panel profesional respeta las preferencias de accesibilidad del juego (tamaño del texto, contraste y movimiento) y las sigue en vivo cuando otra pestaña del mismo navegador las cambia; no tiene formulario propio de preferencias (se editan en el juego o en `/estilo`) | VERIFICADO (decidido; construido en G1b) |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

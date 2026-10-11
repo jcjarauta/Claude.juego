@@ -474,10 +474,20 @@ No se ha implementado nada de esta lista; cada punto es una propuesta para que l
 
 | # | Mejora | Valor | Coste | Recomendación |
 |---|---|---|---|---|
-| P1 | **Aplicar las preferencias de tamaño de texto del juego al panel profesional** (hoy solo el zoom del navegador) | Medio en accesibilidad | Bajo-medio | Antes de G2 |
-| P2 | **Tablas del archivo en pantallas estrechas**: fijar la columna «Acción» o plegar cada fila en una tarjeta | Medio | Bajo | Si se detecta molestia |
+| P1 | **Aplicar las preferencias de tamaño de texto del juego al panel profesional** (hoy solo el zoom del navegador) | Medio en accesibilidad | Bajo-medio | **HECHA en G1b** (Q242) |
+| P2 | **Tablas del archivo en pantallas estrechas**: fijar la columna «Acción» o plegar cada fila en una tarjeta | Medio | Bajo | **HECHA en G1b** |
 | P3 | **Prueba con teclado y lector de pantalla real** de «Límites» y «Archivo» (diálogos de confirmación, foco tras archivar) | Alto | — (solo la persona que lo use) | La persona responsable, en su prueba |
 | P4 | **Retirar** un elemento (distinto de archivar) y editar por versiones | Medio-alto | Alto | G2 |
 | P5 | **Archivar en cascada** con vista previa de lo que arrastra | Medio | Medio | G2, si el uso lo pide |
-| P6 | **Estabilizar las esperas de tiempo** de `TP-06` y `TP-27` bajo carga | Medio para fiabilidad de la integración | Bajo | Próxima etapa |
+| P6 | **Estabilizar las esperas de tiempo** de `TP-06` y `TP-27` bajo carga | Medio para fiabilidad de la integración | Bajo | **HECHA en G1b** |
 | P7 | Registrar en el historial del proyecto quién archivó y restauró (hoy consta `archived_by` y `archived_at`) | Bajo | Bajo | G2 |
+
+### G1b — 2026-10-12 (rama `g1b-mejoras`; cerrada, pendiente de la prueba de la persona responsable y de la fusión)
+
+| Puerta | Qué se comprobó | Resultado | Estado |
+|---|---|---|---|
+| P0 Pruebas estables (P6) | Las pruebas de sala real esperan el parche propio de cada sesión antes de aseverar: `projects.test.ts` (inventario de `ana` tras aportar y almacén tras el aporte de `bea`), `skills.test.ts` (progreso de práctica de `ana`) y `collaboration.test.ts` (inventario de `ana` tras un aporte) | Causa: cada sesión recibe su propio parche, y la prueba leía el estado de una sesión justo después de esperar a otra (no es un defecto del servidor). **7 ejecuciones del conjunto de 293 pruebas sin ningún fallo:** 3 seguidas y 2 pares simultáneos (carga doble) | OK |
+| P1 Panel | `followPreferences()` (`ui/preferences.ts`) aplicada en `panel.ts`: carga las preferencias y sigue el evento `storage`; reglas del archivo en `panel.html` (`#archivo-listas table { min-width: 0 }` y celdas que envuelven) | **Navegador, dos pestañas del mismo origen** (`coordinacion` en `/panel`, `ana` en el juego): al elegir 200 % y «Alto contraste» en el juego el panel pasa, **sin recargar**, a 32 px de letra con fondo negro y vuelve al elegir 100 % y contraste normal; sin desplazamiento horizontal con 200 %. **Tablas del archivo** a 427 px: 365 de 365 px visibles (no desplazan), 7 botones dentro de la pantalla y ninguno menor de 24 px; con 200 % tampoco desplazan; las demás tablas del panel siguen desplazándose en su contenedor (768 de 395 px). `s.g1()` 14/14. **No verificado:** almacenamiento bloqueado en el navegador (el código lo tolera con `try/catch`); lector de pantalla | OK |
+| P2 Final | Clon limpio; documentación (Q242, hoja de ruta, README, esta tabla) | **Clon limpio** (`npm.cmd ci`, `typecheck`, `test`, `build`, `dom`, `a11y`): salida 0 sobre el commit `94c38e0`, **293 pruebas** superadas a la primera, ids y relaciones ARIA correctos, 30 pares de color en dos temas (margen mínimo 1,07×) | OK |
+
+Mejoras de la valoración de cierre de G1 que quedan hechas: **P1**, **P2** y **P6**. Siguen abiertas: P3 (teclado y lector de pantalla reales, de la persona responsable), P4, P5 y P7 (G2).
