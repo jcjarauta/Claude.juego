@@ -308,6 +308,24 @@ Totales F2c: `npm.cmd test` 164 de 164.
 
 Observación: la enseñanza entre dos sesiones se verifica en TP-27 (servidor); en el navegador integrado solo hay una sesión, así que la interfaz de ofertas (aceptar y rechazar) queda para tu prueba.
 
+### G3a — 2026-10-11 (rama `g3a-fundamentos-visuales`)
+
+| ID | Procedimiento | Resultado observado | Estado |
+|---|---|---|---|
+| `npm.cmd run a11y` | Script nuevo | 30 pares de color (texto ≥ 4,5:1 y bordes/foco ≥ 3:1; el más ajustado, borde del lienzo 3,22:1), tamaños de objetivo 24 y 44 px, ningún color fuera de `tokens.css`, estructura de las tres páginas. Comprobado también el caso de fallo: con un color de ayuda oscurecido el script marca 3 errores y sale con código 1 | OK |
+| Regresión | `npm.cmd test` | 164 de 164 (el servidor solo ganó rutas estáticas) | OK |
+| Guía `/estilo` | Navegador integrado, teclado | Los 11 bloques funcionan: pestañas (flechas, Inicio y Fin, solo la activa en el orden del foco), lista dinámica (máximo con `aria-disabled` y aviso, renumerado y foco al quitar), formulario con error y confirmación junto a él, botón desactivado enfocable, progreso con texto, tabla con leyenda | OK |
+| Panel de administración | Navegador integrado | Sin cambios de comportamiento tras adoptar los componentes: pestañas de gestión, objeto con confirmación y duplicado rechazado, receta con entradas dinámicas y confirmación, selector Proyecto/Construcción con solar | OK |
+| Contraste en pantalla | Medición por script | Juego: 68 textos, mínimo 9,99:1; panel: 186 textos, mínimo 7,94:1; guía: 109 textos, mínimo 10,87:1 | OK |
+| Tamaño de objetivo | Medición por script | Ningún botón, campo ni selector menor de 24 px en juego, panel y guía | OK |
+| Zoom al 200 % | Texto ampliado en el navegador integrado | Panel y guía sin desplazamiento horizontal; en el juego, la tabla del almacén lo forzaba (defecto A-7): corregido con contenedor desplazable | OK |
+| Enlace de salto | Navegador integrado | Presente en las tres páginas con `main` de destino; se muestra al recibir el foco (el navegador integrado no activa `:focus` sin foco de ventana: comprobado por la regla CSS) | WARN |
+| Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build`, `a11y` | Sin errores; 164 de 164 | OK |
+| Prueba del usuario | Persona responsable | Pendiente | — |
+
+Defectos encontrados y corregidos durante la verificación:
+- La tabla del almacén del juego desbordaba la página con el texto ampliado al 200 %.
+
 Defectos encontrados en la prueba del usuario y corregidos:
 - Al crear un objeto o una receta, la confirmación solo salía en la línea de avisos de la cabecera; ahora aparece junto al formulario, con la lista de objetos existentes.
 - Se podían crear objetos (y recetas) con el mismo nombre; el servidor los rechaza ahora sin distinguir mayúsculas ni acentos (los objetos también contra los nombres de recursos). Los duplicados ya creados en bases de prueba permanecen (las definiciones son inmutables, Q187).
