@@ -66,7 +66,8 @@ export function creditText(line: CreditLine, executed: string): string {
   if (line.creadoPor) parts.push(`Creado por ${line.creadoPor}.`);
   const names = line.aportaron;
   if (line.ejecutadoPor && names.length) parts.push(`${executed} por ${line.ejecutadoPor} con la aportación de ${list(names)}.`);
-  else if (line.ejecutadoPor) parts.push(`${executed} por ${line.ejecutadoPor}; el estado no registra otras aportaciones.`);
+  // Con una nota que ya dice que el estado no registra todas las aportaciones no se repite el mismo límite.
+  else if (line.ejecutadoPor) parts.push(line.nota ? `${executed} por ${line.ejecutadoPor}.` : `${executed} por ${line.ejecutadoPor}; el estado no registra otras aportaciones.`);
   else if (names.length) parts.push(`Aportaron ${list(names)}.`);
   else parts.push("El estado no registra quiénes aportaron.");
   if (line.nota) parts.push(line.nota);

@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q226 (BORRADOR)
+# Registro de decisiones — Q001 a Q236 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -229,6 +229,16 @@
 | Q224 | Visual | El guardado del objetivo activo es local al navegador (por cuenta y mundo) y no se envía al servidor | VERIFICADO (decidido; construido en G3c) |
 | Q225 | Arquitectura | El planificador agrega las necesidades de toda la ruta en un libro: cada existencia se descuenta una sola vez, los productos y subproductos de pasos anteriores se acreditan una vez y el inventario solo cuenta al depositarlo | VERIFICADO (decidido; construido en G3c) |
 | Q226 | Arquitectura | Los rechazos del servidor se clasifican en bloqueo confirmado, estado desactualizado, permisos o error técnico (las 48 razones, comprobado por prueba exhaustiva); la Guía informa del motivo de su clase y ninguna clase cambia el objetivo activo | VERIFICADO (decidido; construido en G3c) |
+| Q227 | Visual | Los logros verificables se derivan del estado sincronizado y se calculan en el cliente; cada entrada es histórica o de estado actual, sin asumir monotonía; los «todos los…» se calculan sobre el conjunto de origen `configuracion` y se muestran como «n de M» | VERIFICADO (decidido; construido en G3d) |
+| Q228 | Visual | Los reconocimientos locales (enseñar y aprender, de `teach-result`) van aparte: no son logros globales ni persistentes, no cuentan en los totales y se rotulan como locales de este navegador | VERIFICADO (decidido; construido en G3d) |
+| Q229 | Visual | El reconocimiento es cooperativo y sin presión: se atribuye por papeles (creación, ejecución final, aportaciones), en orden alfabético y sin cifras comparativas; no hay clasificaciones, rachas, plazos ni cuentas atrás; la última acción no se presenta como trabajo exclusivo | VERIFICADO (decidido; construido en G3d) |
+| Q230 | Visual | Las insignias de nivel usan forma y texto (▲ ◆ ■ ⬟ ★ según la posición), nunca solo el color | VERIFICADO (decidido; construido en G3d) |
+| Q231 | Visual | La referencia de la comunidad es la primera misión pendiente, rotulada como orientativa y calculada automáticamente: no es una decisión del equipo ni sustituye el objetivo activo (los objetivos de equipo siguen siendo mejora futura, M10) | VERIFICADO (decidido; construido en G3d) |
+| Q232 | Visual | La celebración es un aviso (consola y anunciador) por tanda, una tarjeta única cerrable y un destello corto; se controla con «Celebraciones» (Todas / Solo texto / Ninguna) y respeta «menos movimiento»; sin sonido ni modales; no cambia foco, pestaña, objetivo ni cámara; en pantallas anchas la tarjeta se superpone en la zona Objetivo para no empujar el mapa | VERIFICADO (decidido; construido en G3d) |
+| Q233 | Visual | El almacén local distingue notificado (ya se celebró) de consultado (la persona lo marcó); abrir la pestaña no marca como consultado; en la primera visita lo existente se guarda como preexistente (notificado, no consultado), sin celebrar y sin contar en la insignia, que solo cuenta los nuevos | VERIFICADO (decidido; construido en G3d) |
+| Q234 | Visual | La pestaña «Logros» se suma como séptima del panel (amplía Q206, Q215 y Q223) | VERIFICADO (decidido; construido en G3d) |
+| Q235 | Visual | Lo que solo consta en el almacenamiento local es un «registro de este navegador», nunca un logro histórico global verificado: se rotula así, no cuenta en los totales ni se atribuye a la comunidad | VERIFICADO (decidido; construido en G3d) |
+| Q236 | Arquitectura | El catálogo de logros está versionado: el id lleva la versión de su condición (`nombre@n`), un id no se reutiliza si cambia la condición (se crea otro y se anota en `SUPERSEDED`; una prueba congela la tabla id → condición) y el almacén local tiene su propia `schemaVersion` con lectura compatible y migración controlada, sin sobrescribir una versión posterior | VERIFICADO (decidido; construido en G3d) |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

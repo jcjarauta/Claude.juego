@@ -20,6 +20,13 @@
     .zona-objetivo h2 { margin: 0 0 var(--espacio-1); font-size: var(--texto-h3); }
     .zona-objetivo p, .zona-objetivo ul { margin: var(--espacio-1) 0; }
     .zona-objetivo ul { padding-left: 1.2em; }
+    /* La tarjeta de logro no empuja el mapa: en pantallas anchas se superpone en la esquina de la zona Objetivo, que reserva ese hueco
+       mientras la tarjeta está visible (G3d, P3). Apilado (< 1100 px) queda en el flujo. */
+    .zona-objetivo { position: relative; }
+    @media (min-width: 1101px) {
+      .zona-objetivo:has(.tarjeta-logro:not([hidden])) { padding-right: min(24rem, 44%); }
+      .tarjeta-logro { position: absolute; top: var(--espacio-2); right: var(--espacio-3); width: min(22rem, 40%); margin: 0 !important; }
+    }
     .tarjeta-logro { margin-top: var(--espacio-2); padding: var(--espacio-1) var(--espacio-2); border: 1px solid var(--color-borde-campo); border-left-width: 6px; border-radius: var(--radio-grande); background: var(--color-superficie); }
     .tarjeta-logro p { margin: var(--espacio-1) 0; }
     .zona-objetivo details { margin: var(--espacio-1) 0; }

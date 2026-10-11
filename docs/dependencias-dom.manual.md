@@ -130,3 +130,9 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Libro local: `WorldScene` cuenta los `teach-result` aceptados (`recordLocal`) en el almacén de este navegador; no crea logros ni celebraciones.
 - `s.g3d()` suma 3 comprobaciones de la tarjeta (una sola, fuera de las regiones vivas, con sus dos botones y tamaño suficiente).
 
+### Cierre de G3d (puerta P3, 2026-10-11)
+
+- **La tarjeta de logro no desplaza el mapa:** con ≥ 1101 px se superpone en la esquina de la zona Objetivo (`.tarjeta-logro` en `position: absolute`) y la zona C reserva ese hueco a la derecha mientras la tarjeta está visible (`:has(.tarjeta-logro:not([hidden]))`); medido: la zona C mide 157 px con y sin tarjeta y el mapa no se mueve (y = 343 en los dos casos). Apilado (< 1100 px) queda en el flujo.
+- El filtro «Logros» de la consola añade `consola-filtro-logros` al orden de Tab de los filtros.
+- Orden real de Tab (26 pulsaciones, `ana`, sin tarjeta): enlace de salto → Ayuda → Accesibilidad → Salir → «Detalles del paso» → Elegir objetivo → mapa → recursos → pestaña activa → su panel → contenido → consola (con el filtro «Logros») → salto. Con la tarjeta visible entran «Ver logros nuevos» y «Cerrar» tras los botones de la zona C.
+

@@ -84,7 +84,7 @@ test("atribución: sin aportaciones registradas se dice, y una misión de objeto
   const s = snap({ missions: [{ id: "m1", name: "Primer pan", origin: "configuracion", createdBy: "ana", completed: true, completedBy: "bea", objective: { kind: "item-in-community", item: "pan", amount: 4 } }] });
   const credit = get(run(s), "primera-mision@1").credits[0]!;
   assert.equal(credit.nota, "El estado no registra todas las aportaciones de esta misión.");
-  assert.match(creditText(credit, "Completada"), /Creado por ana\. Completada por bea; el estado no registra otras aportaciones\. El estado no registra todas las aportaciones/);
+  assert.equal(creditText(credit, "Completada"), "Primer pan: Creado por ana. Completada por bea. El estado no registra todas las aportaciones de esta misión.", "el límite se dice una sola vez");
 });
 
 test("comunidad: varios edificios construidos dan una línea de reconocimiento por edificio, sin elegir a una sola persona como «la primera»", () => {
