@@ -4,67 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ENGREMIAT — Mundo cooperativo</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/base.css">
   <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-    body { margin: 0; padding: 16px; background: #15191e; color: #f2f2f2; }
-    main { max-width: 1280px; margin: 0 auto; }
     h1 { font-size: 1.3rem; margin: 0 0 8px; }
     h2 { font-size: 1rem; margin: 12px 0 4px; }
     h3 { font-size: 0.95rem; margin: 12px 0 4px; }
-    p { margin: 6px 0; line-height: 1.4; }
-    [hidden] { display: none !important; }
     form { display: grid; gap: 6px; max-width: 360px; margin: 16px 0; }
-    label { font-weight: 600; }
-    fieldset { border: 1px solid #3a4652; border-radius: 4px; padding: 6px 10px; display: grid; gap: 4px; }
+    fieldset { border: 1px solid var(--color-borde); border-radius: 4px; padding: 6px 10px; display: grid; gap: 4px; }
     fieldset label, #edad-bloque label { font-weight: 400; }
-    input { font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; }
-    button { font: inherit; padding: 6px 14px; border-radius: 4px; border: 1px solid #ffd166; background: #2a323b; color: #f2f2f2; cursor: pointer; width: fit-content; }
-    button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
-    input:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
-    .ayuda { color: #c4ccd4; font-size: 0.9rem; }
-    .error { color: #ff9b85; min-height: 1.4em; }
     /* Interfaz híbrida (RF-010): mapa y proyecto a la vez en pantallas anchas; uno debajo del otro en estrechas. */
     .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(280px, 1fr); gap: 20px; align-items: start; }
     @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; } }
     /* Sin min-width: 0 los hijos de la rejilla no encogen y el mapa fuerza desplazamiento horizontal. */
     .juego > * { min-width: 0; }
     #proyecto p { overflow-wrap: anywhere; }
-    #game { border: 2px solid #5b6b7a; max-width: 800px; }
+    #game { border: 2px solid var(--color-borde-fuerte); max-width: 800px; }
     #game canvas { display: block; }
     .hud { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
     #zona { font-weight: 600; }
-    #aviso { color: #ffd166; min-height: 1.4em; }
-    #conexion { color: #9fd8ff; }
+    #aviso { color: var(--color-acento); min-height: 1.4em; }
+    #conexion { color: var(--color-info); }
     #jugadores { margin: 0; padding-left: 20px; }
-    #proyecto { border: 1px solid #3a4652; border-radius: 6px; padding: 8px 14px 12px; background: #1b2128; }
+    #proyecto { border: 1px solid var(--color-borde); border-radius: 6px; padding: 8px 14px 12px; background: var(--color-superficie); }
     #proyecto h2 { margin-top: 4px; font-size: 1.1rem; }
     .tareas { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 12px; }
     .tareas li { display: grid; gap: 4px; }
     .tarea-titulo { font-weight: 600; }
-    .tareas progress { width: 100%; height: 14px; accent-color: #ffd166; }
+    .tareas progress { width: 100%; height: 14px; accent-color: var(--color-acento); }
     .tarea-acciones { display: flex; flex-wrap: wrap; gap: 6px; }
     .tarea-acciones button { padding: 2px 8px; }
     #proyecto-estado { font-weight: 600; }
-    #proyecto-aviso { color: #ffd166; min-height: 1.4em; }
+    #proyecto-aviso { color: var(--color-acento); min-height: 1.4em; }
     #proyecto-aportes, #proyecto-actividad, #misiones, #cadenas-juego, #habilidades-lista { margin: 0; padding-left: 20px; font-size: 0.92rem; }
-    .oferta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; padding: 6px 8px; border: 1px solid #8a99a8; border-radius: 6px; }
+    .oferta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; padding: 6px 8px; border: 1px solid var(--color-borde-campo); border-radius: 6px; }
     #cadenas-juego li { margin-bottom: 4px; }
     .selector { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    select { font: inherit; padding: 4px 6px; border-radius: 4px; border: 1px solid #8a99a8; background: #0f1317; color: #f2f2f2; max-width: 100%; }
-    select:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
     .recursos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    /* Con el texto ampliado las tablas no deben forzar desplazamiento horizontal de la página (WCAG 1.4.10). */
+    .recursos section { min-width: 0; overflow-x: auto; }
     .recursos table { border-collapse: collapse; width: 100%; }
-    .recursos th, .recursos td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #2f3842; }
+    .recursos th, .recursos td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--color-borde-suave); }
     .recursos td button { padding: 2px 8px; margin-right: 4px; }
-    .lleno { color: #ffd166; font-weight: 600; }
-    .desconectado { color: #9aa4ad; font-style: italic; }
-    a { color: #9fd8ff; }
-    a:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
-    kbd { background: #2a323b; border: 1px solid #5b6b7a; border-radius: 4px; padding: 0 5px; }
+    .lleno { color: var(--color-acento); font-weight: 600; }
+    .desconectado { color: var(--color-texto-apagado); font-style: italic; }
+    /* Tamaños propios de esta página */
+    input, select, textarea { padding: 6px 8px; }
+    button { padding: 6px 14px; }
+    select { padding: 4px 6px; max-width: 100%; }
+
   </style>
 </head>
 <body>
-  <main>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <main id="contenido" tabindex="-1">
     <h1>ENGREMIAT · Mundo cooperativo</h1>
 
     <form id="entrada" hidden novalidate aria-labelledby="entrada-titulo">

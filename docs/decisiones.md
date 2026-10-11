@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q199 (BORRADOR)
+# Registro de decisiones — Q001 a Q205 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -202,6 +202,12 @@
 | Q197 | Habilidades | La administración crea y concede habilidades; conceder solo sube de nivel (puede saltar niveles). Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
 | Q198 | Habilidades | Enseñar exige estar a ≤ 2 casillas y la aceptación de la otra persona; solo se enseña hasta un nivel por debajo del del maestro y de un nivel en un nivel; las ofertas caducan a los 60 s y son 3 por minuto y maestro. Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
 | Q199 | Habilidades | Una receta puede exigir varias habilidades, cada una con su nivel mínimo; los límites `skills`, `skillLevels` y `recipeSkills` son configurables en `buildLimits` (Q193). Aprobado con el plan de F2c | VERIFICADO (decisión); F2c |
+| Q200 | Visual | La interfaz del juego se organiza en zonas fijas (barra superior, mundo, objetivo actual, consola, recursos) y variables (panel contextual con pestañas), con HUD no diegético más una capa espacial de marcadores. Aprobado con el plan de G3a; se construye en G3b–G3d | VERIFICADO (decisión); G3 |
+| Q201 | Visual | Una sola consola/registro `aria-live` es el lugar de los avisos que no son errores; los errores y confirmaciones van junto al formulario; las celebraciones son opcionales y respetan «menos movimiento». Aprobado con el plan de G3a | VERIFICADO (decisión); G3 |
+| Q202 | Visual | `apps/client/public/tokens.css` es la única fuente de colores, tipografía, espaciado y tamaños; todo par de colores cumple 4,5:1 (texto) o 3:1 (bordes y foco) y lo comprueba `npm.cmd run a11y`. Implementado en G3a | VERIFICADO (decisión); G3a |
+| Q203 | Visual | Los componentes reutilizables (`apps/client/src/ui/`) usan elementos nativos y obligan a etiqueta, leyenda o nombre accesible; siguen los patrones de WAI-ARIA Authoring Practices; los botones se desactivan con `aria-disabled`; objetivo mínimo de 24×24 px. Implementado en G3a | VERIFICADO (decisión); G3a |
+| Q204 | Visual | La gamificación es cooperativa y sin presión (progreso, metas compartidas, logros de equipo, celebraciones desactivables); sin clasificaciones competitivas ni rachas. Aprobado con el plan de G3a | VERIFICADO (decisión); G3 |
+| Q205 | Diseño | Para G1/G2 (se confirma al planificarlas): edición de definiciones por versiones con archivado; límites de diseño editables desde el panel y sin tope práctico; escala de niveles configurable con desplegable. Respuestas de la persona responsable al planificar G3 | PROPUESTA; G1/G2 |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

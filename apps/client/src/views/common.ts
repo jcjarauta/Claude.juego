@@ -36,17 +36,7 @@ export function blockers(p: ProjectState, taskId: string): string[] {
 export const visibleTask = (ctx: ViewContext, p: ProjectState, taskId: string) =>
   !ctx.mine() || [...(p.tasks.get(taskId)?.assignees ?? [])].includes(ctx.me);
 
-export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  Object.assign(node, props);
-  // Los valores iniciales también son los de `reset()` (si no, un formulario reiniciado dejaría los números vacíos).
-  if (node instanceof HTMLInputElement) {
-    if (typeof props.value === "string") node.defaultValue = props.value;
-    if (typeof props.checked === "boolean") node.defaultChecked = props.checked;
-  }
-  node.append(...children);
-  return node;
-}
+export { el } from "../ui/dom.ts";
 
 /** Proyectos visibles según el filtro, en orden de creación. */
 export function visibleProjects(ctx: ViewContext): [string, ProjectState][] {

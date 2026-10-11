@@ -24,3 +24,6 @@ apps/client/public/panel.js.map
 
 # Datos locales del servidor
 data/
+
+apps/client/public/estilo.js
+apps/client/public/estilo.js.map

@@ -6,24 +6,15 @@ import {
 } from "@juego/shared";
 import type { Room } from "@colyseus/sdk";
 import { newRequestId } from "./request-id.ts";
-import { el } from "./views/common.ts";
+import { dynamicList } from "./ui/dynamic-list.ts";
+import { el } from "./ui/dom.ts";
+import { formFeedback } from "./ui/feedback.ts";
+import { field } from "./ui/field.ts";
+import { syncGroupedOptions, syncOptions, type Option } from "./ui/select-options.ts";
 import { createMinimap } from "./views/minimap.ts";
 
 // Formularios de administración del panel (F1a, FUT-05, Q171–Q174): crear proyectos y misiones
 // sin programar. El servidor valida todo; aquí solo se ayuda a rellenar y se muestran sus motivos.
-
-let fieldCount = 0;
-/** Campo con etiqueta asociada y ayuda opcional. */
-function field<T extends HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(label: string, control: T, help?: string) {
-  control.id ||= `campo-${++fieldCount}`;
-  const wrapper = el("div", { className: "campo" }, el("label", { htmlFor: control.id }, label), control);
-  if (help) {
-    const p = el("p", { id: `${control.id}-ayuda`, className: "ayuda" }, help);
-    control.setAttribute("aria-describedby", p.id);
-    wrapper.append(p);
-  }
-  return wrapper;
-}
 
 /** Mensajes de validación del servidor en lenguaje del formulario (sin ids internos ni nombres de campo en inglés). */
 function readable(detail: string): string {
@@ -36,79 +27,6 @@ function readable(detail: string): string {
     .replace(/\binputs\b/g, "entradas").replace(/\boutput\.amount\b/g, "cantidad de salida")
     .replace(/\bbyproducts\b/g, "subproductos").replace(/\bverb\b/g, "acción").replace(/\balsoNeeds\b/g, "edificios extra").replace(/\brequiresSkills\b/g, "habilidades necesarias").replace(/\blevels\b/g, "niveles").replace(/\bpractice\.times\b/g, "veces").replace(/\bcolor\b/g, "color")
     .replace(/^./, (c) => c.toUpperCase());
-}
-
-/** Una fila de una lista dinámica: sus controles, las etiquetas a renumerar y el control que recibe el foco. */
-interface DynamicRow {
-  controls: HTMLElement[];
-  labels: HTMLLabelElement[];
-  first: HTMLElement;
-  names: (index: number) => string[];
-}
-
-/**
- * Lista de filas que se añaden con «Añadir …» y se quitan con «Quitar» (F2b): mínimo y máximo, etiquetas renumeradas,
- * el foco pasa a la fila nueva o al botón de añadir, y cada cambio se anuncia (el botón se desactiva con aria-disabled
- * para no perder el foco).
- */
-function dynamicList<R extends DynamicRow>(opts: {
-  legend: string; addLabel: string; noun: string; min: number; max: number; announce: (text: string) => void;
-  build: () => R; onChange: () => void;
-}) {
-  const rows: R[] = [];
-  const boxes = new Map<R, HTMLElement>();
-  const list = el("div", { className: "filas" });
-  const add = el("button", { type: "button" });
-  const element = el("fieldset", {}, el("legend", {}, opts.legend), list, add);
-
-  function renumber() {
-    rows.forEach((row, i) => {
-      row.names(i).forEach((name, k) => { row.labels[k]!.textContent = name; });
-      const remove = boxes.get(row)!.querySelector("button")!;
-      remove.textContent = "Quitar";
-      remove.setAttribute("aria-label", `Quitar ${opts.noun} ${i + 1}`);
-      remove.setAttribute("aria-disabled", String(rows.length <= opts.min));
-    });
-    add.textContent = `${opts.addLabel} (${rows.length} de ${opts.max})`;
-    add.setAttribute("aria-disabled", String(rows.length >= opts.max));
-  }
-  function addRow(focus: boolean, silent = false) {
-    const row = opts.build();
-    const remove = el("button", { type: "button" });
-    remove.onclick = () => {
-      if (remove.getAttribute("aria-disabled") === "true") return;
-      const at = rows.indexOf(row);
-      rows.splice(at, 1);
-      boxes.get(row)!.remove();
-      boxes.delete(row);
-      renumber();
-      (rows[Math.min(at, rows.length - 1)]?.first ?? add).focus();
-      opts.announce(`${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)} quitada. Quedan ${rows.length}.`);
-    };
-    const box = el("div", { className: "entrada-receta" }, ...row.controls, remove);
-    rows.push(row);
-    boxes.set(row, box);
-    list.append(box);
-    renumber();
-    if (!silent) opts.onChange();
-    if (focus) {
-      row.first.focus();
-      opts.announce(`${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)} ${rows.length} añadida.`);
-    }
-  }
-  add.onclick = () => {
-    if (add.getAttribute("aria-disabled") === "true") { opts.announce(`No caben más: el máximo es ${opts.max}.`); return; }
-    addRow(true);
-  };
-  // `silent`: al crearse, las listas que `onChange` consulta aún no existen; las opciones se rellenan en el primer render().
-  const reset = (silent = false) => {
-    for (const row of [...rows]) { boxes.get(row)!.remove(); boxes.delete(row); }
-    rows.length = 0;
-    for (let i = 0; i < opts.min; i++) addRow(false, silent);
-    renumber();
-  };
-  reset(true);
-  return { element, rows, reset };
 }
 
 export function createAdminForms(container: HTMLElement, config: WorldConfig, room: Room<unknown, WorldState>, announce: (text: string) => void) {
@@ -298,8 +216,9 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
 
   // --- Nuevo objeto (F2a) ---
   const itemName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
-  const itemErrors = el("div", { className: "error", role: "alert" });
-  const itemConfirm = el("p", { className: "confirmacion", role: "status" });
+  const itemFeedback = formFeedback();
+  const itemErrors = itemFeedback.errors;
+  const itemConfirm = itemFeedback.confirm;
   const itemList = el("div", { className: "lista-creados" });
   const itemForm = el("form", { noValidate: true },
     el("h3", { id: "nuevo-objeto-titulo" }, "Nuevo objeto"),
@@ -335,7 +254,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     build: () => {
       const entry = el("select");
       const amount = el("input", { type: "number", min: "1", max: String(limits.inputAmount), value: "1", inputMode: "numeric" });
-      const a = field("", entry), b = field("", amount);
+      const a = field("", entry, undefined, { deferredLabel: true }), b = field("", amount, undefined, { deferredLabel: true });
       return { entry, amount, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: entry,
         names: (i: number) => [`Entrada ${i + 1}: recurso u objeto`, `Cantidad de la entrada ${i + 1}`] };
     },
@@ -346,7 +265,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     build: () => {
       const item = el("select");
       const amount = el("input", { type: "number", min: "1", max: String(limits.outputAmount), value: "1", inputMode: "numeric" });
-      const a = field("", item), b = field("", amount);
+      const a = field("", item, undefined, { deferredLabel: true }), b = field("", amount, undefined, { deferredLabel: true });
       return { item, amount, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: item,
         names: (i: number) => [`Subproducto ${i + 1}: objeto`, `Cantidad del subproducto ${i + 1}`] };
     },
@@ -356,7 +275,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     onChange: () => syncRecipeSelects(),
     build: () => {
       const building = el("select");
-      const a = field("", building);
+      const a = field("", building, undefined, { deferredLabel: true });
       return { building, controls: [a], labels: [a.querySelector("label")!], first: building,
         names: (i: number) => [`Edificio necesario ${i + 1} (debe estar construido, en cualquier lugar)`] };
     },
@@ -373,7 +292,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       const skill = el("select");
       const level = el("select");
       skill.onchange = () => syncRecipeSelects();
-      const a = field("", skill), b = field("", level);
+      const a = field("", skill, undefined, { deferredLabel: true }), b = field("", level, undefined, { deferredLabel: true });
       return { skill, level, controls: [a, b], labels: [a, b].map((w) => w.querySelector("label")!), first: skill,
         names: (i: number) => [`Habilidad necesaria ${i + 1}`, `Nivel mínimo de la habilidad ${i + 1}`] };
     },
@@ -383,13 +302,14 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       syncOptions(r.skill, skillEntries, "Elige una habilidad");
       syncOptions(r.level, levelEntries(r.skill.value), "Elige el nivel mínimo");
     }
-    inputList.rows.forEach((r, i) => syncEntries(r.entry, itemEntries, i === 0 ? "Elige una entrada" : "Elige una entrada"));
+    inputList.rows.forEach((r) => syncGroupedOptions(r.entry, [{ label: "Recursos", entries: resources.map((r): Option => [r.id, r.name]) }, { label: "Objetos", entries: itemEntries }], "Elige una entrada"));
     for (const r of byproductList.rows) syncOptions(r.item, itemEntries, "Elige un objeto");
     for (const r of extraList.rows) syncOptions(r.building, buildingEntries, "Elige un edificio");
   }
 
-  const recipeErrors = el("div", { className: "error", role: "alert" });
-  const recipeConfirm = el("p", { className: "confirmacion", role: "status" });
+  const recipeFeedback = formFeedback();
+  const recipeErrors = recipeFeedback.errors;
+  const recipeConfirm = recipeFeedback.confirm;
   const recipeForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-receta-titulo" }, "Nueva receta"),
     el("p", { className: "ayuda" }, `Una receta es una acción que se hace junto a un edificio construido: consume entradas del almacén de la comunidad (recursos u objetos; hasta ${limits.recipeInputs}) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
@@ -432,33 +352,6 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     room.send(MESSAGE.createRecipe, message);
   };
 
-  /** Opciones de un selector a partir del estado (se rehacen solo si cambian; se conserva la elección). */
-  function syncOptions(select: HTMLSelectElement, entries: [string, string][], placeholder?: string) {
-    const signature = `${placeholder ?? ""}#${entries.map(([id, label]) => `${id}|${label}`).join(";")}`;
-    if (select.dataset.options === signature) return;
-    const selected = select.value;
-    select.replaceChildren(...(placeholder === undefined ? [] : [el("option", { value: "", textContent: placeholder })]),
-      ...entries.map(([id, label]) => el("option", { value: id, textContent: label })));
-    if (entries.some(([id]) => id === selected)) select.value = selected;
-    select.dataset.options = signature;
-  }
-
-  /** Entradas de receta agrupadas en «Recursos» y «Objetos» (F2b, Q190). */
-  function syncEntries(select: HTMLSelectElement, items: [string, string][], placeholder: string) {
-    const signature = `${placeholder}#${items.map(([id, label]) => `${id}|${label}`).join(";")}`;
-    if (select.dataset.options === signature) return;
-    const selected = select.value;
-    const group = (label: string, entries: [string, string][]) => {
-      const node = el("optgroup", { label });
-      node.append(...entries.map(([id, text]) => el("option", { value: id, textContent: text })));
-      return node;
-    };
-    select.replaceChildren(el("option", { value: "", textContent: placeholder }),
-      group("Recursos", resources.map((r) => [r.id, r.name])), ...(items.length ? [group("Objetos", items)] : []));
-    if ([...resources.map((r) => r.id), ...items.map(([id]) => id)].includes(selected)) select.value = selected;
-    select.dataset.options = signature;
-  }
-
   // --- Nueva habilidad (F2c, Q195) ---
   let practiceEntries: [string, string][] = [];
   const skillName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
@@ -470,7 +363,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
       const levelName = el("input", { maxLength: 30, autocomplete: "off" });
       const recipe = el("select");
       const times = el("input", { type: "number", min: "1", max: "1000", value: "3", inputMode: "numeric" });
-      const a = field("", levelName), b = field("", recipe), c = field("", times);
+      const a = field("", levelName, undefined, { deferredLabel: true }), b = field("", recipe, undefined, { deferredLabel: true }), c = field("", times, undefined, { deferredLabel: true });
       return { levelName, recipe, times, controls: [a, b, c], labels: [a, b, c].map((w) => w.querySelector("label")!), first: levelName,
         names: (i: number) => [`Nivel ${i + 1}: nombre`, `Nivel ${i + 1}: receta que se practica`, `Nivel ${i + 1}: veces que hay que fabricarla`] };
     },
@@ -478,8 +371,9 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   function syncSkillSelects() {
     for (const r of levelList.rows) syncOptions(r.recipe, practiceEntries, "Elige una receta");
   }
-  const skillErrors = el("div", { className: "error", role: "alert" });
-  const skillConfirm = el("p", { className: "confirmacion", role: "status" });
+  const skillFeedback = formFeedback();
+  const skillErrors = skillFeedback.errors;
+  const skillConfirm = skillFeedback.confirm;
   const skillForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-habilidad-titulo" }, "Nueva habilidad"),
     el("p", { className: "ayuda" }, `Una habilidad es permanente y tiene hasta ${limits.skillLevels} niveles. Cada nivel se gana fabricando varias veces una receta abierta (que no exija esta habilidad), o por concesión de la administración, o porque alguien con más nivel te lo enseñe. Máximo ${limits.skills} habilidades creadas aquí.`),
@@ -505,8 +399,9 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const grantName = el("input", { maxLength: 20, autocomplete: "off" });
   const grantSkill = el("select");
   const grantLevel = el("select");
-  const grantErrors = el("div", { className: "error", role: "alert" });
-  const grantConfirm = el("p", { className: "confirmacion", role: "status" });
+  const grantFeedback = formFeedback();
+  const grantErrors = grantFeedback.errors;
+  const grantConfirm = grantFeedback.confirm;
   grantSkill.onchange = () => syncGrant();
   const grantForm = el("form", { noValidate: true },
     el("h3", { id: "conceder-habilidad-titulo" }, "Conceder una habilidad"),

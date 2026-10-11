@@ -6,6 +6,7 @@ import {
 } from "@juego/shared";
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
+import { setupTabs } from "./ui/tabs.ts";
 import { createBoard } from "./views/board.ts";
 import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
 import { createComments } from "./views/comments.ts";
@@ -336,27 +337,11 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string) {
   const board = createBoard(byId("vista-tablero"), ctx);
   const timeline = createTimeline(byId("vista-cronograma"), ctx);
   const metrics = createMetrics(byId("vista-indicadores"), ctx);
-  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  const selectTab = (tab: HTMLButtonElement, focus = true) => {
-    for (const t of tabs) {
-      const selected = t === tab;
-      t.setAttribute("aria-selected", String(selected));
-      t.tabIndex = selected ? 0 : -1;
-      byId(t.getAttribute("aria-controls")!).hidden = !selected;
-    }
+  // Pestañas de las vistas de gestión (patrón APG, G3a): el comportamiento está en ui/tabs.ts.
+  setupTabs(document, (tab) => {
     metrics.setActive(tab.id === "tab-indicadores");
-    if (focus) tab.focus();
     render();
-  };
-  for (const tab of tabs) {
-    tab.onclick = () => selectTab(tab);
-    tab.onkeydown = (event) => {
-      const i = tabs.indexOf(tab);
-      const next = event.key === "ArrowRight" ? tabs[(i + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(i - 1 + tabs.length) % tabs.length]
-        : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : undefined;
-      if (next) { event.preventDefault(); selectTab(next); }
-    };
-  }
+  });
   projectFilter.onchange = () => render();
 
   let rejectionTimer: number | undefined;
