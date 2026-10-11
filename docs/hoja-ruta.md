@@ -31,6 +31,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | F2b | Cadenas de producción: entradas de objetos, verbo, edificios extra, subproductos, límites configurables y vista de cadenas (RF-025) | F2a | Una cadena de dos edificios con objeto intermedio y subproducto se crea en el panel, se construye y se fabrica, y persiste — **CERRADA** 2026-10-10 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 | F2c | Habilidades: niveles que se practican, se conceden o se enseñan; recetas que las exigen (RF-026) | F2b | Una habilidad creada en el panel se gana por las tres vías y abre una receta que la exige, y persiste — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 | G3a | Fundamentos visuales y de accesibilidad: documento de arquitectura visual, tokens de diseño, componentes reutilizables accesibles, guía de estilo `/estilo`, `npm.cmd run a11y` (Q200–Q205) | F2c | Pantallas actuales con los mismos tokens, componentes en `ui/` y comprobación automática de contraste — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
+| G3b | Marco de pantalla del juego: zonas, panel con pestañas, fuente única de eventos con consola (Importantes e Historial), anunciador con prioridades, preferencias de accesibilidad y regla de actividad (RF-027, Q206–Q214) | G3a | Pantalla del juego en zonas con los mismos ids, avisos unificados y pruebas T1–T4 con dos sesiones — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -99,4 +100,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** plan de G3b (marco de pantalla: zonas, pestañas, consola, preferencias) por preguntas. Quedan planteadas G3c (próximo paso y guía), G3d (gamificación), G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación) y F2e (bots).
+**NEXT:** prueba y fusión de G3b por la persona responsable; después, plan de G3c (próximo paso, objetivo actual y marcadores) por preguntas. Quedan planteadas G3d (gamificación), G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación) y F2e (bots).
