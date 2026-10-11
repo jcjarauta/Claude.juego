@@ -289,17 +289,23 @@ export interface BuildLimits {
   skills: number;
   skillLevels: number;
   recipeSkills: number;
+  /** Planificador de rutas del objetivo (G1, Q238): profundidad máxima de una cadena y rutas que se comparan como máximo. */
+  plannerDepth: number;
+  plannerRoutes: number;
 }
 
 /** Valores por omisión (los de F2a: nada cambia si la configuración no declara `buildLimits`). */
 export const DEFAULT_BUILD_LIMITS: BuildLimits = {
   constructions: 10, items: 20, recipes: 20, side: 5, recipeInputs: 4, inputAmount: 100, outputAmount: 100, byproducts: 2, alsoNeeds: 2,
-  skills: 10, skillLevels: 3, recipeSkills: 2,
+  skills: 10, skillLevels: 3, recipeSkills: 2, plannerDepth: 8, plannerRoutes: 24,
 };
-/** Techos que ninguna configuración puede superar. */
+/**
+ * Techos que ninguna configuración ni el panel pueden superar (G1, Q237): una red de seguridad generosa, dentro de lo que
+ * soporta el estado sincronizado (cantidades `uint16`, niveles `uint8`).
+ */
 export const HARD_BUILD_LIMITS: BuildLimits = {
-  constructions: 100, items: 200, recipes: 200, side: 10, recipeInputs: 10, inputAmount: 1000, outputAmount: 1000, byproducts: 5, alsoNeeds: 5,
-  skills: 100, skillLevels: 6, recipeSkills: 5,
+  constructions: 1000, items: 1000, recipes: 1000, side: 30, recipeInputs: 50, inputAmount: 10000, outputAmount: 10000, byproducts: 20, alsoNeeds: 20,
+  skills: 1000, skillLevels: 20, recipeSkills: 20, plannerDepth: 20, plannerRoutes: 100,
 };
 /** Compatibilidad con F2a: los valores por omisión. */
 export const BUILD_LIMITS = DEFAULT_BUILD_LIMITS;

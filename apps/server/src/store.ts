@@ -6,7 +6,7 @@ import type { ItemDef, MissionDef, ProjectDef, RecipeDef, SkillDef, StructureDef
 // Cada cambio de recursos se escribe en una transacción junto con su evento antes de
 // que el estado sincronizado cambie; si la transacción falla, nada cambia.
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export type Scope =
   | { type: "player"; id: string }
@@ -218,6 +218,23 @@ export const MIGRATIONS: Record<number, string> = {
       PRIMARY KEY (player, recipe)
     );
   `,
+  // G1: ajustes editables desde el panel (límites de diseño) y archivo de definiciones. Archivar no borra nada: la marca
+  // vale igual para lo de la configuración y para lo creado en el panel (Q240, Q241).
+  11: `
+    CREATE TABLE setting (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_by TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE archive (
+      kind TEXT NOT NULL,
+      id TEXT NOT NULL,
+      archived_by TEXT NOT NULL,
+      archived_at INTEGER NOT NULL,
+      PRIMARY KEY (kind, id)
+    );
+  `,
 };
 
 export function openStore(path: string) {
@@ -308,6 +325,12 @@ export function openStore(path: string) {
     getStructureDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt, retired_at AS retiredAt FROM structure_def ORDER BY created_at, id"),
     addStructureDef: db.prepare("INSERT INTO structure_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     retireStructureDef: db.prepare("UPDATE structure_def SET retired_at = ? WHERE id = ? AND retired_at IS NULL"),
+    getSetting: db.prepare("SELECT value FROM setting WHERE key = ?"),
+    putSetting: db.prepare("INSERT INTO setting (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at"),
+    deleteSetting: db.prepare("DELETE FROM setting WHERE key = ?"),
+    getArchived: db.prepare("SELECT kind, id, archived_by AS archivedBy, archived_at AS archivedAt FROM archive ORDER BY archived_at, kind, id"),
+    addArchive: db.prepare("INSERT INTO archive (kind, id, archived_by, archived_at) VALUES (?, ?, ?, ?)"),
+    removeArchive: db.prepare("DELETE FROM archive WHERE kind = ? AND id = ?"),
     getItemDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM item_def ORDER BY created_at, id"),
     addItemDef: db.prepare("INSERT INTO item_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     getRecipeDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM recipe_def ORDER BY created_at, id"),
@@ -494,6 +517,26 @@ export function openStore(path: string) {
     /** Retira un solar sin construir; lanza si no existe o ya estaba retirado. */
     retireStructureDef(id: string, at: number) {
       if (Number(q.retireStructureDef.run(at, id).changes) !== 1) throw new Error(`estructura-no-retirable: ${id}`);
+    },
+    /** Ajustes editables (G1): valor guardado o undefined. */
+    getSetting(key: string): string | undefined {
+      return (q.getSetting.get(key) as { value: string } | undefined)?.value;
+    },
+    putSetting(key: string, value: string, by: string, at: number) {
+      q.putSetting.run(key, value, by, at);
+    },
+    deleteSetting(key: string) {
+      q.deleteSetting.run(key);
+    },
+    /** Definiciones archivadas (G1): tipo + id, quién y cuándo. */
+    getArchived(): { kind: string; id: string; archivedBy: string; archivedAt: number }[] {
+      return (q.getArchived.all() as { kind: string; id: string; archivedBy: string; archivedAt: number }[]).map((r) => ({ kind: r.kind, id: r.id, archivedBy: r.archivedBy, archivedAt: r.archivedAt }));
+    },
+    addArchive(kind: string, id: string, by: string, at: number) {
+      q.addArchive.run(kind, id, by, at);
+    },
+    removeArchive(kind: string, id: string) {
+      q.removeArchive.run(kind, id);
     },
     getItemDefs(): { def: ItemDef; createdBy: string; createdAt: number }[] {
       return (q.getItemDefs.all() as { definition: string; createdBy: string; createdAt: number }[])

@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import {
   authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateConstruction, checkCreateItem, checkCreateMission,
   checkCreateProject, checkCreateRecipe, checkCreateSkill, checkGrantSkill, checkReschedule, checkReview, isTaskDone, isValidRequestId, levelAfterCraft,
-  missionSatisfied, projectStatus, taskStatus,
-  type ContributionSource, type ItemDef, type MissionDef, type ProjectDef, type RecipeDef, type RejectReason, type ReviewDecision, type SkillDef,
+  checkArchive, checkRestore, checkUpdateLimits, HARD_BUILD_LIMITS, LIMIT_KEYS, missionSatisfied, projectStatus, taskStatus,
+  type BuildLimits, type ContributionSource, type DefinitionKind, type DesignView, type ItemDef, type MissionDef, type ProjectDef, type RecipeDef, type RejectReason, type ReviewDecision, type SkillDef,
   type StructureDef, type WorldConfig,
 } from "@juego/shared";
 import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
@@ -163,14 +163,42 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   const skills = new Map<string, SkillEntry>();
   for (const def of config.skills) skills.set(def.id, { def, origin: "configuracion" });
   for (const row of store.getSkillDefs()) skills.set(row.def.id, { def: row.def, origin: "panel" });
-  const skillDefs = () => new Map([...skills.values()].map((e) => [e.def.id, e.def]));
+  const skillDefs = () => new Map(activeSkills().map((e) => [e.def.id, e.def]));
   const activeStructures = () => [...structures.values()].filter((e) => !e.retiredAt);
 
   const resourceIds = new Set(config.resources.map((r) => r.id));
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const nodeCells = new Set(config.nodes.map((n) => `${n.x},${n.y}`));
-  const itemIds = () => new Set(items.keys());
-  const limits = config.buildLimits;
+  // Límites de diseño vigentes (G1, Q237): los de la configuración con lo que la administración haya guardado desde el panel.
+  const loadLimits = (): BuildLimits => {
+    const merged: BuildLimits = { ...config.buildLimits };
+    try {
+      const saved = JSON.parse(store.getSetting("buildLimits") ?? "{}") as Record<string, unknown>;
+      for (const key of LIMIT_KEYS) {
+        const v = saved[key];
+        if (Number.isInteger(v) && (v as number) >= 1 && (v as number) <= HARD_BUILD_LIMITS[key]) merged[key] = v as number;
+      }
+    } catch { /* ajuste corrupto: se usan los de la configuración */ }
+    return merged;
+  };
+  let limits: BuildLimits = loadLimits();
+
+  // Archivo (G1, Q240): nada se borra; una definición archivada no se usa ni se muestra y conserva su historial.
+  const archived = new Set(store.getArchived().map((a) => `${a.kind}:${a.id}`));
+  const isArchived = (kind: DefinitionKind, id: string) => archived.has(`${kind}:${id}`);
+  const activeItems = () => [...items.values()].filter((e) => !isArchived("objeto", e.def.id));
+  const activeRecipes = () => [...recipes.values()].filter((e) => !isArchived("receta", e.def.id));
+  const activeSkills = () => [...skills.values()].filter((e) => !isArchived("habilidad", e.def.id));
+  const activeMissions = () => [...missions.values()].filter((e) => !isArchived("mision", e.def.id));
+  const itemIds = () => new Set(activeItems().map((e) => e.def.id));
+  const designView = (): DesignView => ({
+    items: [...items.values()].map((e) => ({ def: e.def, archived: isArchived("objeto", e.def.id) })),
+    recipes: [...recipes.values()].map((e) => ({ def: e.def, archived: isArchived("receta", e.def.id) })),
+    skills: [...skills.values()].map((e) => ({ def: e.def, archived: isArchived("habilidad", e.def.id) })),
+    missions: [...missions.values()].map((e) => ({ def: e.def, archived: isArchived("mision", e.def.id) })),
+    resourceNames: config.resources.map((r) => r.name),
+    stock: (id) => store.getAmount(COMMUNITY, id),
+  });
   const entryName = (id: string) => items.get(id)?.def.name ?? config.resources.find((r) => r.id === id)?.name ?? id;
   const allProjects = () => [...projects.values()].map((e) => e.def);
   const projectById = (id: unknown) => (typeof id === "string" ? projects.get(id)?.def : undefined);
@@ -258,6 +286,29 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     return isComplete(project) && !approvalMissing(project);
   }
 
+  function changeArchive(actor: string, payload: unknown, archive: boolean): Outcome<{ kind: DefinitionKind; id: string }> {
+    const message = (payload ?? {}) as Record<string, unknown>;
+    if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+    const requestId = message.requestId;
+    const at = Date.now();
+    const outcome = store.transaction((): Outcome<{ kind: DefinitionKind; id: string }> => {
+      if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+      const input = { actor, admins: config.admins, payload, view: designView() };
+      const check = archive ? checkArchive(input) : checkRestore(input);
+      if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+      const kind = message.kind as DefinitionKind;
+      const id = message.id as string;
+      if (archive) store.addArchive(kind, id, actor, at); else store.removeArchive(kind, id);
+      store.event(archive ? "def-archived" : "def-restored", actor, requestId, { kind, id });
+      return { kind: "done", value: { kind, id } };
+    });
+    if (outcome.kind === "done") {
+      const key = `${outcome.value.kind}:${outcome.value.id}`;
+      if (archive) archived.add(key); else archived.delete(key);
+    }
+    return outcome;
+  }
+
   /**
    * Completa, dentro de la transacción en curso, las misiones cuyo objetivo se cumple por
    * primera vez. `extra` son misiones aún no registradas en memoria (la que se está creando).
@@ -266,7 +317,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     const done = new Set(store.getMissions().map((m) => m.id));
     const stock = (id: string) => store.getAmount(COMMUNITY, id);
     const completed: MissionCompleted[] = [];
-    for (const mission of [...[...missions.values()].map((e) => e.def), ...extra]) {
+    for (const mission of [...activeMissions().map((e) => e.def), ...extra]) {
       if (done.has(mission.id) || !missionSatisfied(mission, { stock, projectCompleted })) continue;
       store.completeMission(mission.id, actor, at);
       store.event("mission-complete", actor, null, { mission: mission.id });
@@ -282,12 +333,16 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     isBlocked,
     structureOf,
     structureById: (id: unknown) => (typeof id === "string" ? structures.get(id)?.def : undefined),
-    recipeById: (id: unknown) => (typeof id === "string" ? recipes.get(id)?.def : undefined),
+    recipeById: (id: unknown) => (typeof id === "string" && !isArchived("receta", id) ? recipes.get(id)?.def : undefined),
     structureEntries: () => [...structures.values()],
     itemEntries: () => [...items.values()],
     recipeEntries: () => [...recipes.values()],
     skillEntries: () => [...skills.values()],
-    skillById: (id: unknown) => (typeof id === "string" ? skills.get(id)?.def : undefined),
+    skillById: (id: unknown) => (typeof id === "string" && !isArchived("habilidad", id) ? skills.get(id)?.def : undefined),
+    /** Diseño (G1): límites vigentes y archivo. */
+    limits: () => limits,
+    isArchived,
+    designView,
     skillDefs,
 
     /** Nivel de una persona en cada habilidad y veces que ha fabricado cada receta (F2c). */
@@ -303,8 +358,8 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const outcome = store.transaction((): Outcome<SkillEntry> => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateSkill({
-          actor, admins: config.admins, payload, recipes: new Map([...recipes.values()].map((e) => [e.def.id, e.def])), existingIds: new Set(skills.keys()),
-          takenNames: [...skills.values()].map((e) => e.def.name), created: [...skills.values()].filter((e) => e.origin === "panel").length, limits, idSuffix: suffix(),
+          actor, admins: config.admins, payload, recipes: new Map(activeRecipes().map((e) => [e.def.id, e.def])), existingIds: new Set(skills.keys()),
+          takenNames: activeSkills().map((e) => e.def.name), created: activeSkills().filter((e) => e.origin === "panel").length, limits, idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addSkillDef(check.def, actor, at);
@@ -345,7 +400,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const at = Date.now();
       return store.transaction((): Outcome<SkillGained> => {
         if (store.hasRequest(learner, requestId)) return { kind: "duplicate" };
-        const def = skills.get(skillId)?.def;
+        const def = isArchived("habilidad", skillId) ? undefined : skills.get(skillId)?.def;
         const teacherLevel = store.getPlayerSkills(teacher)[skillId] ?? 0;
         const learnerLevel = store.getPlayerSkills(learner)[skillId] ?? 0;
         if (!def || learnerLevel + 1 !== toLevel || toLevel > def.levels.length || toLevel > teacherLevel - 1) {
@@ -366,7 +421,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const counts = store.getCraftCounts(player);
       const levels = store.getPlayerSkills(player);
       const gained: SkillGained[] = [];
-      for (const { def } of skills.values()) {
+      for (const { def } of activeSkills()) {
         const current = levels[def.id] ?? 0;
         const next = levelAfterCraft(def, current, recipeId, (r) => counts[r] ?? 0);
         if (next <= current) continue;
@@ -428,9 +483,9 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const outcome = store.transaction((): Outcome<ItemEntry> => {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateItem({
-          actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), limits,
-          takenNames: [...[...items.values()].map((e) => e.def.name), ...config.resources.map((r) => r.name)],
-          created: [...items.values()].filter((e) => e.origin === "panel").length, idSuffix: suffix(),
+          actor, admins: config.admins, payload, resourceIds, itemIds: new Set(items.keys()), limits,
+          takenNames: [...activeItems().map((e) => e.def.name), ...config.resources.map((r) => r.name)],
+          created: activeItems().filter((e) => e.origin === "panel").length, idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addItemDef(check.def, actor, at);
@@ -451,8 +506,8 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
         const check = checkCreateRecipe({
           actor, admins: config.admins, payload, resourceIds, itemIds: itemIds(), structureIds: new Set(activeStructures().map((e) => e.def.id)),
-          created: [...recipes.values()].filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()),
-          takenNames: [...recipes.values()].map((e) => e.def.name), recipes: [...recipes.values()].map((e) => e.def), entryName, limits, skills: skillDefs(), idSuffix: suffix(),
+          created: activeRecipes().filter((e) => e.origin === "panel").length, existingIds: new Set(recipes.keys()),
+          takenNames: activeRecipes().map((e) => e.def.name), recipes: activeRecipes().map((e) => e.def), entryName, limits, skills: skillDefs(), idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addRecipeDef(check.def, actor, at);
@@ -461,6 +516,40 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       });
       if (outcome.kind === "done") recipes.set(outcome.value.def.id, outcome.value);
       return outcome;
+    },
+
+    /**
+     * Cambiar los límites de diseño (G1, Q237): administración; se aplica sin reiniciar y se guarda. Bajar un límite por debajo de lo
+     * ya creado no borra nada: solo impide crear más.
+     */
+    updateLimits(actor: string, payload: unknown): Outcome<BuildLimits> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const outcome = store.transaction((): Outcome<BuildLimits> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        const check = checkUpdateLimits({ actor, admins: config.admins, payload, current: limits, defaults: config.buildLimits });
+        if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
+        if (check.changed) {
+          if (message.reset === true) store.deleteSetting("buildLimits");
+          else store.putSetting("buildLimits", JSON.stringify(check.limits), actor, at);
+          store.event("limits-updated", actor, requestId, { limits: check.limits, reset: message.reset === true });
+        }
+        return { kind: "done", value: check.limits };
+      });
+      if (outcome.kind === "done") limits = outcome.value;
+      return outcome;
+    },
+
+    /** Archivar una definición (G1, Q240): no se borra; no se usa ni se muestra, pero conserva su historial. */
+    archive(actor: string, payload: unknown): Outcome<{ kind: DefinitionKind; id: string }> {
+      return changeArchive(actor, payload, true);
+    },
+
+    /** Restaurar una definición archivada: exige nombre libre y dependencias activas. */
+    restore(actor: string, payload: unknown): Outcome<{ kind: DefinitionKind; id: string }> {
+      return changeArchive(actor, payload, false);
     },
 
     /** Apuntar o asignar a un responsable (F1c, Q181). */
@@ -665,7 +754,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const check = checkCreateMission({
           actor, admins: config.admins, payload, itemIds: itemIds(),
           openProjectIds: new Set([...projects.values()].filter((e) => !e.closedAt).map((e) => e.def.id)),
-          missions: missions.size, existingIds: new Set(missions.keys()), idSuffix: suffix(),
+          missions: activeMissions().length, existingIds: new Set(missions.keys()), idSuffix: suffix(),
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         store.addMissionDef(check.def, actor, at);

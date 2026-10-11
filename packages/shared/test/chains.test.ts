@@ -114,7 +114,8 @@ test("límites configurables: por omisión, parciales, techos duros y efecto en 
   assert.deepEqual(validateBuildLimits(undefined), []);
   assert.deepEqual(validateBuildLimits({ recipeInputs: 6, byproducts: 3 }), []);
   assert.deepEqual(validateBuildLimits({ recipeInputs: HARD_BUILD_LIMITS.recipeInputs }), []);
-  for (const bad of [{ recipeInputs: 0 }, { recipeInputs: 11 }, { inputAmount: 1001 }, { items: 1.5 }, { recipes: "20" }, { side: -1 }]) {
+  // Los techos son los de G1 (Q237): se prueban respecto de HARD_BUILD_LIMITS, no con cifras fijas.
+  for (const bad of [{ recipeInputs: 0 }, { recipeInputs: HARD_BUILD_LIMITS.recipeInputs + 1 }, { inputAmount: HARD_BUILD_LIMITS.inputAmount + 1 }, { items: 1.5 }, { recipes: "20" }, { side: -1 }]) {
     assert.ok(validateBuildLimits(bad).length, JSON.stringify(bad));
   }
   assert.match(validateBuildLimits({ colas: 3 }).join(), /límite desconocido "colas"/);
@@ -140,9 +141,9 @@ test("la configuración del mundo: sección buildLimits opcional, validada, y ci
   assert.equal(partial.config.buildLimits.recipeInputs, 6);
   assert.equal(partial.config.buildLimits.items, DEFAULT_BUILD_LIMITS.items);
 
-  const invalid = validateWorldConfig({ ...world(), buildLimits: { recipeInputs: 99, colas: 1 } });
+  const invalid = validateWorldConfig({ ...world(), buildLimits: { recipeInputs: HARD_BUILD_LIMITS.recipeInputs + 1, colas: 1 } });
   assert.ok(!invalid.ok);
-  assert.match(invalid.errors.join(" | "), /buildLimits.recipeInputs debe ser un entero 1–10/);
+  assert.match(invalid.errors.join(" | "), new RegExp(`buildLimits.recipeInputs debe ser un entero 1–${HARD_BUILD_LIMITS.recipeInputs}`));
   assert.match(invalid.errors.join(" | "), /límite desconocido "colas"/);
 
   const w = world() as { items: unknown[]; recipes: { id: string; name?: string; structureId: string; inputs: Record<string, number>; output: { item: string; amount: number } }[] };

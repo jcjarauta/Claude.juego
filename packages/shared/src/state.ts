@@ -133,6 +133,7 @@ export const MissionState = schema({
   status: t.string(),
   completedBy: t.string(),
   completedAt: t.float64(),
+  archived: t.boolean(),
 }, "MissionState");
 export type MissionState = SchemaType<typeof MissionState>;
 
@@ -140,6 +141,8 @@ export type MissionState = SchemaType<typeof MissionState>;
 export const ItemState = schema({
   name: t.string(),
   origin: t.string(),
+  /** Archivado (G1): no se usa ni se muestra, pero conserva su historial. */
+  archived: t.boolean(),
 }, "ItemState");
 export type ItemState = SchemaType<typeof ItemState>;
 
@@ -157,6 +160,7 @@ export const SkillState = schema({
   description: t.string(),
   levels: t.array(SkillLevelState),
   origin: t.string(),
+  archived: t.boolean(),
 }, "SkillState");
 export type SkillState = SchemaType<typeof SkillState>;
 
@@ -176,6 +180,7 @@ export const RecipeState = schema({
   /** Habilidades necesarias: habilidad → nivel mínimo (F2c). */
   requiresSkills: t.map("uint8"),
   origin: t.string(),
+  archived: t.boolean(),
 }, "RecipeState");
 export type RecipeState = SchemaType<typeof RecipeState>;
 
@@ -193,6 +198,8 @@ export const WorldState = schema({
   items: t.map(ItemState),
   recipes: t.map(RecipeState),
   skills: t.map(SkillState),
+  /** Límites de diseño vigentes (G1, Q237): los edita la administración desde el panel. */
+  limits: t.map("uint32"),
 }, "WorldState");
 export type WorldState = SchemaType<typeof WorldState>;
 

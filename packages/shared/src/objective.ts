@@ -107,10 +107,14 @@ export interface Snapshot {
   missions: readonly { def: MissionDef; completed: boolean }[];
   others: readonly { name: string; x: number; y: number; connected: boolean; skills: SkillLevels }[];
   offers: readonly { id: string; from: string; skill: string; level: number }[];
+  /** Límites del planificador vigentes (G1, Q238); sin ellos, los de omisión. */
+  planner?: { depth: number; routes: number };
 }
 
 export const MAX_DEPTH = 8;
 export const MAX_ROUTES = 24;
+const depthOf = (s: Snapshot) => s.planner?.depth ?? MAX_DEPTH;
+const routesOf = (s: Snapshot) => s.planner?.routes ?? MAX_ROUTES;
 
 const nameOf = (s: Snapshot, id: string) => s.items[id] ?? s.resources[id] ?? id;
 const isItem = (s: Snapshot, id: string) => id in s.items;
@@ -237,8 +241,8 @@ export function planRoutes(s: Snapshot, root: Root): PlanResult {
       return;
     }
 
-    if (path.length >= MAX_DEPTH) {
-      discarded.push(`Ruta descartada: profundidad máxima (${MAX_DEPTH}) al producir ${nameOf(s, id)}.`);
+    if (path.length >= depthOf(s)) {
+      discarded.push(`Ruta descartada: profundidad máxima (${depthOf(s)}) al producir ${nameOf(s, id)}.`);
       return;
     }
     const options = producers(s, id);
@@ -303,7 +307,7 @@ export function planRoutes(s: Snapshot, root: Root): PlanResult {
   }
 
   const finalize = (st: PlanState) => {
-    if (routes.length >= MAX_ROUTES) { truncated = true; return; }
+    if (routes.length >= routesOf(s)) { truncated = true; return; }
     const crafts = st.actions.filter((a): a is Extract<PlanAction, { type: "craft" }> => a.type === "craft");
     const id = crafts.map((c) => c.recipe.id).join(">") || "directa";
     if (seen.has(id)) return;
@@ -321,9 +325,9 @@ export function planRoutes(s: Snapshot, root: Root): PlanResult {
   };
 
   if (root.kind === "item") {
-    for (const st of satisfy(root.item, root.amount, cloneState(start), [])) { produced++; finalize(st); if (produced > MAX_ROUTES * 4) { truncated = true; break; } }
+    for (const st of satisfy(root.item, root.amount, cloneState(start), [])) { produced++; finalize(st); if (produced > routesOf(s) * 4) { truncated = true; break; } }
   } else {
-    for (const st of craftRecipe(root.recipe, root.times, cloneState(start), [])) { produced++; finalize(st); if (produced > MAX_ROUTES * 4) { truncated = true; break; } }
+    for (const st of craftRecipe(root.recipe, root.times, cloneState(start), [])) { produced++; finalize(st); if (produced > routesOf(s) * 4) { truncated = true; break; } }
   }
   return { routes, discarded: [...new Set(discarded)], truncated };
 }
@@ -670,6 +674,7 @@ const REJECTION_TABLE: Record<RejectReason, RejectionClass | "bloqueo"> = {
   "demasiadas-construcciones": "error-tecnico",
   "demasiados-objetos": "error-tecnico",
   "demasiadas-recetas": "error-tecnico",
+  "definicion-en-uso": "bloqueo",
 };
 
 export const REJECTION_REASONS = Object.keys(REJECTION_TABLE) as RejectReason[];

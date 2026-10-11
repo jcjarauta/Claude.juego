@@ -26,6 +26,10 @@ export const MESSAGE = {
   createRecipe: "create-recipe",
   createSkill: "create-skill",
   grantSkill: "grant-skill",
+  /** Diseño (G1): cambiar los límites vigentes, archivar y restaurar definiciones. */
+  updateLimits: "update-limits",
+  archiveDef: "archive-def",
+  restoreDef: "restore-def",
   teachOffer: "teach-offer",
   teachRespond: "teach-respond",
   /** Servidor → destinatario: alguien le ofrece enseñarle una habilidad. */
@@ -252,6 +256,20 @@ export interface GrantSkillMessage {
   level: number;
 }
 
+/** Diseño (G1): `{ limits: { recipeInputs: 12 } }` cambia esos límites; `{ reset: true }` vuelve a los de la configuración. */
+export interface UpdateLimitsMessage {
+  requestId: string;
+  limits?: Partial<Record<string, number>>;
+  reset?: boolean;
+}
+
+/** Archivar o restaurar una definición (objeto, receta, habilidad o misión). Nada se borra. */
+export interface ArchiveDefMessage {
+  requestId: string;
+  kind: "objeto" | "receta" | "habilidad" | "mision";
+  id: string;
+}
+
 export interface TeachOfferMessage {
   requestId: string;
   /** Persona a la que se ofrece enseñar. */
@@ -391,7 +409,8 @@ export type RejectReason =
   | "demasiados-responsables"
   | "demasiadas-construcciones"
   | "demasiados-objetos"
-  | "demasiadas-recetas";
+  | "demasiadas-recetas"
+  | "definicion-en-uso";
 
 export interface RejectedMessage {
   reason: RejectReason;
@@ -445,9 +464,10 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
   "tarea-bloqueada": "Esa tarea está bloqueada: antes hay que terminar las tareas de las que depende.",
   "comentario-invalido": "Escribe un comentario de 1 a 500 caracteres.",
   "demasiados-responsables": "Esa tarea ya tiene 3 responsables.",
-  "demasiadas-construcciones": "Hay demasiadas construcciones creadas desde el panel (máximo 10).",
-  "demasiados-objetos": "Hay demasiados objetos creados desde el panel (máximo 20).",
-  "demasiadas-recetas": "Hay demasiadas recetas creadas desde el panel (máximo 20).",
+  "demasiadas-construcciones": "Hay demasiadas construcciones creadas desde el panel (se ha alcanzado el límite vigente).",
+  "demasiados-objetos": "Hay demasiados objetos creados desde el panel (se ha alcanzado el límite vigente).",
+  "demasiadas-recetas": "Hay demasiadas recetas creadas desde el panel (se ha alcanzado el límite vigente).",
+  "definicion-en-uso": "Esa definición está en uso o depende de algo archivado: mira el detalle.",
 };
 
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

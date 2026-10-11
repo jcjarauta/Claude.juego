@@ -14,3 +14,4 @@ export * from "./objective-snapshot.ts";
 export * from "./objective-guide.ts";
 export * from "./achievements.ts";
 export * from "./achievements-snapshot.ts";
+export * from "./design.ts";
