@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (85 ids)
+## index.html (103 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -56,6 +56,7 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `tab-habilidades` | — | aria-labelledby | — |
 | `tab-cadenas` | — | aria-labelledby | — |
 | `tab-comunidad` | — | aria-labelledby | — |
+| `tab-guia` | — | aria-labelledby | — |
 | `panel-proyecto` | — | aria-controls | — |
 | `proyecto-selector` | WorldScene.ts | for | — |
 | `proyecto-titulo` | project-panel.ts | — | — |
@@ -92,6 +93,23 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `proyecto-actividad` | project-panel.ts | — | `#proyecto-aportes, #proyecto-actividad, #misiones, #cadenas-juego, #habilidades-lista` |
 | `jugadores-titulo` | hud.ts | aria-labelledby | — |
 | `jugadores` | hud.ts | — | `#jugadores` |
+| `panel-guia` | — | aria-controls | — |
+| `guia-paso-titulo` | — | aria-labelledby | — |
+| `guia-objetivo` | — | — | — |
+| `guia-estado` | — | — | — |
+| `guia-paso` | — | — | — |
+| `guia-porque` | — | — | — |
+| `guia-bloqueos` | — | — | — |
+| `guia-bloqueos-vacio` | — | — | — |
+| `guia-alternativas` | — | — | — |
+| `guia-alternativas-vacio` | — | — | — |
+| `guia-cerca-titulo` | — | aria-labelledby | — |
+| `guia-destino` | — | — | — |
+| `guia-cerca` | — | — | — |
+| `guia-cerca-vacio` | — | — | — |
+| `guia-consejos-titulo` | — | aria-labelledby | — |
+| `guia-consejos` | — | — | — |
+| `guia-estados` | — | — | — |
 | `zona-consola` | main.ts | — | — |
 
 ## panel.html (29 ids)
@@ -226,3 +244,11 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - **La cámara nunca se mueve sola.** Solo «Mostrar en el mapa» la separa del personaje; vuelve al moverse, con Escape o con «Volver a mi personaje». Con `data-movimiento="reducido"` el anillo no pulsa y la cámara salta sin animación.
 - Evento de documento nuevo: `preferencias-cambiadas` (detalle: las preferencias; lo emite `frame.ts` y lo escucha `WorldScene` para las etiquetas y el movimiento). Preferencia nueva `mapLabels` (*todas*, *edificios*, *ninguna*) en el diálogo de Accesibilidad.
 - El anillo y la flecha usan doble contorno (blanco y negro) y no dependen del color; no añaden pares de color nuevos a `npm.cmd run a11y`.
+
+### Pestaña «Guía» y atajo O (puerta P3 de G3c, 2026-10-11)
+
+- Sexta pestaña del panel: `tab-guia` / `panel-guia` (al final de la lista; el orden de Tab y las flechas, Inicio y Fin la incluyen; `main.ts` la añade a `TABS` para recordarla). Ids nuevos del panel: `guia-objetivo`, `guia-estado`, `guia-paso`, `guia-porque`, `guia-bloqueos` (+ `guia-bloqueos-vacio`), `guia-alternativas` (+ `guia-alternativas-vacio`), `guia-destino`, `guia-cerca` (+ `guia-cerca-vacio`), `guia-consejos`, `guia-estados`.
+- La rellena `guide-panel.ts` con los datos del paso mostrado (la zona C se los pasa en cada recálculo mediante `onRender`); si la pestaña no se ve solo guarda el último estado y lo pinta al abrirla (evento `pestana-guia`). **No es región viva.**
+- Modelos puros en `@juego/shared` (`objective-guide.ts`): `nearby` (≤ 8 casillas, por cercanía, con el destino del objetivo siempre arriba aunque esté fuera del radio) y `tipsFor` (consejos por situación).
+- Atajo **O**: evento de documento `enfocar-objetivo` → foco en `#objetivo-nombre` (`tabindex="-1"`); se ignora en campos, pestañas, registros y diálogos, igual que `?` y `C`. La Ayuda lo lista.
+- A-3: el botón de receta no repite el verbo si el nombre ya empieza por él («Moler a mano», no «Moler: Moler a mano») y se describe con su texto de ayuda (`aria-describedby` → `receta-ayuda-<id>`).

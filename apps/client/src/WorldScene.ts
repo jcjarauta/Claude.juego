@@ -1,6 +1,7 @@
 import { chainsFromState } from "./views/cadenas.ts";
 import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
 import type { Feed } from "./feed.ts";
+import { createGuidePanel } from "./guide-panel.ts";
 import { createObjectivePanel } from "./objective-panel.ts";
 import { createTargetMarker, reducedMotion, type MapTarget } from "./map-markers.ts";
 import { layoutLabels, type LabelGroup, type Rect } from "./ui/label-layout.ts";
@@ -171,7 +172,12 @@ export class WorldScene extends Phaser.Scene {
     this.refreshResources();
 
     // Zona C (G3c): objetivo activo, siguiente acción y estado; el servidor decide siempre si la acción es válida.
+    const guide = createGuidePanel();
+    const onFocusObjective = () => this.objectivePanel?.focus();
+    document.addEventListener("enfocar-objetivo", onFocusObjective);
+    this.events.once("shutdown", () => document.removeEventListener("enfocar-objetivo", onFocusObjective));
     this.objectivePanel = createObjectivePanel({
+      onRender: (input) => guide.update(input),
       feed: this.feed,
       world: this.config.community.id,
       snapshot: () => this.room.state.players.get(this.room.sessionId)
@@ -258,6 +264,10 @@ export class WorldScene extends Phaser.Scene {
       if ((event.code === "Space" || event.code === "KeyE") && !isFormControl(event.target)) {
         event.preventDefault();
         if (!event.repeat) this.sendCollect();
+      }
+      if (event.code === "KeyO" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
+        event.preventDefault();
+        document.dispatchEvent(new CustomEvent("enfocar-objetivo"));
       }
       if (event.code === "Escape" && this.cameraDetached && !document.querySelector("dialog[open]")) this.releaseCamera();
       // Ayuda (?) y consola (C): no actúan con el foco en campos, pestañas, registros ni diálogos.

@@ -97,3 +97,11 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Evento de documento nuevo: `preferencias-cambiadas` (detalle: las preferencias; lo emite `frame.ts` y lo escucha `WorldScene` para las etiquetas y el movimiento). Preferencia nueva `mapLabels` (*todas*, *edificios*, *ninguna*) en el diálogo de Accesibilidad.
 - El anillo y la flecha usan doble contorno (blanco y negro) y no dependen del color; no añaden pares de color nuevos a `npm.cmd run a11y`.
 
+### Pestaña «Guía» y atajo O (puerta P3 de G3c, 2026-10-11)
+
+- Sexta pestaña del panel: `tab-guia` / `panel-guia` (al final de la lista; el orden de Tab y las flechas, Inicio y Fin la incluyen; `main.ts` la añade a `TABS` para recordarla). Ids nuevos del panel: `guia-objetivo`, `guia-estado`, `guia-paso`, `guia-porque`, `guia-bloqueos` (+ `guia-bloqueos-vacio`), `guia-alternativas` (+ `guia-alternativas-vacio`), `guia-destino`, `guia-cerca` (+ `guia-cerca-vacio`), `guia-consejos`, `guia-estados`.
+- La rellena `guide-panel.ts` con los datos del paso mostrado (la zona C se los pasa en cada recálculo mediante `onRender`); si la pestaña no se ve solo guarda el último estado y lo pinta al abrirla (evento `pestana-guia`). **No es región viva.**
+- Modelos puros en `@juego/shared` (`objective-guide.ts`): `nearby` (≤ 8 casillas, por cercanía, con el destino del objetivo siempre arriba aunque esté fuera del radio) y `tipsFor` (consejos por situación).
+- Atajo **O**: evento de documento `enfocar-objetivo` → foco en `#objetivo-nombre` (`tabindex="-1"`); se ignora en campos, pestañas, registros y diálogos, igual que `?` y `C`. La Ayuda lo lista.
+- A-3: el botón de receta no repite el verbo si el nombre ya empieza por él («Moler a mano», no «Moler: Moler a mano») y se describe con su texto de ayuda (`aria-describedby` → `receta-ayuda-<id>`).
+

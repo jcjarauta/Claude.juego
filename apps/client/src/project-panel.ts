@@ -247,10 +247,13 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
             const button = document.createElement("button");
             button.type = "button";
             const verb = recipeVerb(recipe);
-            button.textContent = `${verb}: ${recipe.name}`;
+            // A-3: si el nombre ya empieza por el verbo («Moler a mano»), no se repite («Moler: Moler a mano»).
+            button.textContent = recipe.name.toLowerCase().startsWith(verb.toLowerCase()) ? recipe.name : `${verb}: ${recipe.name}`;
             button.onclick = () => { if (button.getAttribute("aria-disabled") !== "true") actions.craft(recipe.id); };
             const help = document.createElement("p");
             help.className = "ayuda";
+            help.id = `receta-ayuda-${recipe.id}`;
+            button.setAttribute("aria-describedby", help.id);
             recipeBlocks.set(recipe.id, { text, button, help });
             const block = document.createElement("div");
             block.append(text, button, help);

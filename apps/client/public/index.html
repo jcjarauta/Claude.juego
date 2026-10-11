@@ -171,6 +171,7 @@
             <button type="button" role="tab" id="tab-habilidades" aria-controls="panel-habilidades" aria-selected="false" tabindex="-1">Habilidades</button>
             <button type="button" role="tab" id="tab-cadenas" aria-controls="panel-cadenas" aria-selected="false" tabindex="-1">Cadenas</button>
             <button type="button" role="tab" id="tab-comunidad" aria-controls="panel-comunidad" aria-selected="false" tabindex="-1">Comunidad</button>
+            <button type="button" role="tab" id="tab-guia" aria-controls="panel-guia" aria-selected="false" tabindex="-1">Guía</button>
           </div>
 
           <div role="tabpanel" id="panel-proyecto" aria-labelledby="tab-proyecto" tabindex="0">
@@ -235,6 +236,34 @@
             <ol id="proyecto-actividad"></ol>
             <h3 id="jugadores-titulo">Jugadores</h3>
             <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
+          </div>
+
+          <div role="tabpanel" id="panel-guia" aria-labelledby="tab-guia" tabindex="0" hidden>
+            <section aria-labelledby="guia-paso-titulo">
+              <h3 id="guia-paso-titulo">Siguiente paso</h3>
+              <p id="guia-objetivo"></p>
+              <p><strong id="guia-estado"></strong><span id="guia-paso"></span></p>
+              <p id="guia-porque" class="ayuda"></p>
+              <p><strong>Qué falta</strong></p>
+              <ul id="guia-bloqueos"></ul>
+              <p id="guia-bloqueos-vacio" class="ayuda" hidden>Nada te bloquea ahora.</p>
+              <p><strong>Alternativas</strong></p>
+              <ul id="guia-alternativas"></ul>
+              <p id="guia-alternativas-vacio" class="ayuda">No hay otras formas de avanzar ahora.</p>
+            </section>
+            <section aria-labelledby="guia-cerca-titulo">
+              <h3 id="guia-cerca-titulo">Qué hay cerca</h3>
+              <p class="ayuda">Alternativa en texto al mapa: lo que hay a 8 casillas o menos, de más cerca a más lejos.</p>
+              <p id="guia-destino"></p>
+              <ul id="guia-cerca"></ul>
+              <p id="guia-cerca-vacio" class="ayuda" hidden>No hay nada a 8 casillas o menos.</p>
+            </section>
+            <section aria-labelledby="guia-consejos-titulo">
+              <h3 id="guia-consejos-titulo">Consejos</h3>
+              <ul id="guia-consejos"></ul>
+              <p><strong>Qué significa cada estado</strong></p>
+              <ul id="guia-estados"></ul>
+            </section>
           </div>
         </section>
 

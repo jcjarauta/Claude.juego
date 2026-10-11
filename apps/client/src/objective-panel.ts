@@ -46,6 +46,8 @@ export interface ObjectiveHost {
   showTarget(): void;
   releaseCamera(): void;
   cameraDetached(): boolean;
+  /** La Guía se actualiza con cada recálculo (instantánea, objetivo, paso mostrado y destino). */
+  onRender?(input: { snapshot: Snapshot; label: string | undefined; step: Step | undefined; target: { x: number; y: number; label: string } | undefined }): void;
 }
 
 export function createObjectivePanel(host: ObjectiveHost) {
@@ -143,6 +145,7 @@ export function createObjectivePanel(host: ObjectiveHost) {
     destination.textContent = target ? (target.x === snap.me.x && target.y === snap.me.y ? `Destino: ${target.label}. Estás en el destino.` : `Destino: ${target.label}, a ${directionText(snap.me, target)}.`) : "";
     showButton.hidden = !target;
     backButton.hidden = !host.cameraDetached();
+    host.onRender?.({ snapshot: snap, label: objective ? objectiveLabel(objective, snap) : undefined, step, target });
     const pending = host.feed.center.pending().length;
     notices.textContent = pending ? `${pending} ${pending === 1 ? "aviso pendiente" : "avisos pendientes"} en la consola; no cambian tu objetivo.` : "";
     noticesButton.hidden = pending === 0;
@@ -222,6 +225,6 @@ export function createObjectivePanel(host: ObjectiveHost) {
       rejection = { reason, text: serverText, before: shownStep, at: Date.now() };
       schedule();
     },
-    focus() { byId("objetivo-nombre").focus(); },
+    focus() { const n = byId("objetivo-nombre"); n.scrollIntoView({ block: "nearest" }); n.focus(); },
   };
 }
