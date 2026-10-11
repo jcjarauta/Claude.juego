@@ -1,6 +1,7 @@
 import { chainsFromState } from "./views/cadenas.ts";
 import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
 import type { Feed } from "./feed.ts";
+import { createAchievementsPanel } from "./achievements-panel.ts";
 import { createGuidePanel } from "./guide-panel.ts";
 import { createObjectivePanel } from "./objective-panel.ts";
 import { createTargetMarker, reducedMotion, type MapTarget } from "./map-markers.ts";
@@ -10,7 +11,7 @@ import type { MapLabels } from "./ui/preferences-model.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillDefFromState, skillLevelName, snapshotFromState, structureDefFromState,
+  achievementSnapshotFromState, createWorldIndex, MESSAGE, projectDefFromState, recipeDefFromState, REJECT_TEXT, skillBadgesFromState, skillDefFromState, skillLevelName, snapshotFromState, structureDefFromState,
   type BuildMessage, type CollectMessage, type ContributeMessage, type ContributionSource, type CraftMessage, type MoveMessage,
   type NewsMessage, type Player, type RejectedMessage, type ResourceShape, type TeachOfferedMessage, type TeachOfferMessage, type TeachRespondMessage,
   type TeachResultMessage, type TransferMessage, type WorldConfig, type WorldIndex,
@@ -172,6 +173,14 @@ export class WorldScene extends Phaser.Scene {
     this.refreshResources();
 
     // Zona C (G3c): objetivo activo, siguiente acción y estado; el servidor decide siempre si la acción es válida.
+    // Pestaña «Logros» (G3d): se recalcula con el estado; nunca cambia de pestaña por sí sola.
+    const achievements = createAchievementsPanel({
+      world: this.config.community.id,
+      snapshot: () => (this.room.state.players.get(this.room.sessionId) ? achievementSnapshotFromState(this.room.state, this.room.sessionId) : undefined),
+      skillBadges: () => skillBadgesFromState(this.room.state, this.room.sessionId),
+    });
+    const achievementsTimer = window.setInterval(() => achievements.update(), 1000);
+    this.events.once("shutdown", () => window.clearInterval(achievementsTimer));
     const guide = createGuidePanel();
     const onFocusObjective = () => this.objectivePanel?.focus();
     document.addEventListener("enfocar-objetivo", onFocusObjective);

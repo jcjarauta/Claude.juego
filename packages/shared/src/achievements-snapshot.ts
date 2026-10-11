@@ -1,5 +1,6 @@
-import type { AchievementSnapshot } from "./achievements.ts";
-import type { WorldState } from "./state.ts";
+import { levelBadge, type AchievementSnapshot, type LevelBadge } from "./achievements.ts";
+import { practiceProgress } from "./skills.ts";
+import { skillDefFromState, type WorldState } from "./state.ts";
 
 // Instantánea del estado sincronizado para los logros (G3d). La usan el cliente (con la sala) y las pruebas (con una sala real):
 // el modelo se prueba con exactamente los mismos datos que ve la interfaz.
@@ -24,4 +25,31 @@ export function achievementSnapshotFromState(state: WorldState, sessionId: strin
     })),
     skills: [...state.skills.entries()].map(([id, k]) => ({ id, name: k.name, levels: k.levels.map((l) => l.name) })),
   };
+}
+
+// ---------------------------------------------------------------- insignias de nivel del jugador
+
+export interface SkillBadgeInfo {
+  id: string;
+  name: string;
+  level: number;
+  badge: LevelBadge;
+  /** Progreso hacia el siguiente nivel en texto («Para Oficial: «Moler a mano» 1 de 3»), o undefined si ya está en el último. */
+  next?: string;
+}
+
+/** Una insignia por habilidad del mundo, con forma y texto, y el progreso al siguiente nivel (`practiceProgress`). */
+export function skillBadgesFromState(state: WorldState, sessionId: string): SkillBadgeInfo[] {
+  const me = state.players.get(sessionId);
+  if (!me) return [];
+  return [...state.skills.entries()].map(([id, k]) => {
+    const def = skillDefFromState(id, k);
+    const level = me.skills.get(id) ?? 0;
+    const progress = practiceProgress(def, level, (recipe) => me.crafts.get(recipe) ?? 0);
+    const recipeName = progress ? state.recipes.get(progress.recipe)?.name ?? progress.recipe : "";
+    return {
+      id, name: def.name, level, badge: levelBadge(level, def.levels.map((l) => l.name)),
+      ...(progress ? { next: `Para ${progress.name}: «${recipeName}» ${progress.done} de ${progress.times}` } : {}),
+    };
+  });
 }

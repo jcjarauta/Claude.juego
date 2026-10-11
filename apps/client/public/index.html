@@ -177,6 +177,7 @@
             <button type="button" role="tab" id="tab-cadenas" aria-controls="panel-cadenas" aria-selected="false" tabindex="-1">Cadenas</button>
             <button type="button" role="tab" id="tab-comunidad" aria-controls="panel-comunidad" aria-selected="false" tabindex="-1">Comunidad</button>
             <button type="button" role="tab" id="tab-guia" aria-controls="panel-guia" aria-selected="false" tabindex="-1">Guía</button>
+            <button type="button" role="tab" id="tab-logros" aria-controls="panel-logros" aria-selected="false" tabindex="-1">Logros</button>
           </div>
 
           <div role="tabpanel" id="panel-proyecto" aria-labelledby="tab-proyecto" tabindex="0">
@@ -268,6 +269,54 @@
               <ul id="guia-consejos"></ul>
               <p><strong>Qué significa cada estado</strong></p>
               <ul id="guia-estados"></ul>
+            </section>
+          </div>
+
+          <div role="tabpanel" id="panel-logros" aria-labelledby="tab-logros" tabindex="0" hidden>
+            <section aria-labelledby="logros-titulo">
+              <h3 id="logros-titulo">Logros</h3>
+              <p class="ayuda">Aquí no hay clasificaciones ni plazos: los logros son de todas las personas y se calculan con el estado del mundo.</p>
+              <p id="logros-resumen"></p>
+            </section>
+            <section aria-labelledby="logros-nuevos-titulo">
+              <h3 id="logros-nuevos-titulo">Nuevos</h3>
+              <p id="logros-nuevos-vacio" class="ayuda">No hay logros nuevos sin consultar. Abrir esta pestaña no los marca como vistos: lo haces tú.</p>
+              <ul id="logros-nuevos"></ul>
+              <p><button id="logros-marcar-nuevos" type="button" hidden>Marcar todos como vistos</button></p>
+            </section>
+            <section aria-labelledby="logros-empezar-titulo">
+              <h3 id="logros-empezar-titulo">Ya conseguidos al empezar</h3>
+              <p id="logros-preexistentes-vacio" class="ayuda">No había logros conseguidos cuando empezaste a usar este navegador.</p>
+              <ul id="logros-preexistentes"></ul>
+              <p><button id="logros-marcar-preexistentes" type="button" hidden>Marcar como vistos los del inicio</button></p>
+            </section>
+            <section aria-labelledby="logros-referencia-titulo">
+              <h3 id="logros-referencia-titulo">Referencia orientativa de la comunidad</h3>
+              <p id="logros-referencia"></p>
+              <div id="logros-referencia-progreso"></div>
+              <p id="logros-referencia-nota" class="ayuda"></p>
+              <p><button id="logros-ir-objetivo" type="button">Ir a «Objetivo actual»</button></p>
+            </section>
+            <section aria-labelledby="logros-insignias-titulo">
+              <h3 id="logros-insignias-titulo">Tus insignias de nivel</h3>
+              <ul id="logros-insignias"></ul>
+            </section>
+            <section aria-labelledby="logros-verificables-titulo">
+              <h3 id="logros-verificables-titulo">Logros verificables</h3>
+              <p class="ayuda">Iguales en cualquier navegador: salen del estado del mundo.</p>
+              <p><strong>De la comunidad</strong></p>
+              <ul id="logros-comunidad"></ul>
+              <p><strong>Tu progreso</strong></p>
+              <ul id="logros-personal"></ul>
+              <p><strong>Cooperación</strong></p>
+              <ul id="logros-cooperacion"></ul>
+            </section>
+            <section aria-labelledby="logros-registro-titulo">
+              <h3 id="logros-registro-titulo">Registro de este navegador</h3>
+              <p class="ayuda">Registro local: no es un logro global verificado ni se guarda en el servidor.</p>
+              <ul id="logros-registro"></ul>
+              <p id="logros-registro-vacio" class="ayuda">Nada que anotar: todo lo que viste conseguido sigue constando en el estado del mundo.</p>
+              <p id="logros-libro"></p>
             </section>
           </div>
         </section>

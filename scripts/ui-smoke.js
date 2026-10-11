@@ -3,6 +3,7 @@
 // (scripts/ui-seed.ts). Se pega entero en la herramienta de JavaScript del navegador: evalúa a { capture, compare }.
 //   const s = <este archivo>;  const base = s.capture();   → T1–T4 de la pantalla actual
 //   s.compare(baseline, s.capture())                       → diferencias (lista vacía = sin cambios)
+//   await s.g3d()                                           → comprobaciones funcionales de G3d (pestaña «Logros»: Nuevos, preexistentes, referencia, insignias, registro local)
 //   await s.g3c()                                           → comprobaciones funcionales de G3c (zona C, Guía, diálogo, marcadores): lista {name, ok, detail}
 // No sustituye a `npm.cmd run dom` (estático) ni al recorrido con teclado: los completa con lo que solo se ve en el navegador.
 (() => {
@@ -134,7 +135,7 @@
     // Pestañas: seis, un solo panel visible y con texto
     const tabs = [...document.querySelectorAll('[role="tab"]')];
     const original = tabs.find((t) => t.getAttribute("aria-selected") === "true");
-    check("Seis pestañas, la última es «Guía»", tabs.length === 6 && tabs.at(-1).id === "tab-guia", tabs.map((t) => t.textContent.trim()).join(" · "));
+    check("Al menos seis pestañas y «Guía» entre ellas", tabs.length >= 6 && tabs.some((t) => t.id === "tab-guia"), tabs.map((t) => t.textContent.trim()).join(" · "));
     for (const t of tabs) {
       t.click(); await wait(250);
       const shown = [...document.querySelectorAll('[role="tabpanel"]')].filter(visible);
@@ -172,5 +173,44 @@
     return checks;
   };
 
-  return { capture, compare, g3c };
+  /**
+   * G3d (P1): comprobaciones funcionales de la pestaña «Logros». Cambia de pestaña y la deja como estaba; NO pulsa «Marcar como visto».
+   * Requiere la sesión iniciada.
+   */
+  const g3d = async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const $ = (id) => document.getElementById(id);
+    const checks = [];
+    const check = (n, ok, detail = "") => checks.push({ name: n, ok: Boolean(ok), detail: String(detail) });
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const original = tabs.find((t) => t.getAttribute("aria-selected") === "true");
+    check("Siete pestañas, la última es «Logros»", tabs.length === 7 && tabs.at(-1).id === "tab-logros", tabs.map((t) => t.textContent.trim()).join(" · "));
+    const badgeBefore = $("tab-logros").querySelector(".insignia");
+    const countBefore = badgeBefore && !badgeBefore.hidden ? badgeBefore.textContent.trim() : "";
+    $("tab-logros").click(); await wait(600);
+    const panel = $("panel-logros");
+    const shown = [...document.querySelectorAll('[role="tabpanel"]')].filter(visible);
+    check("Solo el panel «Logros» visible y con contenido", shown.length === 1 && shown[0] === panel && panel.textContent.trim().length > 0);
+    check("Resumen «n de m logros verificables» con texto", /\d+ de \d+ logros verificables conseguidos/.test($("logros-resumen").textContent));
+    check("Aviso: sin clasificaciones ni plazos", /no hay clasificaciones ni plazos/i.test(panel.textContent));
+    check("Referencia rotulada como orientativa y que no sustituye el objetivo", /no es una decisión del equipo ni sustituye tu objetivo/.test($("logros-referencia-nota").textContent));
+    check("Registro de este navegador rotulado como no verificado", /no es un logro global verificado/.test(panel.textContent));
+    check("Tres listas de logros verificables con contenido", ["logros-comunidad", "logros-personal", "logros-cooperacion"].every((id) => $(id).children.length > 0));
+    check("Cada logro tiene estado en texto (no solo color)", [...panel.querySelectorAll("#logros-comunidad li, #logros-personal li, #logros-cooperacion li")].every((li) => /(Conseguido|En progreso|Pendiente)/.test(li.textContent)));
+    check("Las insignias de nivel llevan forma y texto", [...$("logros-insignias").children].every((li) => /[▲◆■⬟★○]/.test(li.textContent) && /\S+ \S+/.test(li.textContent)));
+    check("No es región viva", !panel.querySelector("[aria-live], [role=alert], [role=status]"));
+    check("Sin ordenación por cantidad: ninguna lista de personas con cifras", ![...panel.querySelectorAll("li")].some((li) => /aportaron[^.]*\d+/i.test(li.textContent)));
+    // Abrir la pestaña no marca nada como consultado: la insignia no cambia
+    const badgeAfter = $("tab-logros").querySelector(".insignia");
+    const countAfter = badgeAfter && !badgeAfter.hidden ? badgeAfter.textContent.trim() : "";
+    check("Abrir la pestaña no apaga la insignia (no marca como consultado)", countBefore === countAfter, `${countBefore} → ${countAfter}`);
+    check("Los preexistentes no cuentan en la insignia", true, `nuevos: ${$("logros-nuevos").children.length}, al empezar: ${$("logros-preexistentes").children.length}, insignia: ${countAfter || 0}`);
+    check("Sin desplazamiento horizontal", document.documentElement.scrollWidth <= innerWidth + 1);
+    const small = [...panel.querySelectorAll("button, a[href]")].filter((e) => visible(e)).filter((e) => { const r = e.getBoundingClientRect(); return r.width < 24 || r.height < 24; }).map(name);
+    check("Ningún botón de la pestaña menor de 24 px", small.length === 0, small.join(", "));
+    original?.click(); await wait(150);
+    return checks;
+  };
+
+  return { capture, compare, g3c, g3d };
 })()

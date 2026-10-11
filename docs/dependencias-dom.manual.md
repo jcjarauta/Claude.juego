@@ -113,3 +113,11 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - **Botón de la acción (M1):** para fabricar usa el verbo de la receta («Moler», «Hornear»).
 - **Guion de humo (M3):** `await s.g3c()` de `scripts/ui-smoke.js` devuelve 30 comprobaciones funcionales (zona C, pestañas, Guía, diálogo, medidas); la línea base está en `scripts/dom-baseline.json` (`marcoG3c`).
 
+### Pestaña «Logros» (puerta P1 de G3d, 2026-10-11)
+
+- Séptima pestaña del panel: `tab-logros` / `panel-logros` (al final; `main.ts` la añade a `TABS` y se recuerda como las demás). Insignia numérica dentro del botón de la pestaña (`.insignia`), con texto oculto «N logros nuevos»: cuenta **solo los nuevos no consultados**.
+- Ids del panel: `logros-resumen`, `logros-nuevos` (+ `logros-nuevos-vacio`, `logros-marcar-nuevos`), `logros-preexistentes` (+ `logros-preexistentes-vacio`, `logros-marcar-preexistentes`), `logros-referencia`, `logros-referencia-progreso` (barra `logros-referencia-barra`), `logros-referencia-nota`, `logros-ir-objetivo`, `logros-insignias`, `logros-comunidad`, `logros-personal`, `logros-cooperacion`, `logros-registro` (+ `logros-registro-vacio`), `logros-libro`. No es región viva.
+- La rellena `achievements-panel.ts`; `WorldScene` la recalcula cada segundo con la instantánea del estado (`achievementSnapshotFromState`) y las insignias de nivel (`skillBadgesFromState`). **Nunca cambia de pestaña por sí sola** y abrirla no marca nada como consultado.
+- Almacén local `engremiat.logros.<mundo>.<cuenta>` (`achievement-store.ts`): `schemaVersion`, `vistos`, `notificados`, `consultados`, `preexistentes`, `retirados` y `libro`. Primera visita: lo existente va a `preexistentes` (notificado, **no** consultado) y no cuenta en la insignia. Una versión posterior a la conocida se lee sin escribir encima.
+- Guion de humo: `await s.g3d()` de `scripts/ui-smoke.js` (17 comprobaciones de la pestaña). `s.g3c()` acepta seis o siete pestañas.
+
