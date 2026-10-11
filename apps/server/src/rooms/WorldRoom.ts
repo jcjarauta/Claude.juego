@@ -83,6 +83,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.state.community.set(resource, amount);
     }
     this.state.communityName = config.community.name;
+    this.syncLimits();
     // Estructuras y misiones antes que los proyectos: el estado del proyecto depende de si su estructura existe.
     for (const entry of this.core.itemEntries()) this.loadItem(entry);
     for (const entry of this.core.structureEntries()) if (!entry.retiredAt) this.loadStructure(entry);
@@ -441,6 +442,39 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.applyMissions(outcome.value.completed);
     },
 
+    /** Cambiar los límites de diseño (G1, Q237, solo administración): se aplica sin reiniciar. */
+    [MESSAGE.updateLimits]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.updateLimits(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.syncLimits();
+      log("info", "limites-actualizados", { by: actor });
+    },
+
+    /** Archivar una definición (G1, Q240, solo administración): no se borra. */
+    [MESSAGE.archiveDef]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.archive(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.syncArchived(outcome.value.kind, outcome.value.id);
+      log("info", "definicion-archivada", outcome.value);
+    },
+
+    /** Restaurar una definición archivada (G1, solo administración). */
+    [MESSAGE.restoreDef]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.restore(actor, payload));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
+      this.syncArchived(outcome.value.kind, outcome.value.id);
+      log("info", "definicion-restaurada", outcome.value);
+    },
+
     /** El cliente pide sus novedades cuando está listo para mostrarlas (una vez por sesión). */
     [MESSAGE.news]: (client: Client) => {
       const player = this.state.players.get(client.sessionId);
@@ -684,6 +718,18 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     return new Set(this.core.skillEntries().flatMap((e) => e.def.levels.map((l) => l.practice.recipe)));
   }
 
+  /** Límites de diseño vigentes en el estado (G1): paneles y juego los leen en vivo. */
+  private syncLimits() {
+    for (const [key, value] of Object.entries(this.core.limits())) this.state.limits.set(key, value);
+  }
+
+  /** Refleja en el estado la marca de archivo de una definición (G1). */
+  private syncArchived(kind: string, id: string) {
+    const archived = this.core.isArchived(kind as "objeto" | "receta" | "habilidad" | "mision", id);
+    const state = kind === "objeto" ? this.state.items.get(id) : kind === "receta" ? this.state.recipes.get(id) : kind === "habilidad" ? this.state.skills.get(id) : this.state.missions.get(id);
+    if (state) state.archived = archived;
+  }
+
   /** Refleja en el estado un nivel ganado por una persona conectada. */
   private applySkillGain(g: SkillGained) {
     const player = this.playerByName(g.player);
@@ -693,7 +739,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   private loadSkill({ def, origin }: SkillEntry) {
     const state = new SkillState();
-    Object.assign(state, { name: def.name, description: def.description, origin });
+    Object.assign(state, { name: def.name, description: def.description, origin, archived: this.core.isArchived("habilidad", def.id) });
     for (const l of def.levels) state.levels.push(Object.assign(new SkillLevelState(), { name: l.name, recipe: l.practice.recipe, times: l.practice.times }));
     this.state.skills.set(def.id, state);
   }
@@ -738,13 +784,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   private loadItem({ def, origin }: ItemEntry) {
     const state = new ItemState();
-    Object.assign(state, { name: def.name, origin });
+    Object.assign(state, { name: def.name, origin, archived: this.core.isArchived("objeto", def.id) });
     this.state.items.set(def.id, state);
   }
 
   private loadRecipe({ def, origin }: RecipeEntry) {
     const state = new RecipeState();
-    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, verb: def.verb ?? "", origin });
+    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, verb: def.verb ?? "", origin, archived: this.core.isArchived("receta", def.id) });
     for (const [resource, amount] of Object.entries(def.inputs)) state.inputs.set(resource, amount);
     for (const id of def.alsoNeeds ?? []) state.alsoNeeds.push(id);
     for (const { skill, level } of def.requiresSkills ?? []) state.requiresSkills.set(skill, level);
@@ -783,6 +829,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       objectiveAmount: o.kind === "item-in-community" ? o.amount : 0,
       origin, createdBy,
       status: row ? "completada" : "pendiente", completedBy: row?.completedBy ?? "", completedAt: row?.completedAt ?? 0,
+      archived: this.core.isArchived("mision", def.id),
     }));
   }
 

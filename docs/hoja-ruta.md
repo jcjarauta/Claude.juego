@@ -34,6 +34,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | G3b | Marco de pantalla del juego: zonas, panel con pestañas, fuente única de eventos con consola (Importantes e Historial), anunciador con prioridades, preferencias de accesibilidad y regla de actividad (RF-027, Q206–Q214) | G3a | Pantalla del juego en zonas con los mismos ids, avisos unificados y pruebas T1–T4 con dos sesiones — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 | G3c | Objetivo actual, marcadores y Guía: modelo del siguiente paso con estados y planificador de cadenas, zona C con objetivo elegido, marcadores y etiquetas del mapa, pestaña «Guía» con «Qué hay cerca» (RF-028, Q215–Q226) | G3b | Zona C, marcadores, Guía y modelo probado con servidor real — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 | G3d | Logros y reconocimiento cooperativo: modelo de logros verificables y catálogo versionado, pestaña «Logros», almacén local versionado, celebraciones desactivables y reconocimientos locales aparte (RF-029, Q227–Q236) | G3c | Logros derivados del estado, reconocimiento por papeles sin clasificaciones, celebraciones por preferencia y probado con servidor real — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
+| G1 | Arreglos de diseño: límites de diseño editables con techos más altos y límites del planificador, escalas de niveles y archivo de definiciones con restaurar (RF-030, Q237–Q241) | G3d | Límites vigentes editables, escalas en desplegable y archivar sin borrar, probado con servidor real y con dos sesiones — **CERRADA** 2026-10-12 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -102,7 +103,7 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba y fusión de G3d por la persona responsable; después, planificar la siguiente etapa por preguntas entre G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación y objetivos de equipo) y F2e (bots).
+**NEXT:** prueba y fusión de G1 por la persona responsable; después, planificar la siguiente etapa por preguntas entre G2 (biblioteca y versiones), F2d (conversación y objetivos de equipo) y F2e (bots).
 
 ## 8. Mejoras futuras anotadas (no planificadas)
 
@@ -110,7 +111,7 @@ Surgidas de la valoración de cierre de G3c (`docs/pruebas.md`); se retoman al p
 
 | # | Mejora | Cuándo |
 |---|---|---|
-| M8 | Límites del planificador de rutas (profundidad 8, 24 rutas) configurables desde el panel | G1 (límites de diseño editables) |
+| M8 | Límites del planificador de rutas (profundidad 8, 24 rutas) configurables desde el panel | **HECHA en G1** (Q238) |
 | M9 | Guardar el objetivo activo en el servidor para seguirlo entre dispositivos (servidor, migración y privacidad; hoy es local por Q224) | Si se decide revisar Q224 |
 | M10 | Objetivos de equipo (el de la comunidad, compartido) | G3d o F2d |
 
@@ -118,7 +119,7 @@ Surgidas de la valoración de cierre de G3d (`docs/pruebas.md`):
 
 | # | Mejora | Cuándo |
 |---|---|---|
-| N3 | Cobertura en sala real de retirar un elemento y de los niveles de habilidad (hoy en pruebas de tabla) | G1 / G2, cuando exista la operación de retirada y un mundo con habilidades |
+| N3 | Cobertura en sala real de retirar un elemento y de los niveles de habilidad (hoy en pruebas de tabla) | G2; G1 añadió el archivo y las habilidades en sala real, pero «retirar» sigue pendiente |
 | N4 | Catálogo de logros definido por datos desde el panel profesional | G2 |
 | N5 | Logros y reconocimientos en el servidor (mismo resultado en cualquier dispositivo, sin «primera visita» por navegador) | Solo si se revisa Q227 |
 | N6 | Logros de equipo con objetivo compartido («Usar como mi objetivo») | F2d / M10 |

@@ -3,6 +3,7 @@
 // (scripts/ui-seed.ts). Se pega entero en la herramienta de JavaScript del navegador: evalúa a { capture, compare }.
 //   const s = <este archivo>;  const base = s.capture();   → T1–T4 de la pantalla actual
 //   s.compare(baseline, s.capture())                       → diferencias (lista vacía = sin cambios)
+//   await s.g1()                                            → comprobaciones del panel de diseño de G1 (límites, escala, archivo); en /panel con una cuenta de administración
 //   await s.g3d()                                           → comprobaciones funcionales de G3d (pestaña «Logros»: Nuevos, preexistentes, referencia, insignias, registro local)
 //   await s.g3c()                                           → comprobaciones funcionales de G3c (zona C, Guía, diálogo, marcadores): lista {name, ok, detail}
 // No sustituye a `npm.cmd run dom` (estático) ni al recorrido con teclado: los completa con lo que solo se ve en el navegador.
@@ -218,5 +219,38 @@
     return checks;
   };
 
-  return { capture, compare, g3c, g3d };
+  /**
+   * G1 (P1): comprobaciones del panel de diseño (solo administración, en /panel): «Límites de diseño», «Archivo de definiciones»
+   * y la escala de niveles. No cambia nada (no guarda, no archiva).
+   */
+  const g1 = async () => {
+    const $ = (id) => document.getElementById(id);
+    const checks = [];
+    const check = (n, ok, detail = "") => checks.push({ name: n, ok: Boolean(ok), detail: String(detail) });
+    const limits = $("limites-titulo")?.closest("form");
+    const archive = $("archivo-titulo")?.closest("section");
+    check("Sección «Límites de diseño» con nombre accesible", limits && limits.getAttribute("aria-labelledby") === "limites-titulo");
+    check("Sección «Archivo de definiciones» con nombre accesible", archive && archive.getAttribute("aria-labelledby") === "archivo-titulo");
+    const fields = limits ? [...limits.querySelectorAll(".campo")] : [];
+    check("Un campo numérico con etiqueta por cada límite (14)", fields.length === 14 && fields.every((c) => c.querySelector("input[type=number]") && c.querySelector("label")?.textContent.trim()), fields.length);
+    check("Cada límite explica el valor vigente, el de omisión y el techo", fields.every((c) => /Vigente \d+ · por omisión \d+ · techo \d+/.test(c.querySelector(".ayuda")?.textContent || "")));
+    check("Guardar y restaurar por omisión disponibles", limits && [...limits.querySelectorAll("button")].map((b) => b.textContent).join("|") === "Guardar límites|Restaurar por omisión");
+    const tables = archive ? [...archive.querySelectorAll("#archivo-listas table")] : [];
+    check("Una tabla por tipo con leyenda y cabeceras de columna", tables.length > 0 && tables.every((t) => t.querySelector("caption")?.textContent.trim() && [...t.querySelectorAll("th")].every((h) => h.scope === "col")), tables.length);
+    const actions = archive ? [...archive.querySelectorAll("#archivo-listas td button, #archivo-duplicados button")] : [];
+    check("Cada botón de archivar o restaurar nombra el elemento", actions.length > 0 && actions.every((b) => /^(Archivar|Restaurar) (objeto|receta|habilidad|misión) «.+»/.test(b.getAttribute("aria-label") || "")), actions.length);
+    check("El estado de cada fila va en texto (Activo o Archivado)", archive && [...archive.querySelectorAll("#archivo-listas tbody tr")].every((r) => /^(Activo|Archivado)$/.test(r.children[1]?.textContent.trim() || "")));
+    check("«Mostrar archivados» es una casilla con etiqueta", $("archivo-mostrar") && $("archivo-mostrar").labels.length > 0);
+    check("Posibles duplicados explicados o ausentes", $("archivo-duplicados") && $("archivo-duplicados").textContent.trim().length > 0);
+    const skillForm = $("nueva-habilidad-titulo")?.closest("form");
+    const scale = skillForm && [...skillForm.querySelectorAll(".campo")].find((c) => /Escala de niveles/.test(c.querySelector("label")?.textContent || ""))?.querySelector("select");
+    check("Desplegable de escala con una opción vacía y al menos cuatro escalas", scale && scale.options.length >= 5 && scale.options[0].value === "", scale?.options.length);
+    check("Sin tabindex positivo en el panel", [...document.querySelectorAll("[tabindex]")].every((e) => e.tabIndex <= 0));
+    check("Sin desplazamiento horizontal", document.documentElement.scrollWidth <= innerWidth + 1, `${document.documentElement.scrollWidth} ≤ ${innerWidth}`);
+    const small = [...(limits?.querySelectorAll("button, input") || []), ...(archive?.querySelectorAll("button, select") || [])].filter((e) => visible(e) && e.type !== "checkbox").filter((e) => { const r = e.getBoundingClientRect(); return r.width < 24 || r.height < 24; }).map(name);
+    check("Ningún control de las secciones nuevas menor de 24 px", small.length === 0, small.join(", "));
+    return checks;
+  };
+
+  return { capture, compare, g3c, g3d, g1 };
 })()

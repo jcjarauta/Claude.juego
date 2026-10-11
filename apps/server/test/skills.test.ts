@@ -210,7 +210,7 @@ test("migración v9 → v10: conserva los datos y crea las tablas de habilidades
   v9.close();
   const store = openStore(path);
   assert.equal(store.schemaVersion(), SCHEMA_VERSION);
-  assert.equal(SCHEMA_VERSION, 10);
+  assert.ok(SCHEMA_VERSION >= 10, "la migración v9 → v10 sigue siendo parte del historial (hoy hay más versiones)");
   assert.ok(existsSync(`${path}.v9.bak`));
   assert.equal(store.getComments("p", "t").length, 1);
   assert.deepEqual([store.getSkillDefs(), store.getPlayerSkills("ana"), store.getCraftCounts("ana")], [[], {}, {}]);

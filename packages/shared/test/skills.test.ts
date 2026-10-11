@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  checkCraft, checkCreateRecipe, checkCreateSkill, checkGrantSkill, checkTeach, DEFAULT_BUILD_LIMITS, levelAfterCraft, missingSkills,
+  checkCraft, checkCreateRecipe, checkCreateSkill, checkGrantSkill, checkTeach, DEFAULT_BUILD_LIMITS, HARD_BUILD_LIMITS, levelAfterCraft, missingSkills,
   practiceProgress, resolveBuildLimits, skillRequirementText, validateBuildLimits, validateRecipeDef, validateSkillDef, validateWorldConfig,
   type RecipeDef, type SkillDef,
 } from "../src/index.ts";
@@ -190,6 +190,6 @@ test("crear receta con habilidades y configuración del mundo con habilidades de
 
 test("límites de habilidades configurables", () => {
   assert.deepEqual(validateBuildLimits({ skills: 20, skillLevels: 5, recipeSkills: 3 }), []);
-  for (const bad of [{ skills: 101 }, { skillLevels: 7 }, { recipeSkills: 6 }, { skillLevels: 0 }]) assert.ok(validateBuildLimits(bad).length, JSON.stringify(bad));
+  for (const bad of [{ skills: HARD_BUILD_LIMITS.skills + 1 }, { skillLevels: HARD_BUILD_LIMITS.skillLevels + 1 }, { recipeSkills: HARD_BUILD_LIMITS.recipeSkills + 1 }, { skillLevels: 0 }]) assert.ok(validateBuildLimits(bad).length, JSON.stringify(bad));
   assert.equal(resolveBuildLimits(undefined).skillLevels, 3);
 });

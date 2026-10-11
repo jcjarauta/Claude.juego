@@ -19,7 +19,8 @@ export interface DynamicListOptions<R extends DynamicRow> {
   /** Sustantivo en singular y minúsculas para los avisos («entrada», «nivel»). */
   noun: string;
   min: number;
-  max: number;
+  /** Máximo de filas; puede ser una función si el límite cambia mientras la página está abierta (G1). */
+  max: number | (() => number);
   announce: (text: string) => void;
   build: () => R;
   onChange: () => void;
@@ -32,6 +33,7 @@ export function dynamicList<R extends DynamicRow>(opts: DynamicListOptions<R>) {
   const add = el("button", { type: "button" });
   const element = el("fieldset", {}, el("legend", {}, opts.legend), list, add);
   const Noun = `${opts.noun[0]!.toUpperCase()}${opts.noun.slice(1)}`;
+  const maxRows = () => (typeof opts.max === "function" ? opts.max() : opts.max);
 
   function renumber() {
     rows.forEach((row, i) => {
@@ -41,8 +43,8 @@ export function dynamicList<R extends DynamicRow>(opts: DynamicListOptions<R>) {
       remove.setAttribute("aria-label", `Quitar ${opts.noun} ${i + 1}`);
       remove.setAttribute("aria-disabled", String(rows.length <= opts.min));
     });
-    add.textContent = `${opts.addLabel} (${rows.length} de ${opts.max})`;
-    add.setAttribute("aria-disabled", String(rows.length >= opts.max));
+    add.textContent = `${opts.addLabel} (${rows.length} de ${maxRows()})`;
+    add.setAttribute("aria-disabled", String(rows.length >= maxRows()));
   }
   function addRow(focus: boolean, silent = false) {
     const row = opts.build();
@@ -69,7 +71,7 @@ export function dynamicList<R extends DynamicRow>(opts: DynamicListOptions<R>) {
     }
   }
   add.onclick = () => {
-    if (add.getAttribute("aria-disabled") === "true") { opts.announce(`No caben más: el máximo es ${opts.max}.`); return; }
+    if (add.getAttribute("aria-disabled") === "true") { opts.announce(`No caben más: el máximo es ${maxRows()}.`); return; }
     addRow(true);
   };
   // `silent`: al crearse, las listas que `onChange` consulta aún pueden no existir; las opciones se rellenan en el primer render.
@@ -80,5 +82,16 @@ export function dynamicList<R extends DynamicRow>(opts: DynamicListOptions<R>) {
     renumber();
   };
   reset(true);
-  return { element, rows, reset };
+  /** Vuelve a calcular los textos y los botones (cuando cambia el máximo vigente). */
+  const refresh = () => renumber();
+  /** Deja exactamente `count` filas (entre el mínimo y el máximo): añade al final o quita del final. Devuelve las filas. */
+  const resize = (count: number) => {
+    const target = Math.max(opts.min, Math.min(count, maxRows()));
+    while (rows.length > target) { const row = rows.pop()!; boxes.get(row)!.remove(); boxes.delete(row); }
+    while (rows.length < target) addRow(false, true);
+    renumber();
+    opts.onChange();
+    return rows;
+  };
+  return { element, rows, reset, refresh, resize };
 }
