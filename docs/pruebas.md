@@ -302,7 +302,7 @@ Defectos encontrados y corregidos durante la verificación:
 | Contraste | Medición por script en el juego | Habilidades, ayuda, botón y etiquetas: mínimo 10,87:1 | OK |
 | Carga (4 clientes + 1 panel, 15 min) | `npm.cmd run soak` | El panel crea la cadena, la habilidad «Molinero del soak» y «Moler fino» (exige Oficial); 173 comprobaciones, 0 divergencias, convergencia máx. 2 ms; los cuatro bots ganaron el nivel Aprendiz practicando; auditoría cuadrada (harina producida 42 = consumida 42; pan 21; herramienta 5; madera 120 = 33 + 87; piedra 80 = 48 + 32; fibra 100 = 85 + 15). Ningún bot llegó a Oficial en este soak: ese camino (y «Moler fino») lo cubre TP-27 | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build` | Sin errores; 164 de 164 | OK |
-| Prueba del usuario | Persona responsable | Pendiente | — |
+| Prueba del usuario | Persona responsable, 2026-10-11 | «ya está probado»; fusión y subida autorizadas (junto con G3a) | OK |
 
 Totales F2c: `npm.cmd test` 164 de 164.
 
@@ -321,7 +321,7 @@ Observación: la enseñanza entre dos sesiones se verifica en TP-27 (servidor); 
 | Zoom al 200 % | Texto ampliado en el navegador integrado | Panel y guía sin desplazamiento horizontal; en el juego, la tabla del almacén lo forzaba (defecto A-7): corregido con contenedor desplazable | OK |
 | Enlace de salto | Navegador integrado | Fallo encontrado en tu prueba: en el mundo y el panel la aplicación movía el foco al cargar (al mapa; al primer proyecto) y el primer Tab no llegaba al enlace. Corregido: el foco solo se mueve tras rellenar el formulario de entrada (TP-11 se conserva); con la sesión guardada el primer Tab enfoca «Saltar al contenido», que se muestra a 10 px y, con Intro, lleva el foco a `main` (comprobado con Tab real en mundo y panel) | OK |
 | Clon limpio | `npm.cmd ci`, `typecheck`, `test`, `build`, `a11y` | Sin errores; 164 de 164 | OK |
-| Prueba del usuario | Persona responsable | Pendiente | — |
+| Prueba del usuario | Persona responsable, 2026-10-11 | Encontró el fallo del enlace de salto (corregido); «ya está probado»; fusión y subida autorizadas | OK |
 
 Defectos encontrados y corregidos durante la verificación:
 - La tabla del almacén del juego desbordaba la página con el texto ampliado al 200 %.
