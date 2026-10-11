@@ -1,10 +1,11 @@
 import {
-  MESSAGE, PANEL_LIMITS,
+  MESSAGE, PANEL_LIMITS, SKILL_SCALES, scaleLevels,
   skillDefFromState, skillLevelName,
-  type CreateConstructionMessage, type CreateItemMessage, type CreateMissionMessage, type CreateProjectMessage, type CreateRecipeMessage,
+  type BuildLimits, type CreateConstructionMessage, type CreateItemMessage, type CreateMissionMessage, type CreateProjectMessage, type CreateRecipeMessage,
   type CreateSkillMessage, type GrantSkillMessage, type NewTask, type SkillGrantedMessage, type WorldConfig, type WorldState,
 } from "@juego/shared";
 import type { Room } from "@colyseus/sdk";
+import { createDesignSections, currentLimits } from "./admin-design.ts";
 import { newRequestId } from "./request-id.ts";
 import { dynamicList } from "./ui/dynamic-list.ts";
 import { el } from "./ui/dom.ts";
@@ -31,6 +32,12 @@ function readable(detail: string): string {
 
 export function createAdminForms(container: HTMLElement, config: WorldConfig, room: Room<unknown, WorldState>, announce: (text: string) => void) {
   const resources = config.resources;
+  // Límites de diseño vigentes (G1): se actualizan en vivo desde el estado cuando la administración los cambia.
+  const limits: BuildLimits = { ...config.buildLimits };
+  const liveHelps: (() => void)[] = [];
+  /** Párrafo de ayuda cuyo texto menciona un límite: se recalcula al cambiar los límites vigentes. */
+  const help = (text: () => string) => { const p = el("p", { className: "ayuda" }, text()); liveHelps.push(() => { p.textContent = text(); }); return p; };
+  const design = createDesignSections(config, room, announce);
   const section = el("section", { className: "admin" });
   section.setAttribute("aria-labelledby", "admin-titulo");
   section.append(el("h2", { id: "admin-titulo" }, "Administración"),
@@ -52,7 +59,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const minimap = createMinimap(config, room);
   const solarBox = el("fieldset", { className: "solar", hidden: true },
     el("legend", {}, "Solar del edificio en el mapa"),
-    el("p", { className: "ayuda" }, `El solar tiene de 1 a ${config.buildLimits.side} casillas por lado. Las casillas se cuentan desde la esquina superior izquierda del mapa (0, 0).`),
+    help(() => `El solar tiene de 1 a ${limits.side} casillas por lado. Las casillas se cuentan desde la esquina superior izquierda del mapa (0, 0).`),
     field("Casilla X (columna)", solarX), field("Casilla Y (fila)", solarY),
     field("Ancho en casillas", solarW), field("Alto en casillas", solarH), field("Color del edificio", solarColor),
     minimap.element);
@@ -222,7 +229,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const itemList = el("div", { className: "lista-creados" });
   const itemForm = el("form", { noValidate: true },
     el("h3", { id: "nuevo-objeto-titulo" }, "Nuevo objeto"),
-    el("p", { className: "ayuda" }, `Un objeto no es un recurso: no se recolecta ni se usa como entrada de receta; se obtiene fabricándolo con una receta y vive en el almacén de la comunidad. Máximo ${config.buildLimits.items} objetos creados aquí.`),
+    help(() => `Un objeto no es un recurso: no se recolecta ni se usa como entrada de receta; se obtiene fabricándolo con una receta y vive en el almacén de la comunidad. Máximo ${limits.items} objetos creados aquí.`),
     field("Nombre del objeto", itemName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`), itemErrors,
     el("button", { type: "submit", textContent: "Crear el objeto" }), itemConfirm, itemList);
   itemForm.setAttribute("aria-labelledby", "nuevo-objeto-titulo");
@@ -236,7 +243,6 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   };
 
   // --- Nueva receta (F2a, F2b) ---
-  const limits = config.buildLimits;
   const recipeName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
   const recipeVerb = el("input", { maxLength: 20, autocomplete: "off", placeholder: "Fabricar" });
   const recipeStructure = el("select");
@@ -249,7 +255,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
 
   // Entradas, subproductos y edificios extra: filas que se añaden y se quitan (F2b, Q190); el tope es el límite configurado.
   const inputList = dynamicList({
-    legend: "Entradas (recursos u objetos del almacén común)", addLabel: "Añadir entrada (recurso u objeto)", noun: "entrada", min: 1, max: limits.recipeInputs, announce,
+    legend: "Entradas (recursos u objetos del almacén común)", addLabel: "Añadir entrada (recurso u objeto)", noun: "entrada", min: 1, max: () => limits.recipeInputs, announce,
     onChange: () => syncRecipeSelects(),
     build: () => {
       const entry = el("select");
@@ -260,7 +266,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     },
   });
   const byproductList = dynamicList({
-    legend: "Subproductos (opcionales)", addLabel: "Añadir subproducto", noun: "subproducto", min: 0, max: limits.byproducts, announce,
+    legend: "Subproductos (opcionales)", addLabel: "Añadir subproducto", noun: "subproducto", min: 0, max: () => limits.byproducts, announce,
     onChange: () => syncRecipeSelects(),
     build: () => {
       const item = el("select");
@@ -271,7 +277,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     },
   });
   const extraList = dynamicList({
-    legend: "Otros edificios necesarios (opcionales)", addLabel: "Añadir edificio necesario", noun: "edificio", min: 0, max: limits.alsoNeeds, announce,
+    legend: "Otros edificios necesarios (opcionales)", addLabel: "Añadir edificio necesario", noun: "edificio", min: 0, max: () => limits.alsoNeeds, announce,
     onChange: () => syncRecipeSelects(),
     build: () => {
       const building = el("select");
@@ -286,7 +292,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     return skill ? skillDefFromState(skillId, skill).levels.map((l, i): [string, string] => [String(i + 1), `${i + 1}. ${l.name}`]) : [];
   };
   const skillList = dynamicList({
-    legend: "Habilidades necesarias (opcionales)", addLabel: "Añadir habilidad", noun: "habilidad", min: 0, max: limits.recipeSkills, announce,
+    legend: "Habilidades necesarias (opcionales)", addLabel: "Añadir habilidad", noun: "habilidad", min: 0, max: () => limits.recipeSkills, announce,
     onChange: () => syncRecipeSelects(),
     build: () => {
       const skill = el("select");
@@ -312,7 +318,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const recipeConfirm = recipeFeedback.confirm;
   const recipeForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-receta-titulo" }, "Nueva receta"),
-    el("p", { className: "ayuda" }, `Una receta es una acción que se hace junto a un edificio construido: consume entradas del almacén de la comunidad (recursos u objetos; hasta ${limits.recipeInputs}) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
+    help(() => `Una receta es una acción que se hace junto a un edificio construido: consume entradas del almacén de la comunidad (recursos u objetos; hasta ${limits.recipeInputs}) y deja un objeto, con hasta ${limits.byproducts} subproductos. Puede exigir hasta ${limits.alsoNeeds} edificios más construidos. Máximo ${limits.recipes} recetas creadas aquí.`),
     field("Nombre de la receta", recipeName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`),
     field("Acción (verbo)", recipeVerb, "Opcional, hasta 20 caracteres: «moler», «hornear»… Si se deja vacío, «Fabricar»."),
     field("Se hace junto al edificio", recipeStructure),
@@ -357,7 +363,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const skillName = el("input", { maxLength: PANEL_LIMITS.name, autocomplete: "off" });
   const skillDescription = el("input", { maxLength: 200, autocomplete: "off" });
   const levelList = dynamicList({
-    legend: "Niveles, de menor a mayor", addLabel: "Añadir nivel", noun: "nivel", min: 1, max: limits.skillLevels, announce,
+    legend: "Niveles, de menor a mayor", addLabel: "Añadir nivel", noun: "nivel", min: 1, max: () => limits.skillLevels, announce,
     onChange: () => syncSkillSelects(),
     build: () => {
       const levelName = el("input", { maxLength: 30, autocomplete: "off" });
@@ -371,14 +377,27 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   function syncSkillSelects() {
     for (const r of levelList.rows) syncOptions(r.recipe, practiceEntries, "Elige una receta");
   }
+  // Escala de niveles (G1, Q239): una plantilla de nombres; se pueden renombrar y cada nivel conserva su receta y sus veces.
+  const scaleSelect = el("select");
+  scaleSelect.append(el("option", { value: "", textContent: "Sin plantilla: escribo los nombres" }));
+  for (const scale of SKILL_SCALES) scaleSelect.append(el("option", { value: scale.id, textContent: scale.name }));
+  scaleSelect.onchange = () => {
+    const scale = SKILL_SCALES.find((s) => s.id === scaleSelect.value);
+    if (!scale) return;
+    const names = scaleLevels(scale, limits.skillLevels);
+    const rows = levelList.resize(names.length);
+    rows.forEach((row, i) => { row.levelName.value = names[i] ?? row.levelName.value; });
+    announce(`Escala «${scale.name}» aplicada: ${rows.length} ${rows.length === 1 ? "nivel" : "niveles"}${names.length < scale.levels.length ? ` (la escala tiene ${scale.levels.length}; el límite vigente es ${limits.skillLevels})` : ""}.`);
+  };
   const skillFeedback = formFeedback();
   const skillErrors = skillFeedback.errors;
   const skillConfirm = skillFeedback.confirm;
   const skillForm = el("form", { noValidate: true },
     el("h3", { id: "nueva-habilidad-titulo" }, "Nueva habilidad"),
-    el("p", { className: "ayuda" }, `Una habilidad es permanente y tiene hasta ${limits.skillLevels} niveles. Cada nivel se gana fabricando varias veces una receta abierta (que no exija esta habilidad), o por concesión de la administración, o porque alguien con más nivel te lo enseñe. Máximo ${limits.skills} habilidades creadas aquí.`),
+    help(() => `Una habilidad es permanente y tiene hasta ${limits.skillLevels} niveles. Cada nivel se gana fabricando varias veces una receta abierta (que no exija esta habilidad), o por concesión de la administración, o porque alguien con más nivel te lo enseñe. Máximo ${limits.skills} habilidades creadas aquí.`),
     field("Nombre de la habilidad", skillName, `Obligatorio, hasta ${PANEL_LIMITS.name} caracteres.`),
     field("Descripción", skillDescription, "Opcional, hasta 200 caracteres."),
+    field("Escala de niveles", scaleSelect, "Opcional: rellena los nombres de los niveles con una plantilla; después puedes renombrarlos, añadir o quitar niveles. Cada nivel sigue necesitando su receta de práctica."),
     levelList.element,
     skillErrors,
     el("button", { type: "submit", textContent: "Crear la habilidad" }), skillConfirm);
@@ -430,7 +449,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     pending = undefined;
   });
 
-  section.append(projectForm, itemForm, recipeForm, skillForm, grantForm, missionForm);
+  section.append(projectForm, itemForm, recipeForm, skillForm, grantForm, missionForm, ...design.elements);
   container.before(section); // antes de la lista de proyectos
 
   let knownProjects: Set<string> | undefined;
@@ -443,6 +462,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   return {
     /** Motivo de rechazo del servidor junto al formulario que lo provocó. */
     showRejection(text: string, details: string[] = []) {
+      if (design.showRejection(text, details)) return true;
       // El nombre pedido puede ser vacío (y el servidor lo rechaza): lo que cuenta es que haya algo pendiente.
       const target = pending ? errorBox[pending.kind] : undefined;
       if (!target) return false;
@@ -452,23 +472,35 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     },
     render() {
       const state = room.state;
+      // Límites vigentes (G1): máximos de las listas, topes de los campos y textos de ayuda.
+      const live = currentLimits(state, config);
+      if (JSON.stringify(live) !== JSON.stringify(limits)) {
+        Object.assign(limits, live);
+        outputAmount.max = String(limits.outputAmount);
+        solarW.max = String(limits.side);
+        solarH.max = String(limits.side);
+        for (const list of [inputList, byproductList, extraList, skillList, levelList]) list.refresh();
+        for (const refresh of liveHelps) refresh();
+      }
+      design.render();
       // Proyectos abiertos como posibles objetivos de misión.
       const open = [...state.projects.entries()].filter(([, p]) => p.phase !== "cerrado");
       syncOptions(projectSelect, open.map(([id, p]) => [id, p.name]));
       // Objetos y edificios del estado (F2a): también los creados desde el panel.
-      syncOptions(itemSelect, [...state.items.entries()].map(([id, i]) => [id, i.name]));
-      skillEntries = [...state.skills.entries()].map(([id, s]): [string, string] => [id, s.name]);
-      practiceEntries = [...state.recipes.entries()].filter(([, r]) => r.requiresSkills.size === 0).map(([id, r]): [string, string] => [id, r.name]);
+      // Lo archivado no se ofrece: no se puede usar (G1, Q240).
+      syncOptions(itemSelect, [...state.items.entries()].filter(([, i]) => !i.archived).map(([id, i]) => [id, i.name]));
+      skillEntries = [...state.skills.entries()].filter(([, s]) => !s.archived).map(([id, s]): [string, string] => [id, s.name]);
+      practiceEntries = [...state.recipes.entries()].filter(([, r]) => r.requiresSkills.size === 0 && !r.archived).map(([id, r]): [string, string] => [id, r.name]);
       syncSkillSelects();
       syncGrant();
-      itemEntries = [...state.items.entries()].map(([id, i]): [string, string] => [id, i.name]);
+      itemEntries = [...state.items.entries()].filter(([, i]) => !i.archived).map(([id, i]): [string, string] => [id, i.name]);
       buildingEntries = [...state.structures.entries()].map(([id, s]): [string, string] => [id, `${s.name}${s.built ? "" : " (sin construir)"}`]);
       syncOptions(recipeOutput, itemEntries);
       syncOptions(recipeStructure, buildingEntries);
       syncRecipeSelects();
       minimap.render();
       // Objetos que ya existen (también los de la configuración), a la vista junto al formulario.
-      const itemsText = [...state.items.values()].map((i) => i.name).join(", ");
+      const itemsText = [...state.items.values()].filter((i) => !i.archived).map((i) => i.name).join(", ");
       if (itemList.dataset.text !== itemsText) {
         itemList.dataset.text = itemsText;
         itemList.replaceChildren(el("p", { className: "ayuda" }, itemsText ? `Objetos existentes: ${itemsText}.` : "Todavía no hay objetos."));
@@ -529,6 +561,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
           pending = undefined;
           skillForm.reset();
           levelList.reset();
+          scaleSelect.value = "";
           skillName.focus();
         }
       }

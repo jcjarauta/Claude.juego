@@ -142,3 +142,12 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - **N8:** tecla **G** → evento de documento `ir-a-logros` → `main.ts` selecciona la pestaña «Logros» **con foco en su botón** (acción explícita); se ignora en campos, pestañas, registros y diálogos como las demás; la Ayuda la lista y la Guía la cita en los atajos.
 - **N7:** la tarjeta se probó con el zoom del navegador (ver `docs/pruebas.md`). **Límite conocido:** apilado (< 1100 px) la tarjeta queda en el flujo y, mientras está visible, el mapa baja lo que mide la tarjeta (≈ 80 px; 170–235 px con el texto al 200 %); es un desplazamiento único y descartable, no ocurre en pantalla ancha.
 
+### Panel de diseño (puerta P1 de G1, 2026-10-12)
+
+- Solo administración (`createAdminForms` los crea únicamente si la cuenta es administradora): dos secciones nuevas dentro de `section.admin` de `/panel`, creadas por `admin-design.ts` (no están en `panel.html`): **«Límites de diseño»** (`form` con `aria-labelledby="limites-titulo"`; 14 campos numéricos con etiqueta y ayuda «Vigente N · por omisión N · techo N»; «Guardar límites» y «Restaurar por omisión») y **«Archivo de definiciones»** (`section` con `aria-labelledby="archivo-titulo"`; casilla `archivo-mostrar`, contenedores `archivo-duplicados` y `archivo-listas` con una tabla por tipo: objetos, recetas, habilidades y misiones).
+- **Escala de niveles:** en «Nueva habilidad», un desplegable «Escala de niveles» (opción vacía + 5 plantillas) rellena los nombres de los niveles; añadir y quitar siguen con el máximo vigente.
+- **Límites vivos:** `admin-forms.ts` guarda los límites en un objeto que se actualiza con `room.state.limits`; los máximos de las listas dinámicas (`dynamicList` acepta ahora `max` como función y expone `refresh()` y `resize(n)`), los topes de los campos y los textos de ayuda se recalculan al cambiar.
+- **Lo archivado no se ofrece:** los selectores de objetos, habilidades y recetas de práctica del panel excluyen lo archivado.
+- Archivar y restaurar usan un `<dialog>` nativo (foco devuelto al abrir y, si el botón desaparece al archivar, a `archivo-mostrar`). Los motivos del servidor (`definicion-en-uso`) se listan junto a la sección. Un participante no ve ninguna de las dos secciones.
+- Guion de humo: `await s.g1()` de `scripts/ui-smoke.js` (14 comprobaciones del panel de diseño, en `/panel` con administración).
+
