@@ -12,7 +12,8 @@
     "build": "esbuild apps/client/src/main.ts --bundle --format=esm --target=es2022 --outfile=apps/client/public/bundle.js --minify --sourcemap && esbuild apps/client/src/panel.ts --bundle --format=esm --target=es2022 --outfile=apps/client/public/panel.js --minify --sourcemap && esbuild apps/client/src/estilo.ts --bundle --format=esm --target=es2022 --outfile=apps/client/public/estilo.js --minify --sourcemap",
     "start": "node apps/server/src/index.ts",
     "soak": "node scripts/soak.ts",
-    "a11y": "node scripts/a11y.ts"
+    "a11y": "node scripts/a11y.ts",
+    "dom": "node scripts/dom.ts"
   },
   "engines": {
     "node": ">=24"
