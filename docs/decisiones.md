@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q214 (BORRADOR)
+# Registro de decisiones — Q001 a Q226 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -217,6 +217,18 @@
 | Q212 | Proceso | Antes de mover elementos de página se documentan sus dependencias (`docs/dependencias-dom.md`); los `id` no se renombran; `npm.cmd run dom` es una comprobación estática y no sustituye a las pruebas funcionales | VERIFICADO (decidido; aplicado en G3b) |
 | Q213 | Proceso | Los cambios de interfaz se validan por puertas (P0–P5) con cuatro familias de pruebas funcionales: T1 visibilidad de pestañas, T2 botones y eventos, T3 orden del foco, T4 dependencias CSS estructurales; la guía es `scripts/ui-smoke.js` con dos sesiones y datos de prueba | VERIFICADO (decidido; aplicado en G3b) |
 | Q214 | Proceso | La línea base de la pantalla anterior se registra y se aprueba por la persona responsable antes de cambiar nada (puerta P0, `scripts/dom-baseline.json`) | VERIFICADO (decidido; aplicado en G3b) |
+| Q215 | Visual | Objetivo activo (elegido por la persona y guardado en su navegador), siguiente acción recomendada (calculada por el cliente) y avisos pendientes son tres cosas distintas; ofertas y misiones nuevas nunca sustituyen el objetivo. La pestaña «Guía» se suma a las cinco del panel (amplía Q206) | VERIFICADO (decidido; construido en G3c) |
+| Q216 | Visual | Cada paso tiene estado DISPONIBLE, BLOQUEADO, NO_VERIFICADO o COMPLETADO, con requisitos y motivo. DISPONIBLE significa que las condiciones se cumplen según el último estado sincronizado y no garantiza la aceptación del servidor ante cambios concurrentes; el servidor conserva la autoridad | VERIFICADO (decidido; construido en G3c) |
+| Q217 | Arquitectura | El modelo del objetivo vive en `@juego/shared` (`objective.ts`, `objective-guide.ts`) y usa las mismas funciones de reglas que el servidor (`checkCraft`, `checkBuild`, `checkContribution`…); su coherencia con el servidor se prueba con una sala real | VERIFICADO (decidido; construido en G3c) |
+| Q218 | Visual | Planificador de rutas con detección de ciclos, recetas alternativas y comprobación de materiales, edificios y habilidades; con varias rutas viables pide elegir y no escoge en silencio. Límites: profundidad 8 y 24 rutas | VERIFICADO (decidido; construido en G3c) |
+| Q219 | Visual | Estabilidad: el objetivo solo cambia por acción de la persona; el paso conserva su identidad con histéresis de 800 ms y sin cambiar mientras se mueve, hay un diálogo o el foco está en la zona; lo completado u obsoleto se muestra al momento; un anuncio por cambio de identidad, sin foco ni cambio de pestaña | VERIFICADO (decidido; construido en G3c) |
+| Q220 | Visual | Marcador de destino en el mapa (anillo y flecha del borde) con alternativa textual de dirección y distancia, y respeto a «menos movimiento»; la cámara nunca se mueve sola (solo «Mostrar en el mapa», con regreso por movimiento, Escape o botón) | VERIFICADO (decidido; construido en G3c) |
+| Q221 | Visual | Etiquetas del mapa con preferencia *Todas / Solo edificios / Ninguna* y colocación por prioridad (tu personaje, destino, edificios, personas, cantidades); la que choca se oculta | VERIFICADO (decidido; construido en G3c) |
+| Q222 | Visual | «Qué hay cerca» es la alternativa textual del mapa (≤ 8 casillas, por cercanía) y siempre incluye el destino activo aunque esté fuera del radio | VERIFICADO (decidido; construido en G3c) |
+| Q223 | Visual | La Guía de G3c es texto contextual (siguiente paso, bloqueos, alternativas, consejos y significado de los estados); la conversación y los bots siguen siendo F2d/F2e. Atajo nuevo `O` (objetivo actual) | VERIFICADO (decidido; construido en G3c) |
+| Q224 | Visual | El guardado del objetivo activo es local al navegador (por cuenta y mundo) y no se envía al servidor | VERIFICADO (decidido; construido en G3c) |
+| Q225 | Arquitectura | El planificador agrega las necesidades de toda la ruta en un libro: cada existencia se descuenta una sola vez, los productos y subproductos de pasos anteriores se acreditan una vez y el inventario solo cuenta al depositarlo | VERIFICADO (decidido; construido en G3c) |
+| Q226 | Arquitectura | Los rechazos del servidor se clasifican en bloqueo confirmado, estado desactualizado, permisos o error técnico (las 48 razones, comprobado por prueba exhaustiva); la Guía informa del motivo de su clase y ninguna clase cambia el objetivo activo | VERIFICADO (decidido; construido en G3c) |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras

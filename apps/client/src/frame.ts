@@ -25,6 +25,8 @@ const MOVING_MS = 600;
 const SHORTCUTS: [string, string][] = [
   ["Flechas o W A S D", "Mover al personaje (mantener pulsado para seguir andando)"],
   ["Espacio o E", "Recolectar lo que tienes delante"],
+  ["O", "Ir al objetivo actual"],
+  ["L", "Oír lo que hay cerca (el destino del objetivo y lo más cercano)"],
   ["P", "Ir al panel del proyecto"],
   ["M", "Volver al mapa"],
   ["C", "Ir a la consola (Importantes e Historial)"],
@@ -134,6 +136,7 @@ export function setupFrame(options: { feed: Feed; console: GameConsole; announce
         applyPreferences(next);
         savePreferences(next);
         options.announcer.setVerbosity(next.announcements);
+        document.dispatchEvent(new CustomEvent("preferencias-cambiadas", { detail: next }));
       }),
     });
   };

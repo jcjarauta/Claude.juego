@@ -56,7 +56,7 @@ Mundo de prueba (`apps/server/test/fixtures/ui-world.json` + `scripts/ui-seed.ts
 |---|---|---|
 | A. Barra superior | `header.zona-barra` | `zona`, `posicion`, `conexion`, `salir` |
 | B. Mundo | `section.zona-mundo` | `game`, `aviso`, `acciones`, `volver` |
-| C. Objetivo actual | `section#objetivo` (reservada, oculta) | — (G3c) |
+| C. Objetivo actual | `section#objetivo.zona-objetivo` (G3c, P1) | `objetivo-titulo`, `objetivo-nombre`, `objetivo-estado`, `objetivo-texto`, `objetivo-porque`, `objetivo-progreso`, `objetivo-requisitos`, `objetivo-alternativas`, `objetivo-rutas`, `objetivo-avisos`, `objetivo-accion`, `objetivo-destino`, `objetivo-mostrar`, `objetivo-volver`, `objetivo-elegir`, `objetivo-avisos-ir` |
 | G. Conversación | `section#conversacion` (reservada, oculta) | — (F2d) |
 | F. Recursos | `section.zona-recursos` | `.recursos`: `inventario`, `comunidad` |
 | D. Panel contextual | `section#proyecto.zona-panel` | Pestañas `tab-proyecto`, `tab-taller`, `tab-habilidades`, `tab-cadenas`, `tab-comunidad` y sus paneles |
@@ -80,4 +80,36 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Eventos de documento: `sugerir-pestana` (detalle `{tab, key, text}`, lo emite `WorldScene` al recibir una oferta), `mostrar-ayuda` (tecla `?`), `enfocar-consola` (tecla `C`), además de `mostrar-pestana`.
 - Cada insignia de pestaña se añade dentro del botón `tab-*` (`.insignia`); por eso la etiqueta accesible de la pestaña incluye «N novedades» mientras haya sugerencias.
 - `isEditable` (`WorldScene.ts`) incluye ahora pestañas, paneles con desplazamiento, registros y diálogos: en ellos las flechas y las letras no mueven al personaje (KEY-01).
+
+### Zona C — Objetivo actual (puerta P1 de G3c, 2026-10-11)
+
+- `#objetivo` deja de estar reservada y oculta: ocupa toda la anchura bajo la barra (`grid-template-areas`: barra, **objetivo**, mundo y panel, recursos y panel, consola; apilada: barra, objetivo, mundo, recursos, panel, consola). Su esqueleto está en `index.html` y lo rellena `objective-panel.ts`; **no es región viva** (los cambios se anuncian por el bus de eventos, una vez por cambio de identidad).
+- Se crea desde `WorldScene.create()` (necesita la sala): recalcula con `room.onStateChange` (agrupado 250 ms) y cada 500 ms (para que la histéresis de 800 ms avance sin cambios de estado). El objetivo activo vive en `localStorage` con la clave `engremiat.objetivo.<mundo>.<cuenta>`.
+- `WorldScene` pasa al panel el rechazo del servidor (`noteRejection`) y la acción del paso (`perform`, que reutiliza `contribute`, `deposit`, `panelActions.build/craft` y `sendCollect`: la decisión sigue siendo del servidor).
+- Orden real de Tab: enlace de salto → Ayuda → Accesibilidad → Salir → **Elegir objetivo** → (**Ir a la consola** si hay avisos) → mapa → recursos → pestañas → contenido → consola.
+- El diálogo «Elegir objetivo» se crea al abrirlo (`<dialog>` nativo con foco devuelto al botón).
+
+### Marcadores del mapa (puerta P2 de G3c, 2026-10-11)
+
+- Nuevos ids en la zona C: `objetivo-destino` (alternativa textual: «Destino: Madera, a 21 casillas al oeste y 2 casillas al norte»), `objetivo-mostrar` («Mostrar en el mapa», visible solo si el paso tiene destino) y `objetivo-volver` («Volver a mi personaje», visible solo con la cámara separada). Orden de Tab en la zona C: Mostrar en el mapa → (Volver a mi personaje) → Elegir objetivo → (Ir a la consola).
+- `map-markers.ts` dibuja el anillo y la flecha del borde en la escena de Phaser (no hay DOM); `ui/label-layout.ts` es el modelo puro de colocación de etiquetas. `WorldScene` coloca las etiquetas cada 250 ms (nunca por fotograma) por prioridad: tu personaje > destino > edificios > personas > cantidades de recursos; la que choca con otra ya colocada se oculta.
+- **La cámara nunca se mueve sola.** Solo «Mostrar en el mapa» la separa del personaje; vuelve al moverse, con Escape o con «Volver a mi personaje». Con `data-movimiento="reducido"` el anillo no pulsa y la cámara salta sin animación.
+- Evento de documento nuevo: `preferencias-cambiadas` (detalle: las preferencias; lo emite `frame.ts` y lo escucha `WorldScene` para las etiquetas y el movimiento). Preferencia nueva `mapLabels` (*todas*, *edificios*, *ninguna*) en el diálogo de Accesibilidad.
+- El anillo y la flecha usan doble contorno (blanco y negro) y no dependen del color; no añaden pares de color nuevos a `npm.cmd run a11y`.
+
+### Pestaña «Guía» y atajo O (puerta P3 de G3c, 2026-10-11)
+
+- Sexta pestaña del panel: `tab-guia` / `panel-guia` (al final de la lista; el orden de Tab y las flechas, Inicio y Fin la incluyen; `main.ts` la añade a `TABS` para recordarla). Ids nuevos del panel: `guia-objetivo`, `guia-estado`, `guia-paso`, `guia-porque`, `guia-bloqueos` (+ `guia-bloqueos-vacio`), `guia-alternativas` (+ `guia-alternativas-vacio`), `guia-destino`, `guia-cerca` (+ `guia-cerca-vacio`), `guia-consejos`, `guia-estados`.
+- La rellena `guide-panel.ts` con los datos del paso mostrado (la zona C se los pasa en cada recálculo mediante `onRender`); si la pestaña no se ve solo guarda el último estado y lo pinta al abrirla (evento `pestana-guia`). **No es región viva.**
+- Modelos puros en `@juego/shared` (`objective-guide.ts`): `nearby` (≤ 8 casillas, por cercanía, con el destino del objetivo siempre arriba aunque esté fuera del radio) y `tipsFor` (consejos por situación).
+- Atajo **O**: evento de documento `enfocar-objetivo` → foco en `#objetivo-nombre` (`tabindex="-1"`); se ignora en campos, pestañas, registros y diálogos, igual que `?` y `C`. La Ayuda lo lista.
+- A-3: el botón de receta no repite el verbo si el nombre ya empieza por él («Moler a mano», no «Moler: Moler a mano») y se describe con su texto de ayuda (`aria-describedby` → `receta-ayuda-<id>`).
+
+### Mejoras de cierre de G3c (M1–M6, 2026-10-11)
+
+- **Zona C compacta (M4):** el porqué, la barra de progreso, el destino en texto y los avisos pendientes pasan a `details#objetivo-detalles` (plegado por omisión, estado recordado en `localStorage`). Quedan fuera del desplegable lo que exige atención: requisitos, alternativas y elección de ruta, el estado y el texto del paso y los botones. Un `summary` nuevo («Detalles del paso») entra en el orden de Tab justo después del texto del paso.
+- **Obtener un objeto (M2):** el diálogo «Elegir objetivo» añade una lista de objetos y una cantidad (`select` y `input[type=number]` con etiqueta). El objeto elegido sustituye al de la lista.
+- **Lo que hay cerca en voz (M5):** tecla **L** → evento `anunciar-cerca` → resumen anunciado por el bus de eventos (prioridad 1: el destino y los tres elementos más cercanos). La Ayuda la lista.
+- **Botón de la acción (M1):** para fabricar usa el verbo de la receta («Moler», «Hornear»).
+- **Guion de humo (M3):** `await s.g3c()` de `scripts/ui-smoke.js` devuelve 30 comprobaciones funcionales (zona C, pestañas, Guía, diálogo, medidas); la línea base está en `scripts/dom-baseline.json` (`marcoG3c`).
 

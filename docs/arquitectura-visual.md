@@ -25,14 +25,14 @@ Fijar las **reglas visuales y de comunicación** del juego y del panel profesion
 
 Se elige **HUD no diegético por zonas más capa espacial**: es un juego de gestión y cooperación con mucha información contextual.
 
-## 4. Zonas de la pantalla del juego (A, B, D, E y F construidas en G3b; C en G3c y G en F2d)
+## 4. Zonas de la pantalla del juego (A, B, D, E y F construidas en G3b; C en G3c; G en F2d)
 
 | Zona | Tipo | Contenido | Hoy |
 |---|---|---|---|
 | A. Barra superior | Fija | Identidad, conexión, zona y posición, ayuda y accesibilidad (tamaño de texto, contraste, menos movimiento) | **Construida (G3b):** `header.zona-barra` con zona, posición, conexión, Ayuda (?), Accesibilidad y Salir |
 | B. Mundo | Fija | Mapa + capa espacial de marcadores | **Construida (G3b):** `section.zona-mundo`, sin cambios de controles |
-| C. Objetivo actual | Fija | Una tarea destacada con su progreso y «Mostrar en el mapa» | Región `#objetivo` reservada y oculta (G3c) |
-| D. Panel contextual | Variable | Pestañas: Proyecto · Taller y recetas · Habilidades · Cadenas · Comunidad | **Construida (G3b):** `section#proyecto` con cinco pestañas, insignias y regla de actividad |
+| C. Objetivo actual | Fija | Una tarea destacada con su progreso y «Mostrar en el mapa» | **Construida (G3c):** `section#objetivo` bajo la barra, a todo el ancho: objetivo activo elegido por la persona, siguiente acción con estado, requisitos, alternativas, progreso, destino en texto y «Mostrar en el mapa» |
+| D. Panel contextual | Variable | Pestañas: Proyecto · Taller y recetas · Habilidades · Cadenas · Comunidad · Guía (G3c) | **Construida (G3b):** `section#proyecto` con cinco pestañas, insignias y regla de actividad |
 | E. Consola | Fija, plegable | Registro cronológico y filtrable, región `aria-live` educada | **Construida (G3b):** `#zona-consola` con Importantes e Historial, plegable; anunciador con dos regiones ocultas |
 | F. Barra de recursos | Fija | Inventario propio y almacén de la comunidad | **Construida (G3b):** `section.zona-recursos` bajo el mapa |
 | G. Conversación | Reservada | La Guía y el canal común (F2d) | Región `#conversacion` reservada y oculta |
@@ -61,8 +61,9 @@ Mismo método de entrada para el juego y la interfaz (Game Accessibility Guideli
 | M | Volver al mapa |
 | Tab / Mayús+Tab | Recorrer los controles |
 | Escape | Cerrar o cancelar |
-| (propuesta G3b) `?` | Ayuda con la lista de atajos |
-| (propuesta G3b) `C` | Mover el foco a la consola |
+| `?` | Ayuda con la lista de atajos (G3b) |
+| `C` | Mover el foco a la consola (G3b) |
+| `O` | Mover el foco al objetivo actual (G3c) |
 
 ## 7. Tokens de diseño (`apps/client/public/tokens.css`)
 

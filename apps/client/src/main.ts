@@ -41,10 +41,11 @@ function startGame(room: WorldRoom, config: WorldConfig, asked: boolean, prefs: 
 
   // Panel contextual con pestañas (G3b, Q206): se recuerda la última pestaña elegida (con try/catch: el almacenamiento puede no estar disponible).
   const TAB_KEY = "engremiat.pestana";
-  const TABS = ["proyecto", "taller", "habilidades", "cadenas", "comunidad"];
+  const TABS = ["proyecto", "taller", "habilidades", "cadenas", "comunidad", "guia"];
   const panelTabs = setupTabs(byId<HTMLElement>("proyecto"), (tab) => {
     try { localStorage.setItem(TAB_KEY, tab.id.replace("tab-", "")); } catch { /* sin almacenamiento: no se recuerda */ }
     frame?.onTabSelected(tab.id.replace("tab-", ""));
+    if (tab.id === "tab-guia") document.dispatchEvent(new CustomEvent("pestana-guia"));
   });
   let saved: string | null = null;
   try { saved = localStorage.getItem(TAB_KEY); } catch { /* sin almacenamiento */ }
