@@ -7,6 +7,8 @@ export const TEXT_SIZES = [100, 125, 150, 200] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
 export type MotionPreference = "sistema" | "reducido" | "normal";
 export type ConsoleDefault = "desplegada" | "plegada";
+/** Etiquetas del mapa (G3c, Q221): todas, solo las de edificios o ninguna. */
+export type MapLabels = "todas" | "edificios" | "ninguna";
 
 export interface Preferences {
   /** Tamaño de texto en %. */
@@ -18,10 +20,11 @@ export interface Preferences {
   /** Abrir pestañas sugeridas automáticamente (desactivado por omisión, Q210). */
   autoTabs: boolean;
   console: ConsoleDefault;
+  mapLabels: MapLabels;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
-  textSize: 100, highContrast: false, motion: "sistema", announcements: "normales", autoTabs: false, console: "desplegada",
+  textSize: 100, highContrast: false, motion: "sistema", announcements: "normales", autoTabs: false, console: "desplegada", mapLabels: "todas",
 };
 
 export const PREFERENCES_KEY = "engremiat.preferencias";
@@ -43,6 +46,7 @@ export function parsePreferences(raw: unknown): Preferences {
     announcements: data.announcements === "minimos" || data.announcements === "normales" || data.announcements === "completos" ? data.announcements : d.announcements,
     autoTabs: typeof data.autoTabs === "boolean" ? data.autoTabs : d.autoTabs,
     console: data.console === "plegada" || data.console === "desplegada" ? data.console : d.console,
+    mapLabels: data.mapLabels === "todas" || data.mapLabels === "edificios" || data.mapLabels === "ninguna" ? data.mapLabels : d.mapLabels,
   };
 }
 

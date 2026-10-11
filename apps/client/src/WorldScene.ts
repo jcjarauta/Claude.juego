@@ -2,6 +2,10 @@ import { chainsFromState } from "./views/cadenas.ts";
 import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
 import type { Feed } from "./feed.ts";
 import { createObjectivePanel } from "./objective-panel.ts";
+import { createTargetMarker, reducedMotion, type MapTarget } from "./map-markers.ts";
+import { layoutLabels, type LabelGroup, type Rect } from "./ui/label-layout.ts";
+import { loadPreferences } from "./ui/preferences.ts";
+import type { MapLabels } from "./ui/preferences-model.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
@@ -90,6 +94,11 @@ export class WorldScene extends Phaser.Scene {
   private skillsPanel!: SkillsPanel;
   private feed!: Feed;
   private objectivePanel: ReturnType<typeof createObjectivePanel> | undefined;
+  private marker: ReturnType<typeof createTargetMarker> | undefined;
+  private labelMode: MapLabels = "todas";
+  /** La cámara solo se separa del personaje cuando la persona pulsa «Mostrar en el mapa». */
+  private cameraDetached = false;
+  private lastOwnCell = "";
   private lastZone: string | undefined;
   private offers: TeachOfferedMessage[] = [];
   /** Proyecto que se ve en el panel (F1a: hay varios; por defecto, el primero de la configuración). */
@@ -121,6 +130,17 @@ export class WorldScene extends Phaser.Scene {
     this.drawMap();
     const { width, height } = this.config.map;
     this.cameras.main.setBounds(0, 0, width * this.tile, height * this.tile);
+    this.marker = createTargetMarker(this, this.tile);
+    this.labelMode = loadPreferences().mapLabels;
+    // Preferencias: etiquetas del mapa y «menos movimiento» (el anillo deja de pulsar).
+    const onPrefs = (event: Event) => {
+      this.labelMode = (event as CustomEvent<{ mapLabels: MapLabels }>).detail.mapLabels;
+      this.marker?.refreshMotion();
+      this.layoutMapLabels();
+    };
+    document.addEventListener("preferencias-cambiadas", onPrefs);
+    this.events.once("shutdown", () => document.removeEventListener("preferencias-cambiadas", onPrefs));
+    this.time.addEvent({ delay: 250, loop: true, callback: () => this.layoutMapLabels() });
 
     const callbacks = Callbacks.get(this.room);
     callbacks.onAdd("players", (player, sessionId) => this.addPlayer(callbacks, player, sessionId));
@@ -157,6 +177,10 @@ export class WorldScene extends Phaser.Scene {
       snapshot: () => this.room.state.players.get(this.room.sessionId)
         ? snapshotFromState(this.room.state, this.config, this.room.sessionId, this.offers.map((o) => ({ id: o.offerId, from: o.from, skill: o.skill, level: o.level })))
         : undefined,
+      setTarget: (target: MapTarget | undefined) => { this.marker?.setTarget(target); this.layoutMapLabels(); },
+      showTarget: () => this.showTarget(),
+      releaseCamera: () => this.releaseCamera(),
+      cameraDetached: () => this.cameraDetached,
       perform: (action) => {
         if (action.type === "contribute" && action.project && action.task && action.from && action.amount) this.contribute(action.project, action.task, action.from, action.amount);
         else if (action.type === "deposit" && action.resource && action.amount) this.deposit(action.resource, action.amount);
@@ -235,6 +259,7 @@ export class WorldScene extends Phaser.Scene {
         event.preventDefault();
         if (!event.repeat) this.sendCollect();
       }
+      if (event.code === "Escape" && this.cameraDetached && !document.querySelector("dialog[open]")) this.releaseCamera();
       // Ayuda (?) y consola (C): no actúan con el foco en campos, pestañas, registros ni diálogos.
       if (!event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
         if (event.key === "?") { event.preventDefault(); document.dispatchEvent(new CustomEvent("mostrar-ayuda")); }
@@ -257,7 +282,46 @@ export class WorldScene extends Phaser.Scene {
     this.events.once("shutdown", () => window.removeEventListener("keydown", onKeyDown));
   }
 
+  /** Etiquetas del mapa por prioridad (tu personaje, destino, edificios, personas, cantidades); la que choca se oculta. */
+  private layoutMapLabels() {
+    const entries: { text: Phaser.GameObjects.Text; group: LabelGroup }[] = [];
+    const target = this.marker?.target;
+    for (const [id, view] of this.structureViews) {
+      const def = this.room.state.structures.get(id);
+      const isTarget = target && def && def.x === target.x && def.y === target.y;
+      entries.push({ text: view.label, group: isTarget ? "destino" : "edificio" });
+    }
+    for (const [sessionId, view] of this.views) entries.push({ text: view.label, group: sessionId === this.room.sessionId ? "propia" : "persona" });
+    for (const view of this.nodeViews.values()) entries.push({ text: view.label, group: "cantidad" });
+    const rects: { group: LabelGroup; rect: Rect }[] = entries.map((e) => {
+      const b = e.text.getBounds();
+      return { group: e.group, rect: { x: b.x, y: b.y, w: b.width, h: b.height } };
+    });
+    const shown = layoutLabels(rects, this.labelMode);
+    entries.forEach((e, i) => e.text.setVisible(shown[i]! && e.text.text !== ""));
+  }
+
+  private showTarget() {
+    const t = this.marker?.target;
+    if (!t) return;
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    this.cameraDetached = true;
+    const x = this.center(t.x);
+    const y = this.center(t.y);
+    if (reducedMotion()) cam.centerOn(x, y); else cam.pan(x, y, 400, "Sine.easeInOut");
+  }
+
+  private releaseCamera() {
+    if (!this.cameraDetached) return;
+    this.cameraDetached = false;
+    const body = this.views.get(this.room.sessionId)?.body;
+    const cam = this.cameras.main;
+    if (body) { cam.centerOn(body.x, body.y); cam.startFollow(body, true, 0.2, 0.2); }
+  }
+
   update() {
+    this.marker?.update(this.cameras.main);
     // Mismo reloj que en keydown (performance.now) para que el intervalo mínimo sea coherente.
     const time = performance.now();
     let dir = this.pending;
@@ -540,6 +604,10 @@ export class WorldScene extends Phaser.Scene {
         if (this.lastZone !== undefined && zone !== this.lastZone) this.feed.emit({ kind: "mundo", importance: "normal", own: true, priority: 1, text: `Entras en la zona ${zone}.` });
         this.lastZone = zone;
         this.hud.setPosition(player.name, player.x, player.y);
+        // Al moverse, la cámara vuelve sola al personaje; antes no se mueve nunca por su cuenta.
+        const cell = `${player.x},${player.y}`;
+        if (this.cameraDetached && this.lastOwnCell && cell !== this.lastOwnCell) this.releaseCamera();
+        this.lastOwnCell = cell;
       }
     };
     callbacks.onChange(player, render);

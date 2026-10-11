@@ -134,6 +134,7 @@ export function setupFrame(options: { feed: Feed; console: GameConsole; announce
         applyPreferences(next);
         savePreferences(next);
         options.announcer.setVerbosity(next.announcements);
+        document.dispatchEvent(new CustomEvent("preferencias-cambiadas", { detail: next }));
       }),
     });
   };

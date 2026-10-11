@@ -1,5 +1,5 @@
 import {
-  createStabilizer, evaluateObjective, objectiveLabel, rejectionStillExplained, stepAfterRejection, suggestObjectives,
+  createStabilizer, directionText, evaluateObjective, objectiveLabel, rejectionStillExplained, stepAfterRejection, suggestObjectives,
   type Objective, type RejectReason, type Snapshot, type Step, type StepAction, type StepStatus,
 } from "@juego/shared";
 import type { Feed } from "./feed.ts";
@@ -40,6 +40,12 @@ export interface ObjectiveHost {
   world: string;
   /** Envía la acción del paso al servidor (el servidor decide). */
   perform(action: StepAction): void;
+  /** Marcador del mapa para el destino del paso mostrado (undefined = sin marcador). */
+  setTarget(target: { x: number; y: number; label: string } | undefined): void;
+  /** Lleva la cámara al destino (solo cuando la persona lo pide) y la devuelve a su personaje. */
+  showTarget(): void;
+  releaseCamera(): void;
+  cameraDetached(): boolean;
 }
 
 export function createObjectivePanel(host: ObjectiveHost) {
@@ -55,6 +61,9 @@ export function createObjectivePanel(host: ObjectiveHost) {
   const doButton = byId<HTMLButtonElement>("objetivo-accion");
   const chooseButton = byId<HTMLButtonElement>("objetivo-elegir");
   const noticesButton = byId<HTMLButtonElement>("objetivo-avisos-ir");
+  const destination = byId("objetivo-destino");
+  const showButton = byId<HTMLButtonElement>("objetivo-mostrar");
+  const backButton = byId<HTMLButtonElement>("objetivo-volver");
   const bar = progressCard("Progreso del paso", "objetivo-barra");
   byId("objetivo-progreso").append(bar.element);
 
@@ -65,6 +74,7 @@ export function createObjectivePanel(host: ObjectiveHost) {
   let shownStep: Step | undefined;
   let lastRender = "";
   let lastRoutes = "";
+  let lastTarget = "";
   let rejection: { reason: RejectReason; text: string; before: Step; at: number } | undefined;
   let lastMoveAt = -Infinity;
   let timer: number | undefined;
@@ -126,6 +136,13 @@ export function createObjectivePanel(host: ObjectiveHost) {
       } else if (step.type !== "choose-route") { lastRoutes = ""; routes.replaceChildren(); }
       parts.push(step.key);
     }
+    // Destino: marcador en el mapa y su alternativa textual (dirección y distancia), aunque esté lejos.
+    const target = step?.target;
+    const targetKey = target ? `${target.x},${target.y},${target.label}` : "";
+    if (targetKey !== lastTarget) { lastTarget = targetKey; host.setTarget(target); }
+    destination.textContent = target ? (target.x === snap.me.x && target.y === snap.me.y ? `Destino: ${target.label}. Estás en el destino.` : `Destino: ${target.label}, a ${directionText(snap.me, target)}.`) : "";
+    showButton.hidden = !target;
+    backButton.hidden = !host.cameraDetached();
     const pending = host.feed.center.pending().length;
     notices.textContent = pending ? `${pending} ${pending === 1 ? "aviso pendiente" : "avisos pendientes"} en la consola; no cambian tu objetivo.` : "";
     noticesButton.hidden = pending === 0;
@@ -160,6 +177,14 @@ export function createObjectivePanel(host: ObjectiveHost) {
   }
 
   doButton.onclick = () => { if (shownStep?.action) host.perform(shownStep.action); };
+  showButton.onclick = () => {
+    host.showTarget();
+    const snap = host.snapshot();
+    const t = shownStep?.target;
+    if (snap && t) host.feed.emit({ kind: "aviso", importance: "normal", own: true, priority: 1, text: `Mostrando ${t.label} en el mapa: ${directionText(snap.me, t)}. Pulsa Escape o «Volver a mi personaje» para regresar.` });
+    update(true);
+  };
+  backButton.onclick = () => { host.releaseCamera(); update(true); byId("objetivo-mostrar").focus(); };
   noticesButton.onclick = () => document.dispatchEvent(new CustomEvent("enfocar-consola"));
   chooseButton.onclick = () => {
     const snap = host.snapshot();

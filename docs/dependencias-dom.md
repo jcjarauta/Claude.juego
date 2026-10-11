@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (82 ids)
+## index.html (85 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -37,7 +37,10 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `objetivo-alternativas` | — | — | — |
 | `objetivo-rutas` | — | — | — |
 | `objetivo-avisos` | — | — | — |
+| `objetivo-destino` | — | — | — |
 | `objetivo-accion` | — | — | — |
+| `objetivo-mostrar` | — | — | — |
+| `objetivo-volver` | — | — | — |
 | `objetivo-elegir` | — | — | — |
 | `objetivo-avisos-ir` | — | — | — |
 | `game` | main.ts, WorldScene.ts | — | `#game`, `#game canvas` |
@@ -183,7 +186,7 @@ Mundo de prueba (`apps/server/test/fixtures/ui-world.json` + `scripts/ui-seed.ts
 |---|---|---|
 | A. Barra superior | `header.zona-barra` | `zona`, `posicion`, `conexion`, `salir` |
 | B. Mundo | `section.zona-mundo` | `game`, `aviso`, `acciones`, `volver` |
-| C. Objetivo actual | `section#objetivo` (reservada, oculta) | — (G3c) |
+| C. Objetivo actual | `section#objetivo.zona-objetivo` (G3c, P1) | `objetivo-titulo`, `objetivo-nombre`, `objetivo-estado`, `objetivo-texto`, `objetivo-porque`, `objetivo-progreso`, `objetivo-requisitos`, `objetivo-alternativas`, `objetivo-rutas`, `objetivo-avisos`, `objetivo-accion`, `objetivo-destino`, `objetivo-mostrar`, `objetivo-volver`, `objetivo-elegir`, `objetivo-avisos-ir` |
 | G. Conversación | `section#conversacion` (reservada, oculta) | — (F2d) |
 | F. Recursos | `section.zona-recursos` | `.recursos`: `inventario`, `comunidad` |
 | D. Panel contextual | `section#proyecto.zona-panel` | Pestañas `tab-proyecto`, `tab-taller`, `tab-habilidades`, `tab-cadenas`, `tab-comunidad` y sus paneles |
@@ -207,3 +210,19 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Eventos de documento: `sugerir-pestana` (detalle `{tab, key, text}`, lo emite `WorldScene` al recibir una oferta), `mostrar-ayuda` (tecla `?`), `enfocar-consola` (tecla `C`), además de `mostrar-pestana`.
 - Cada insignia de pestaña se añade dentro del botón `tab-*` (`.insignia`); por eso la etiqueta accesible de la pestaña incluye «N novedades» mientras haya sugerencias.
 - `isEditable` (`WorldScene.ts`) incluye ahora pestañas, paneles con desplazamiento, registros y diálogos: en ellos las flechas y las letras no mueven al personaje (KEY-01).
+
+### Zona C — Objetivo actual (puerta P1 de G3c, 2026-10-11)
+
+- `#objetivo` deja de estar reservada y oculta: ocupa toda la anchura bajo la barra (`grid-template-areas`: barra, **objetivo**, mundo y panel, recursos y panel, consola; apilada: barra, objetivo, mundo, recursos, panel, consola). Su esqueleto está en `index.html` y lo rellena `objective-panel.ts`; **no es región viva** (los cambios se anuncian por el bus de eventos, una vez por cambio de identidad).
+- Se crea desde `WorldScene.create()` (necesita la sala): recalcula con `room.onStateChange` (agrupado 250 ms) y cada 500 ms (para que la histéresis de 800 ms avance sin cambios de estado). El objetivo activo vive en `localStorage` con la clave `engremiat.objetivo.<mundo>.<cuenta>`.
+- `WorldScene` pasa al panel el rechazo del servidor (`noteRejection`) y la acción del paso (`perform`, que reutiliza `contribute`, `deposit`, `panelActions.build/craft` y `sendCollect`: la decisión sigue siendo del servidor).
+- Orden real de Tab: enlace de salto → Ayuda → Accesibilidad → Salir → **Elegir objetivo** → (**Ir a la consola** si hay avisos) → mapa → recursos → pestañas → contenido → consola.
+- El diálogo «Elegir objetivo» se crea al abrirlo (`<dialog>` nativo con foco devuelto al botón).
+
+### Marcadores del mapa (puerta P2 de G3c, 2026-10-11)
+
+- Nuevos ids en la zona C: `objetivo-destino` (alternativa textual: «Destino: Madera, a 21 casillas al oeste y 2 casillas al norte»), `objetivo-mostrar` («Mostrar en el mapa», visible solo si el paso tiene destino) y `objetivo-volver` («Volver a mi personaje», visible solo con la cámara separada). Orden de Tab en la zona C: Mostrar en el mapa → (Volver a mi personaje) → Elegir objetivo → (Ir a la consola).
+- `map-markers.ts` dibuja el anillo y la flecha del borde en la escena de Phaser (no hay DOM); `ui/label-layout.ts` es el modelo puro de colocación de etiquetas. `WorldScene` coloca las etiquetas cada 250 ms (nunca por fotograma) por prioridad: tu personaje > destino > edificios > personas > cantidades de recursos; la que choca con otra ya colocada se oculta.
+- **La cámara nunca se mueve sola.** Solo «Mostrar en el mapa» la separa del personaje; vuelve al moverse, con Escape o con «Volver a mi personaje». Con `data-movimiento="reducido"` el anillo no pulsa y la cámara salta sin animación.
+- Evento de documento nuevo: `preferencias-cambiadas` (detalle: las preferencias; lo emite `frame.ts` y lo escucha `WorldScene` para las etiquetas y el movimiento). Preferencia nueva `mapLabels` (*todas*, *edificios*, *ninguna*) en el diálogo de Accesibilidad.
+- El anillo y la flecha usan doble contorno (blanco y negro) y no dependen del color; no añaden pares de color nuevos a `npm.cmd run a11y`.
