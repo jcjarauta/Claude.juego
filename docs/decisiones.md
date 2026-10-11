@@ -1,4 +1,4 @@
-# Registro de decisiones — Q001 a Q236 (BORRADOR)
+# Registro de decisiones — Q001 a Q241 (BORRADOR)
 
 **Regla:** «VERIFICADO» indica que la elección fue expresada en la conversación; no implica que el software exista. El resumen no reemplaza la respuesta original.
 
@@ -239,6 +239,11 @@
 | Q234 | Visual | La pestaña «Logros» se suma como séptima del panel (amplía Q206, Q215 y Q223) | VERIFICADO (decidido; construido en G3d) |
 | Q235 | Visual | Lo que solo consta en el almacenamiento local es un «registro de este navegador», nunca un logro histórico global verificado: se rotula así, no cuenta en los totales ni se atribuye a la comunidad | VERIFICADO (decidido; construido en G3d) |
 | Q236 | Arquitectura | El catálogo de logros está versionado: el id lleva la versión de su condición (`nombre@n`), un id no se reutiliza si cambia la condición (se crea otro y se anota en `SUPERSEDED`; una prueba congela la tabla id → condición) y el almacén local tiene su propia `schemaVersion` con lectura compatible y migración controlada, sin sobrescribir una versión posterior | VERIFICADO (decidido; construido en G3d) |
+| Q237 | Arquitectura | Los límites de diseño (entradas por receta, niveles por habilidad, habilidades, objetos, recetas…) son valores vigentes editables por la administración desde el panel, guardados en la base (`setting`), aplicados sin reiniciar y sincronizados en el estado; los techos duros son una red de seguridad más alta (dentro de lo que soporta el esquema del estado); bajar un límite no borra lo creado | VERIFICADO (decidido; construido en G1) |
+| Q238 | Arquitectura | La profundidad y el número de rutas del planificador de rutas son límites de diseño (por omisión 8 y 24; techos 20 y 100) que el cliente lee del estado (resuelve M8) | VERIFICADO (decidido; construido en G1) |
+| Q239 | Visual | Las escalas de niveles son plantillas predefinidas en un desplegable (aprendiz-oficial-maestro, bronce-plata-oro, básico-experto, cinco grados, numérica) con nombres editables; lo guardado sigue siendo la lista de niveles | VERIFICADO (decidido; construido en G1) |
+| Q240 | Arquitectura | Objetos, recetas, habilidades y misiones se archivan, no se borran (tabla `archive`, migración v11, también para lo de la configuración): lo archivado no se usa ni se muestra pero conserva historial; archivar exige que no esté en uso (con la lista de usos y la razón `definicion-en-uso`); restaurar exige nombre libre y dependencias activas; «posibles duplicados» solo señala | VERIFICADO (decidido; construido en G1) |
+| Q241 | Arquitectura | Las definiciones siguen siendo inmutables (Q187): archivar y restaurar solo añaden o quitan una marca; la edición por versiones queda para G2 | VERIFICADO (decidido; construido en G1) |
 | Q164 | Evidencia | Completar una tarea es automático por su criterio; aprobar o rechazar es una decisión humana con nota que registra la evidencia en que se basa (aportes y último evento de la tarea), sin mover recursos | VERIFICADO (decisión); MVP |
 
 ## Interpretaciones conservadoras
