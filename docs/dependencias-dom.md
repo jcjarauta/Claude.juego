@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (67 ids)
+## index.html (69 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -23,6 +23,8 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `zona` | hud.ts | — | `#zona` |
 | `posicion` | hud.ts | — | — |
 | `conexion` | hud.ts | — | `#conexion` |
+| `ayuda-boton` | — | — | — |
+| `accesibilidad-boton` | — | — | — |
 | `salir` | main.ts | — | — |
 | `game` | main.ts, WorldScene.ts | — | `#game`, `#game canvas` |
 | `volver` | hud.ts | — | — |
@@ -112,17 +114,16 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 
 ## Dependencias que el inventario automático no ve (manual)
 
-### Sitios de avisos actuales (se unificarán en la consola, P3)
+### Sitios de avisos (unificados en la consola, P3)
 
-| Elemento | Quién escribe | Región viva | Comportamiento actual |
-|---|---|---|---|
-| `#aviso` | `hud.notify` (rechazos del servidor, avisos de acciones) | `role="alert"` | Se borra a los 2,5 s |
-| `#acciones` | `hud.announceAction` (recolectar y depositar) | `role="status"` `aria-live="polite"` | Se sobrescribe |
-| `#presencia` | `hud.announcePresence` (llegadas, salidas, reconexiones) | `role="status"` `aria-live="polite"` | Se sobrescribe |
-| `#conexion` | `hud.setConnection` | `role="status"` `aria-live="polite"` | Estado actual |
-| `#proyecto-aviso` | `project-panel` (`say`: aportes, construcción, fabricación, misión) | `role="status"` `aria-live="polite"` | Se sobrescribe |
-| `#proyecto-novedades` | `project-panel.showNews` (desde tu última visita) | `role="status"` `aria-live="polite"` | Se escribe una vez al entrar |
-| `#habilidades-aviso` | `skills-panel` (`say`: subidas de nivel, ofertas, resultados) | `role="status"` `aria-live="polite"` | Se sobrescribe |
+Todos los avisos pasan por `apps/client/src/feed.ts` (bus único → historial y notificaciones) y los lee el anunciador (`#anuncio-alerta` con `role="alert"` y `#anuncio-educado` con `aria-live="polite"`, creados en `#partida`). La consola se monta en `#zona-consola`.
+
+| Antes | Ahora |
+|---|---|
+| `#aviso`, `#acciones`, `#presencia`, `#proyecto-aviso`, `#habilidades-aviso` | **Eliminados**; sus mensajes son eventos (`hud.notify/announceAction/announcePresence` y `say` ya no existen) |
+| `#conexion` | Se mantiene como estado en la barra (sin región viva); la pérdida de conexión emite una crítica con clave `conexion` que se resuelve al reconectar |
+| `#zona` | Sin región viva; el cambio de zona es un evento de mundo |
+| `#proyecto-novedades` | Texto de la pestaña Comunidad (sin región viva); además entra en el historial |
 
 ### Dependencias de comportamiento entre código y estructura
 
@@ -186,3 +187,10 @@ Selectores estructurales tras el marco: sin ninguno huérfano. Cambian solo las 
 Orden real de Tab tras el marco (22 pulsaciones, ana): enlace de salto → `salir` → `game` → seis botones de depositar → `tab-proyecto` → `panel-proyecto` (región con desplazamiento, `tabindex="0"`) → selector de proyecto → enlace al panel → seis botones de aportar → vuelta al enlace de salto. Solo la pestaña activa está en el orden del foco. El orden visual coincide con el del documento (barra, mundo, recursos, panel).
 
 Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de **900 px de alto** (antes 1660 px), zonas barra y=102, mundo y=166, recursos y=601 y panel a la derecha (y=166, 373 px de alto); a 800 px las cuatro zonas se apilan; con el texto al 200 % no hay desplazamiento horizontal en ninguno de los dos anchos.
+
+### Marco: actividad, diálogos y atajos (puerta P4, 2026-10-11)
+
+- Nuevos ids en la barra superior: `ayuda-boton` y `accesibilidad-boton` (los lee `frame.ts`); los diálogos son `<dialog>` creados al abrir (se eliminan al cerrar).
+- Eventos de documento: `sugerir-pestana` (detalle `{tab, key, text}`, lo emite `WorldScene` al recibir una oferta), `mostrar-ayuda` (tecla `?`), `enfocar-consola` (tecla `C`), además de `mostrar-pestana`.
+- Cada insignia de pestaña se añade dentro del botón `tab-*` (`.insignia`); por eso la etiqueta accesible de la pestaña incluye «N novedades» mientras haya sugerencias.
+- `isEditable` (`WorldScene.ts`) incluye ahora pestañas, paneles con desplazamiento, registros y diálogos: en ellos las flechas y las letras no mueven al personaje (KEY-01).

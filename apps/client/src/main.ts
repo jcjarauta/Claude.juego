@@ -5,9 +5,12 @@ import { enter, logout } from "./account.ts";
 import { createFeed } from "./feed.ts";
 import { createHud } from "./hud.ts";
 import { createLiveRegions, startAnnouncer } from "./ui/announcer.ts";
+import { setupFrame } from "./frame.ts";
 import { createConsole } from "./ui/console-log.ts";
+import { applyPreferences, loadPreferences } from "./ui/preferences.ts";
 import { setupTabs } from "./ui/tabs.ts";
 import { rememberedTab } from "./ui/tab-activity.ts";
+import type { Preferences } from "./ui/preferences-model.ts";
 import { WorldScene, type WorldRoom, type WorldSceneData } from "./WorldScene.ts";
 
 const VIEW_WIDTH = 800;
@@ -20,16 +23,20 @@ async function join(token: string): Promise<WorldRoom> {
   return new Client(location.origin).join(ROOM_NAME, options, WorldState);
 }
 
-function startGame(room: WorldRoom, config: WorldConfig, asked: boolean) {
+function startGame(room: WorldRoom, config: WorldConfig, asked: boolean, prefs: Preferences) {
   byId<HTMLFormElement>("entrada").hidden = true;
   byId<HTMLElement>("partida").hidden = false;
   const hud = createHud(MAX_PLAYERS);
 
   // Fuente única de eventos (G3b, P3): consola (Importantes e Historial) y anunciador accesible cuelgan de ella.
   const feed = createFeed();
-  const gameConsole = createConsole({ log: feed.log, center: feed.center, expanded: true, onAction: (key, action) => feed.act(key, action) });
+  let frame: ReturnType<typeof setupFrame> | undefined;
+  const gameConsole = createConsole({
+    log: feed.log, center: feed.center, expanded: prefs.console === "desplegada",
+    onAction: (key, action) => { if (!frame?.handleAction(key, action)) feed.act(key, action); },
+  });
   byId<HTMLElement>("zona-consola").append(gameConsole.element);
-  startAnnouncer(feed.events, createLiveRegions(byId<HTMLElement>("partida")), "normales");
+  const announcer = startAnnouncer(feed.events, createLiveRegions(byId<HTMLElement>("partida")), prefs.announcements);
   window.setInterval(() => feed.center.tick(Date.now()), 1000);
 
   // Panel contextual con pestañas (G3b, Q206): se recuerda la última pestaña elegida (con try/catch: el almacenamiento puede no estar disponible).
@@ -37,11 +44,14 @@ function startGame(room: WorldRoom, config: WorldConfig, asked: boolean) {
   const TABS = ["proyecto", "taller", "habilidades", "cadenas", "comunidad"];
   const panelTabs = setupTabs(byId<HTMLElement>("proyecto"), (tab) => {
     try { localStorage.setItem(TAB_KEY, tab.id.replace("tab-", "")); } catch { /* sin almacenamiento: no se recuerda */ }
+    frame?.onTabSelected(tab.id.replace("tab-", ""));
   });
   let saved: string | null = null;
   try { saved = localStorage.getItem(TAB_KEY); } catch { /* sin almacenamiento */ }
   const first = document.getElementById(`tab-${rememberedTab(saved, TABS, "proyecto")}`) as HTMLButtonElement | null;
   if (first) panelTabs.select(first, false);
+  // Regla de actividad, diálogos de Ayuda y Accesibilidad y atajos ? y C (P4).
+  frame = setupFrame({ feed, console: gameConsole, announcer, tabs: panelTabs, prefs });
   // Otras partes (la tecla P, construir un edificio) piden mostrar una pestaña con este evento; cambiar el foco es cosa de quien lo pide.
   document.addEventListener("mostrar-pestana", (event) => {
     const tab = document.getElementById(`tab-${(event as CustomEvent<string>).detail}`) as HTMLButtonElement | null;
@@ -92,8 +102,10 @@ function startGame(room: WorldRoom, config: WorldConfig, asked: boolean) {
 async function start() {
   // La configuración llega ya validada por el servidor (content/world.json).
   const config = (await (await fetch("/config")).json()) as WorldConfig;
+  const prefs = loadPreferences();
+  applyPreferences(prefs);
   const { room, asked } = await enter(join);
-  startGame(room, config, asked);
+  startGame(room, config, asked, prefs);
 }
 
 start();

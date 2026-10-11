@@ -82,3 +82,4 @@ dialog.dialogo h2 { margin-top: 0; font-size: var(--texto-h2); }
 .preferencias .campo { min-width: 0; }
 .preferencias .campo > select, .preferencias .campo > input { width: 100%; box-sizing: border-box; }
 .preferencias fieldset { border: 1px solid var(--color-borde); border-radius: var(--radio); padding: var(--espacio-2) var(--espacio-3); display: flex; flex-wrap: wrap; gap: var(--espacio-2) var(--espacio-4); }
+dl.atajos { display: grid; grid-template-columns: max-content 1fr; gap: var(--espacio-1) var(--espacio-3); margin: 0; } dl.atajos dd { margin: 0; } dl.atajos dt { overflow-wrap: anywhere; }

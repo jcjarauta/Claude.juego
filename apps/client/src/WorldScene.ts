@@ -173,6 +173,8 @@ export class WorldScene extends Phaser.Scene {
         text: `${offer.from} te ofrece enseñarte ${def?.name ?? offer.skill} (${levelName}).`,
         actions: [{ id: "aceptar", label: "Aceptar" }, { id: "rechazar", label: "Rechazar" }],
       });
+      // Una oferta no cambia de pestaña por sí sola: insignia en «Habilidades» y sugerencia en Importantes (regla de actividad).
+      document.dispatchEvent(new CustomEvent("sugerir-pestana", { detail: { tab: "habilidades", key: offer.offerId, text: `Tienes una oferta de enseñanza de ${offer.from}.` } }));
       this.refreshResources();
     });
     this.room.onMessage(MESSAGE.teachResult, (result: TeachResultMessage) => {
@@ -209,6 +211,11 @@ export class WorldScene extends Phaser.Scene {
       if ((event.code === "Space" || event.code === "KeyE") && !isFormControl(event.target)) {
         event.preventDefault();
         if (!event.repeat) this.sendCollect();
+      }
+      // Ayuda (?) y consola (C): no actúan con el foco en campos, pestañas, registros ni diálogos.
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
+        if (event.key === "?") { event.preventDefault(); document.dispatchEvent(new CustomEvent("mostrar-ayuda")); }
+        if (event.code === "KeyC") { event.preventDefault(); document.dispatchEvent(new CustomEvent("enfocar-consola")); }
       }
       // Cambio de vista (RF-010): P al proyecto, M al mapa; el juego sigue y nada se pierde.
       if (event.code === "KeyP" && !isTextInput(event.target)) {

@@ -73,3 +73,11 @@ Selectores estructurales tras el marco: sin ninguno huérfano. Cambian solo las 
 Orden real de Tab tras el marco (22 pulsaciones, ana): enlace de salto → `salir` → `game` → seis botones de depositar → `tab-proyecto` → `panel-proyecto` (región con desplazamiento, `tabindex="0"`) → selector de proyecto → enlace al panel → seis botones de aportar → vuelta al enlace de salto. Solo la pestaña activa está en el orden del foco. El orden visual coincide con el del documento (barra, mundo, recursos, panel).
 
 Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de **900 px de alto** (antes 1660 px), zonas barra y=102, mundo y=166, recursos y=601 y panel a la derecha (y=166, 373 px de alto); a 800 px las cuatro zonas se apilan; con el texto al 200 % no hay desplazamiento horizontal en ninguno de los dos anchos.
+
+### Marco: actividad, diálogos y atajos (puerta P4, 2026-10-11)
+
+- Nuevos ids en la barra superior: `ayuda-boton` y `accesibilidad-boton` (los lee `frame.ts`); los diálogos son `<dialog>` creados al abrir (se eliminan al cerrar).
+- Eventos de documento: `sugerir-pestana` (detalle `{tab, key, text}`, lo emite `WorldScene` al recibir una oferta), `mostrar-ayuda` (tecla `?`), `enfocar-consola` (tecla `C`), además de `mostrar-pestana`.
+- Cada insignia de pestaña se añade dentro del botón `tab-*` (`.insignia`); por eso la etiqueta accesible de la pestaña incluye «N novedades» mientras haya sugerencias.
+- `isEditable` (`WorldScene.ts`) incluye ahora pestañas, paneles con desplazamiento, registros y diálogos: en ellos las flechas y las letras no mueven al personaje (KEY-01).
+
