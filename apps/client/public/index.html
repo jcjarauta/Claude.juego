@@ -14,13 +14,14 @@
     fieldset { border: 1px solid var(--color-borde); border-radius: 4px; padding: 6px 10px; display: grid; gap: 4px; }
     fieldset label, #edad-bloque label { font-weight: 400; }
     /* Interfaz híbrida (RF-010): mapa y proyecto a la vez en pantallas anchas; uno debajo del otro en estrechas. */
-    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(300px, 1fr); grid-template-areas: "barra barra" "mundo panel" "recursos panel"; gap: 20px; align-items: start; }
+    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(300px, 1fr); grid-template-areas: "barra barra" "mundo panel" "recursos panel" "consola consola"; gap: 20px; align-items: start; }
     .zona-barra { grid-area: barra; }
     .zona-mundo { grid-area: mundo; }
     .zona-recursos { grid-area: recursos; }
     .zona-panel { grid-area: panel; }
+    .zona-consola { grid-area: consola; }
     /* Con menos de 1100 px se apilan: barra, mundo, recursos y panel. */
-    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; grid-template-areas: "barra" "mundo" "recursos" "panel"; } }
+    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; grid-template-areas: "barra" "mundo" "recursos" "panel" "consola"; } }
     /* Sin min-width: 0 los hijos de la rejilla no encogen y el mapa fuerza desplazamiento horizontal. */
     .juego > * { min-width: 0; }
     #proyecto p { overflow-wrap: anywhere; }
@@ -96,9 +97,9 @@
         <!-- A. Barra superior: zona, posición, conexión y salida -->
         <header class="zona-barra" aria-label="Barra superior">
           <div class="hud">
-            <p>Zona: <span id="zona" role="status" aria-live="polite">—</span></p>
+            <p>Zona: <span id="zona">—</span></p>
             <p id="posicion"></p>
-            <p id="conexion" role="status" aria-live="polite"></p>
+            <p id="conexion"></p>
             <p><button id="salir" type="button">Salir de la cuenta</button></p>
           </div>
         </header>
@@ -106,8 +107,6 @@
         <!-- B. Mundo -->
         <section class="zona-mundo" aria-label="Mundo">
           <div id="game" tabindex="0" aria-label="Mapa del mundo. Flechas o WASD para moverte, Espacio o E para recolectar, P para ir al proyecto."></div>
-          <p id="aviso" role="alert"></p>
-          <p id="acciones" class="ayuda" role="status" aria-live="polite"></p>
           <button id="volver" type="button" hidden>Volver a entrar</button>
         </section>
 
@@ -159,7 +158,6 @@
               <button id="construir-boton" type="button">Construir el taller</button>
               <p id="construir-ayuda" class="ayuda"></p>
             </div>
-            <p id="proyecto-aviso" role="status" aria-live="polite"></p>
           </div>
 
           <div role="tabpanel" id="panel-taller" aria-labelledby="tab-taller" tabindex="0" hidden>
@@ -175,7 +173,6 @@
             <p class="ayuda">Tu nivel y tu progreso en cada habilidad, las ofertas de enseñanza que recibes y a quién puedes enseñar.</p>
             <section id="habilidades-seccion" aria-labelledby="habilidades-titulo" hidden>
               <h3 id="habilidades-titulo">Tus habilidades</h3>
-              <p id="habilidades-aviso" class="ayuda" role="status" aria-live="polite"></p>
               <ul id="habilidades-lista"></ul>
               <div id="habilidades-ofertas"></div>
               <h3 id="ensenar-titulo">Enseñar</h3>
@@ -202,16 +199,18 @@
               <ul id="misiones"></ul>
             </section>
             <h3>Novedades</h3>
-            <p id="proyecto-novedades" class="ayuda" role="status" aria-live="polite"></p>
+            <p id="proyecto-novedades" class="ayuda"></p>
             <h3>Quién ha aportado</h3>
             <ul id="proyecto-aportes"></ul>
             <h3>Actividad reciente</h3>
             <ol id="proyecto-actividad"></ol>
             <h3 id="jugadores-titulo">Jugadores</h3>
             <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
-            <p id="presencia" class="ayuda" role="status" aria-live="polite"></p>
           </div>
         </section>
+
+        <!-- E. Consola: Importantes e Historial (la crea main.ts) -->
+        <div id="zona-consola" class="zona-consola"></div>
       </div>
     </section>
   </main>

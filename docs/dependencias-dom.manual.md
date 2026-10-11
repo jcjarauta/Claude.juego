@@ -1,16 +1,15 @@
 ## Dependencias que el inventario automático no ve (manual)
 
-### Sitios de avisos actuales (se unificarán en la consola, P3)
+### Sitios de avisos (unificados en la consola, P3)
 
-| Elemento | Quién escribe | Región viva | Comportamiento actual |
-|---|---|---|---|
-| `#aviso` | `hud.notify` (rechazos del servidor, avisos de acciones) | `role="alert"` | Se borra a los 2,5 s |
-| `#acciones` | `hud.announceAction` (recolectar y depositar) | `role="status"` `aria-live="polite"` | Se sobrescribe |
-| `#presencia` | `hud.announcePresence` (llegadas, salidas, reconexiones) | `role="status"` `aria-live="polite"` | Se sobrescribe |
-| `#conexion` | `hud.setConnection` | `role="status"` `aria-live="polite"` | Estado actual |
-| `#proyecto-aviso` | `project-panel` (`say`: aportes, construcción, fabricación, misión) | `role="status"` `aria-live="polite"` | Se sobrescribe |
-| `#proyecto-novedades` | `project-panel.showNews` (desde tu última visita) | `role="status"` `aria-live="polite"` | Se escribe una vez al entrar |
-| `#habilidades-aviso` | `skills-panel` (`say`: subidas de nivel, ofertas, resultados) | `role="status"` `aria-live="polite"` | Se sobrescribe |
+Todos los avisos pasan por `apps/client/src/feed.ts` (bus único → historial y notificaciones) y los lee el anunciador (`#anuncio-alerta` con `role="alert"` y `#anuncio-educado` con `aria-live="polite"`, creados en `#partida`). La consola se monta en `#zona-consola`.
+
+| Antes | Ahora |
+|---|---|
+| `#aviso`, `#acciones`, `#presencia`, `#proyecto-aviso`, `#habilidades-aviso` | **Eliminados**; sus mensajes son eventos (`hud.notify/announceAction/announcePresence` y `say` ya no existen) |
+| `#conexion` | Se mantiene como estado en la barra (sin región viva); la pérdida de conexión emite una crítica con clave `conexion` que se resuelve al reconectar |
+| `#zona` | Sin región viva; el cambio de zona es un evento de mundo |
+| `#proyecto-novedades` | Texto de la pestaña Comunidad (sin región viva); además entra en el historial |
 
 ### Dependencias de comportamiento entre código y estructura
 

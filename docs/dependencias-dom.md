@@ -4,7 +4,7 @@
 
 Cada fila es un `id` de la página. «Código» son los archivos que lo buscan por `byId`/`getElementById`/`querySelector("#…")`; «ARIA» son las relaciones del HTML que lo apuntan (`for`, `aria-labelledby`, `aria-describedby`, `aria-controls`, `href="#…"`); «CSS» son las reglas de la hoja de la página que lo nombran. **Regla de movimiento:** un elemento se mueve entero, con su `id` y sus relaciones; ningún `id` se renombra.
 
-## index.html (71 ids)
+## index.html (67 ids)
 
 | id | Código | ARIA (quién lo apunta) | CSS |
 |---|---|---|---|
@@ -25,8 +25,6 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `conexion` | hud.ts | — | `#conexion` |
 | `salir` | main.ts | — | — |
 | `game` | main.ts, WorldScene.ts | — | `#game`, `#game canvas` |
-| `aviso` | hud.ts | — | `#aviso` |
-| `acciones` | hud.ts | — | — |
 | `volver` | hud.ts | — | — |
 | `objetivo` | — | — | — |
 | `conversacion` | — | — | — |
@@ -51,7 +49,6 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `construir` | project-panel.ts | — | — |
 | `construir-boton` | project-panel.ts | — | — |
 | `construir-ayuda` | project-panel.ts | — | — |
-| `proyecto-aviso` | project-panel.ts | — | `#proyecto-aviso` |
 | `panel-taller` | — | aria-controls | — |
 | `taller` | project-panel.ts | — | — |
 | `taller-titulo` | project-panel.ts | aria-labelledby | — |
@@ -60,7 +57,6 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `panel-habilidades` | — | aria-controls | — |
 | `habilidades-seccion` | skills-panel.ts | — | — |
 | `habilidades-titulo` | — | aria-labelledby | — |
-| `habilidades-aviso` | skills-panel.ts | — | — |
 | `habilidades-lista` | skills-panel.ts | — | `#proyecto-aportes, #proyecto-actividad, #misiones, #cadenas-juego, #habilidades-lista` |
 | `habilidades-ofertas` | skills-panel.ts | — | — |
 | `ensenar-titulo` | — | — | — |
@@ -78,7 +74,7 @@ Cada fila es un `id` de la página. «Código» son los archivos que lo buscan p
 | `proyecto-actividad` | project-panel.ts | — | `#proyecto-aportes, #proyecto-actividad, #misiones, #cadenas-juego, #habilidades-lista` |
 | `jugadores-titulo` | hud.ts | aria-labelledby | — |
 | `jugadores` | hud.ts | — | `#jugadores` |
-| `presencia` | hud.ts | — | — |
+| `zona-consola` | main.ts | — | — |
 
 ## panel.html (29 ids)
 
