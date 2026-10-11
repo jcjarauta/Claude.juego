@@ -55,7 +55,8 @@ test("TP-06: aportes desde el inventario y la comunidad; todos ven progreso, aut
 
     await collect(ana, 3);
     contribute(ana, "madera", 2);
-    await waitFor(() => progress(bea, "madera") === 2 && contributedBy(bea, "ana", "madera") === 2);
+    // Cada sesión recibe su propio parche: se espera también a que ana vea su inventario descontado.
+    await waitFor(() => progress(bea, "madera") === 2 && contributedBy(bea, "ana", "madera") === 2 && inv(ana, "madera") === 1);
     assert.equal(inv(ana, "madera"), 1);
     assert.equal(project(bea).recent.length, 1);
     assert.equal(project(bea).recent[0]!.name, "ana");
@@ -64,7 +65,7 @@ test("TP-06: aportes desde el inventario y la comunidad; todos ven progreso, aut
     ana.room.send(MESSAGE.transfer, { requestId: randomUUID(), resource: "madera", amount: 1, to: "community" });
     await waitFor(() => (bea.room.state.community.get("madera") ?? 0) === 1);
     contribute(bea, "madera", 1, "community");
-    await waitFor(() => progress(ana, "madera") === 3 && contributedBy(ana, "bea", "madera") === 1);
+    await waitFor(() => progress(ana, "madera") === 3 && contributedBy(ana, "bea", "madera") === 1 && ana.room.state.community.get("madera") === 0);
     assert.equal(ana.room.state.community.get("madera"), 0);
 
     // Recorte (Q153): faltan 1 y se aportan 2; el sobrante se queda en el inventario.

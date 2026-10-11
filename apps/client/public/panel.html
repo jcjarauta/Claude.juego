@@ -20,6 +20,9 @@
     table { border-collapse: collapse; width: 100%; min-width: 760px; }
     caption { text-align: left; font-weight: 600; padding: 4px 0; }
     th, td { text-align: left; vertical-align: top; padding: 6px; border-bottom: 1px solid var(--color-borde-suave); }
+    /* Archivo de definiciones (G1b): cuatro columnas cortas que caben en estrecho; la acción envuelve bajo el nombre en vez de desplazar */
+    #archivo-listas table { min-width: 0; table-layout: auto; }
+    #archivo-listas th, #archivo-listas td { overflow-wrap: anywhere; }
     td progress { width: 100%; min-width: 90px; accent-color: var(--color-acento); }
     td button { padding: 2px 8px; margin: 0 4px 4px 0; }
     .estado-aprobada { color: var(--color-exito); font-weight: 600; }

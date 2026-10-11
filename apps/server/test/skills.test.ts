@@ -116,7 +116,8 @@ test("TP-27: habilidades con niveles; práctica, concesión y enseñanza con ace
 
     // Practicar: cada receta de práctica sube un nivel (1 vez cada una) y se anuncia en el estado.
     send(ana, MESSAGE.craft, { recipeId: recipeNamed(luis, "Moler a mano") });
-    await waitFor(() => skillOf(luis, "ana", skillId) === 1);
+    // La sesión de ana recibe su propio parche aparte del de luis: se espera a verlo antes de aseverar.
+    await waitFor(() => skillOf(luis, "ana", skillId) === 1 && ana.me().crafts.get(levels[0]!.recipe) === 1);
     assert.equal(ana.me().crafts.get(levels[0]!.recipe), 1, "el progreso de práctica se sincroniza");
     send(ana, MESSAGE.craft, { recipeId: recipeNamed(luis, "Moler") });
     await waitFor(() => skillOf(luis, "ana", skillId) === 2);

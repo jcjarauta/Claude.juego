@@ -35,6 +35,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | G3c | Objetivo actual, marcadores y Guía: modelo del siguiente paso con estados y planificador de cadenas, zona C con objetivo elegido, marcadores y etiquetas del mapa, pestaña «Guía» con «Qué hay cerca» (RF-028, Q215–Q226) | G3b | Zona C, marcadores, Guía y modelo probado con servidor real — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 | G3d | Logros y reconocimiento cooperativo: modelo de logros verificables y catálogo versionado, pestaña «Logros», almacén local versionado, celebraciones desactivables y reconocimientos locales aparte (RF-029, Q227–Q236) | G3c | Logros derivados del estado, reconocimiento por papeles sin clasificaciones, celebraciones por preferencia y probado con servidor real — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 | G1 | Arreglos de diseño: límites de diseño editables con techos más altos y límites del planificador, escalas de niveles y archivo de definiciones con restaurar (RF-030, Q237–Q241) | G3d | Límites vigentes editables, escalas en desplegable y archivar sin borrar, probado con servidor real y con dos sesiones — **CERRADA** 2026-10-12 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
+| G1b | Mejoras de cierre de G1: preferencias de accesibilidad en el panel profesional, tablas del archivo en pantallas estrechas y pruebas de sala real estables (Q242) | G1 | El panel respeta y sigue en vivo el tamaño de texto, el contraste y el movimiento del juego; el archivo no obliga a desplazarse en estrecho; las pruebas esperan el parche propio de cada sesión — **CERRADA** 2026-10-12 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -103,7 +104,7 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba y fusión de G1 por la persona responsable; después, planificar la siguiente etapa por preguntas entre G2 (biblioteca y versiones), F2d (conversación y objetivos de equipo) y F2e (bots).
+**NEXT:** prueba y fusión de G1b por la persona responsable; después, planificar la siguiente etapa por preguntas entre G2 (biblioteca y versiones), F2d (conversación y objetivos de equipo) y F2e (bots).
 
 ## 8. Mejoras futuras anotadas (no planificadas)
 
