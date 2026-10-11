@@ -1,0 +1,234 @@
+{
+  "_nota": "Línea base de la pantalla del juego antes de G3b (puerta P0, 2026-10-11). Mundo de prueba: apps/server/test/fixtures/ui-world.json + scripts/ui-seed.ts; cuenta ana. Se compara con scripts/ui-smoke.js (capture/compare). Valores resumidos de la captura completa.",
+  "juego": {
+    "layout": {
+      "1280": {
+        "rejilla": "800px 413px",
+        "game": "x=16 w=800 h=381",
+        "proyecto": "x=836 w=413 h=1117",
+        "recursos": "y=1108",
+        "altoPagina": 1660,
+        "desbordeHorizontal": false
+      },
+      "570": {
+        "columnas": 1,
+        "enfocables": 19,
+        "controles": 27,
+        "ids": 61,
+        "idsVisibles": 41
+      }
+    },
+    "t1": {
+      "pestanas": 0,
+      "seccionesVisibles": [
+        "contenido",
+        "partida",
+        "proyecto",
+        "taller",
+        "habilidades-seccion"
+      ]
+    },
+    "t2": {
+      "controles": [
+        "a «Saltar al contenido»",
+        "button#salir «Salir de la cuenta»",
+        "select#proyecto-selector",
+        "a «Abrir el panel de proyectos»",
+        "button «Aportar 1 de madera desde tu inventario»",
+        "button «Aportar toda tu madera»",
+        "button «Aportar madera desde el almacén de la comunidad»",
+        "button «Aportar 1 de piedra desde tu inventario»",
+        "button «Aportar toda tu piedra»",
+        "button «Aportar piedra desde el almacén de la comunidad»",
+        "button#construir-boton «Construir: Taller» (oculto con el taller construido)",
+        "button «Fabricar: Herramienta»",
+        "button «Depositar 1 de madera»",
+        "button «Depositar todo de madera»",
+        "button «Depositar 1 de piedra»",
+        "button «Depositar todo de piedra»",
+        "button «Depositar 1 de fibra»",
+        "button «Depositar todo de fibra»",
+        "select#ensenar-opciones (oculto sin a quién enseñar)",
+        "button#ensenar-boton «Ofrecer enseñar»",
+        "button#volver «Volver a entrar» (oculto; manejador al perder la conexión)"
+      ],
+      "sinManejadorPropio": [
+        "button#volver",
+        "select#ensenar-opciones"
+      ],
+      "efectos": [
+        {
+          "accion": "depositar 1 de madera",
+          "antes": "inventario madera 3; almacén madera 3",
+          "despues": "inventario madera 2; almacén madera 4",
+          "aviso": "#acciones: Has depositado 1 de madera en la comunidad."
+        },
+        {
+          "accion": "depositar todo de piedra",
+          "antes": "inventario piedra 2; almacén piedra 2",
+          "despues": "inventario piedra 0; almacén piedra 4",
+          "aviso": "#acciones: Has depositado 2 de piedra en la comunidad."
+        },
+        {
+          "accion": "fabricar herramienta (junto al Taller)",
+          "antes": "almacén madera 4, piedra 4, herramienta 0",
+          "despues": "almacén madera 2, piedra 3, herramienta 1",
+          "aviso": "#proyecto-aviso: Se ha obtenido 1 herramienta. ¡Misión Primera herramienta completada por ana!"
+        }
+      ]
+    },
+    "t3": {
+      "ordenReal": [
+        "a «Saltar al contenido»",
+        "div#game",
+        "button#salir",
+        "select#proyecto-selector",
+        "a «Abrir el panel de proyectos»",
+        "6 botones de aportar",
+        "button «Fabricar: Herramienta»",
+        "6 botones de depositar",
+        "button#ensenar-boton",
+        "(vuelta al enlace de salto)"
+      ],
+      "pulsacionesRegistradas": 24,
+      "tabindexPositivo": []
+    },
+    "t4": {
+      "selectoresEstructurales": {
+        "[hidden]": 5,
+        "input[type=\"radio\"]": 2,
+        "input[type=\"checkbox\"]": 1,
+        "button[aria-disabled=\"true\"]": 9,
+        ".pestanas [role=\"tab\"]": 0,
+        ".pestanas [role=\"tab\"][aria-selected=\"true\"]": 0,
+        ".progreso-tarjeta progress": 0,
+        "fieldset label": 2,
+        "#edad-bloque label": 1,
+        ".juego > *": 2,
+        "#proyecto p": 12,
+        "#game": 1,
+        "#game canvas": 1,
+        "#zona": 1,
+        "#aviso": 1,
+        "#conexion": 1,
+        "#jugadores": 1,
+        "#proyecto": 1,
+        "#proyecto h2": 1,
+        ".tareas li": 2,
+        ".tareas progress": 2,
+        ".tarea-acciones button": 6,
+        "#proyecto-estado": 1,
+        "#proyecto-aviso": 1,
+        "#proyecto-aportes": 1,
+        "#proyecto-actividad": 1,
+        "#misiones": 1,
+        "#cadenas-juego": 1,
+        "#habilidades-lista": 1,
+        "#cadenas-juego li": 3,
+        ".recursos section": 2,
+        ".recursos table": 2,
+        ".recursos th": 13,
+        ".recursos td": 11,
+        ".recursos td button": 6
+      },
+      "estilosDeMuestra": {
+        "#game": "16px/400/block/mt0/pt0",
+        "#proyecto": "16px/400/block/mt0/pt8",
+        "#proyecto-titulo": "17.6px/700/block/mt4/pt0",
+        "#inventario": "16px/400/table-row-group",
+        "#comunidad": "16px/400/table-row-group",
+        "#jugadores": "16px/400/block",
+        "#zona": "16px/600/inline",
+        "#aviso": "16px/400/block/mt6",
+        "#taller": "16px/400/block",
+        "#habilidades-seccion": "16px/400/block",
+        ".recursos th": "16px/700/table-cell/pt3",
+        ".recursos td": "16px/400/table-cell/pt3",
+        ".tareas li": "16px/400/grid",
+        ".tareas progress": "16px/400/block",
+        ".selector select": "16px/400/block/pt4",
+        "fieldset label": "16px/400/block",
+        "h1": "20.8px/700/block",
+        "h2": "16px/700/block/mt12",
+        "h3": "15.2px/700/block/mt12"
+      }
+    }
+  },
+  "panel": {
+    "t1": {
+      "pestanas": [
+        "Lista",
+        "Tablero",
+        "Cronograma",
+        "Indicadores"
+      ],
+      "teclado": "ArrowRight/ArrowLeft cíclicos, Home y End; solo la pestaña activa tiene tabindex 0; exactamente un panel visible; ningún panel vacío",
+      "ids": 53,
+      "controles": 40
+    }
+  },
+  "marcoP2": {
+    "_nota": "Estado esperado tras la puerta P2 (2026-10-11). La línea base anterior sigue siendo la referencia previa al marco.",
+    "juego": {
+      "ids": 73,
+      "controles": 32,
+      "enfocablesEnOrden": [
+        "a «Saltar al contenido»",
+        "button#salir",
+        "div#game",
+        "6 botones de depositar",
+        "button#tab-proyecto",
+        "div#panel-proyecto",
+        "select#proyecto-selector",
+        "a «Abrir el panel de proyectos»",
+        "6 botones de aportar"
+      ],
+      "layout": {
+        "1280": {
+          "rejilla": "800px 428px",
+          "altoPagina": 900,
+          "zonas": {
+            "barra": "y=102",
+            "mundo": "x=16 y=166 w=800",
+            "recursos": "x=16 y=601",
+            "panel": "x=836 y=166 w=428 h=373"
+          }
+        },
+        "800": {
+          "columnas": 1,
+          "orden": [
+            "barra",
+            "mundo",
+            "recursos",
+            "panel"
+          ]
+        }
+      },
+      "t1": {
+        "pestanas": [
+          "Proyecto",
+          "Taller y recetas",
+          "Habilidades",
+          "Cadenas",
+          "Comunidad"
+        ],
+        "teclado": "flechas, Inicio y Fin cíclicos; un solo panel visible; ningún panel sin texto",
+        "recordada": "engremiat.pestana"
+      },
+      "t2": {
+        "efectos": "idénticos a la línea base (depositar, fabricar, misión) más enseñar entre dos sesiones: ofrecer → rechazar → ofrecer → aceptar; el nivel sube y la lista de jugadores muestra las habilidades"
+      },
+      "t4": {
+        "orfanos": [],
+        "cambiosDeCifras": {
+          "[hidden]": "5→11",
+          ".pestanas [role=\"tab\"]": "0→5",
+          ".pestanas [role=\"tab\"][aria-selected=\"true\"]": "0→1",
+          ".juego > *": "2→6",
+          "#proyecto p": "12→18",
+          "button[aria-disabled=\"true\"]": "9→11"
+        }
+      }
+    }
+  }
+}

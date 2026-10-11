@@ -14,14 +14,24 @@
     fieldset { border: 1px solid var(--color-borde); border-radius: 4px; padding: 6px 10px; display: grid; gap: 4px; }
     fieldset label, #edad-bloque label { font-weight: 400; }
     /* Interfaz híbrida (RF-010): mapa y proyecto a la vez en pantallas anchas; uno debajo del otro en estrechas. */
-    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(280px, 1fr); gap: 20px; align-items: start; }
-    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; } }
+    .juego { display: grid; grid-template-columns: minmax(0, 800px) minmax(300px, 1fr); grid-template-areas: "barra barra" "mundo panel" "recursos panel" "consola consola"; gap: 20px; align-items: start; }
+    .zona-barra { grid-area: barra; }
+    .zona-mundo { grid-area: mundo; }
+    .zona-recursos { grid-area: recursos; }
+    .zona-panel { grid-area: panel; }
+    .zona-consola { grid-area: consola; }
+    /* Con menos de 1100 px se apilan: barra, mundo, recursos y panel. */
+    @media (max-width: 1100px) { .juego { grid-template-columns: 1fr; grid-template-areas: "barra" "mundo" "recursos" "panel" "consola"; } }
     /* Sin min-width: 0 los hijos de la rejilla no encogen y el mapa fuerza desplazamiento horizontal. */
     .juego > * { min-width: 0; }
     #proyecto p { overflow-wrap: anywhere; }
     #game { border: 2px solid var(--color-borde-fuerte); max-width: 800px; }
     #game canvas { display: block; }
-    .hud { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
+    .hud { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+    .hud p { margin: 0; }
+    /* El panel contextual conserva su altura en pantallas anchas: el contenido de cada pestaña se desplaza dentro. */
+    @media (min-width: 1101px) { .zona-panel [role="tabpanel"] { max-height: 75vh; overflow-y: auto; } }
+    .zona-panel [role="tabpanel"] { padding-top: 8px; }
     #zona { font-weight: 600; }
     #aviso { color: var(--color-acento); min-height: 1.4em; }
     #conexion { color: var(--color-info); }
@@ -84,88 +94,126 @@
         <kbd>P</kbd> lleva al proyecto y <kbd>M</kbd> vuelve al mapa.
         Tu personaje es el círculo amarillo; los demás, azules. El número sobre cada recurso son sus unidades.</p>
       <div class="juego">
-        <div>
-          <div id="game" tabindex="0" aria-label="Mapa del mundo. Flechas o WASD para moverte, Espacio o E para recolectar, P para ir al proyecto."></div>
+        <!-- A. Barra superior: zona, posición, conexión y salida -->
+        <header class="zona-barra" aria-label="Barra superior">
           <div class="hud">
-            <p>Zona: <span id="zona" role="status" aria-live="polite">—</span></p>
+            <p>Zona: <span id="zona">—</span></p>
             <p id="posicion"></p>
-            <p id="conexion" role="status" aria-live="polite"></p>
+            <p id="conexion"></p>
+            <p><button id="ayuda-boton" type="button">Ayuda (?)</button></p>
+            <p><button id="accesibilidad-boton" type="button">Accesibilidad</button></p>
             <p><button id="salir" type="button">Salir de la cuenta</button></p>
           </div>
-          <p id="aviso" role="alert"></p>
-          <p id="acciones" class="ayuda" role="status" aria-live="polite"></p>
+        </header>
+
+        <!-- B. Mundo -->
+        <section class="zona-mundo" aria-label="Mundo">
+          <div id="game" tabindex="0" aria-label="Mapa del mundo. Flechas o WASD para moverte, Espacio o E para recolectar, P para ir al proyecto."></div>
           <button id="volver" type="button" hidden>Volver a entrar</button>
-        </div>
+        </section>
 
-        <section id="proyecto" aria-labelledby="proyecto-titulo">
-          <p class="selector"><label for="proyecto-selector">Ver proyecto</label>
-            <select id="proyecto-selector"></select></p>
-          <h2 id="proyecto-titulo" tabindex="-1">Proyecto</h2>
-          <p class="ayuda">Comunidad: <span id="proyecto-comunidad"></span></p>
-          <p id="proyecto-descripcion"></p>
-          <p class="ayuda"><a href="/panel" target="_blank" rel="noopener">Abrir el panel de proyectos</a> (lista de tareas, criterios, evidencias y revisión; en otra pestaña).</p>
-          <p>Estado: <span id="proyecto-estado"></span></p>
-          <p>Fecha objetivo: <span id="proyecto-fecha"></span></p>
-          <ul id="proyecto-tareas" class="tareas"></ul>
-          <div id="construir" hidden>
-            <button id="construir-boton" type="button">Construir el taller</button>
-            <p id="construir-ayuda" class="ayuda"></p>
+        <!-- C. Objetivo actual (reservada para G3c) y G. Conversación (reservada para F2d) -->
+        <section id="objetivo" class="zona-reservada" aria-label="Objetivo actual" hidden></section>
+        <section id="conversacion" class="zona-reservada" aria-label="Conversación" hidden></section>
+
+        <!-- F. Recursos: inventario propio y almacén de la comunidad -->
+        <section class="zona-recursos" aria-label="Recursos">
+          <div class="recursos">
+            <section aria-labelledby="inventario-titulo">
+              <h2 id="inventario-titulo">Tu inventario</h2>
+              <table>
+                <thead><tr><th scope="col">Recurso</th><th scope="col">Cantidad</th><th scope="col">Depositar en la comunidad</th></tr></thead>
+                <tbody id="inventario"></tbody>
+              </table>
+            </section>
+            <section aria-labelledby="comunidad-titulo">
+              <h2 id="comunidad-titulo">Almacén de la comunidad</h2>
+              <table>
+                <thead><tr><th scope="col">Recurso</th><th scope="col">Cantidad</th></tr></thead>
+                <tbody id="comunidad"></tbody>
+              </table>
+            </section>
           </div>
-          <p id="proyecto-aviso" role="status" aria-live="polite"></p>
-          <section id="taller" aria-labelledby="taller-titulo" hidden>
-            <h3 id="taller-titulo" tabindex="-1">Taller</h3>
-            <p id="taller-construido" class="ayuda"></p>
-            <div id="taller-recetas"></div>
-          </section>
-          <section aria-labelledby="cadenas-juego-titulo">
-            <h3 id="cadenas-juego-titulo">Cadenas de producción</h3>
-            <ul id="cadenas-juego" class="cadenas"></ul>
-          </section>
-          <section aria-labelledby="mision-titulo">
-            <h3 id="mision-titulo">Misiones</h3>
-            <ul id="misiones"></ul>
-          </section>
-          <h3>Novedades</h3>
-          <p id="proyecto-novedades" class="ayuda" role="status" aria-live="polite"></p>
-          <h3>Quién ha aportado</h3>
-          <ul id="proyecto-aportes"></ul>
-          <h3>Actividad reciente</h3>
-          <ol id="proyecto-actividad"></ol>
         </section>
-      </div>
 
-      <div class="recursos">
-        <section aria-labelledby="inventario-titulo">
-          <h2 id="inventario-titulo">Tu inventario</h2>
-          <table>
-            <thead><tr><th scope="col">Recurso</th><th scope="col">Cantidad</th><th scope="col">Depositar en la comunidad</th></tr></thead>
-            <tbody id="inventario"></tbody>
-          </table>
+        <!-- D. Panel contextual con pestañas -->
+        <section id="proyecto" class="zona-panel" aria-label="Panel">
+          <div role="tablist" aria-label="Secciones del panel" class="pestanas">
+            <button type="button" role="tab" id="tab-proyecto" aria-controls="panel-proyecto" aria-selected="true">Proyecto</button>
+            <button type="button" role="tab" id="tab-taller" aria-controls="panel-taller" aria-selected="false" tabindex="-1">Taller y recetas</button>
+            <button type="button" role="tab" id="tab-habilidades" aria-controls="panel-habilidades" aria-selected="false" tabindex="-1">Habilidades</button>
+            <button type="button" role="tab" id="tab-cadenas" aria-controls="panel-cadenas" aria-selected="false" tabindex="-1">Cadenas</button>
+            <button type="button" role="tab" id="tab-comunidad" aria-controls="panel-comunidad" aria-selected="false" tabindex="-1">Comunidad</button>
+          </div>
+
+          <div role="tabpanel" id="panel-proyecto" aria-labelledby="tab-proyecto" tabindex="0">
+            <p class="selector"><label for="proyecto-selector">Ver proyecto</label>
+              <select id="proyecto-selector"></select></p>
+            <h2 id="proyecto-titulo" tabindex="-1">Proyecto</h2>
+            <p class="ayuda">Comunidad: <span id="proyecto-comunidad"></span></p>
+            <p id="proyecto-descripcion"></p>
+            <p class="ayuda"><a href="/panel" target="_blank" rel="noopener">Abrir el panel de proyectos</a> (lista de tareas, criterios, evidencias y revisión; en otra pestaña).</p>
+            <p>Estado: <span id="proyecto-estado"></span></p>
+            <p>Fecha objetivo: <span id="proyecto-fecha"></span></p>
+            <ul id="proyecto-tareas" class="tareas"></ul>
+            <div id="construir" hidden>
+              <button id="construir-boton" type="button">Construir el taller</button>
+              <p id="construir-ayuda" class="ayuda"></p>
+            </div>
+          </div>
+
+          <div role="tabpanel" id="panel-taller" aria-labelledby="tab-taller" tabindex="0" hidden>
+            <p class="ayuda">Aquí aparecen el taller del proyecto elegido y sus recetas cuando el edificio está construido.</p>
+            <section id="taller" aria-labelledby="taller-titulo" hidden>
+              <h3 id="taller-titulo" tabindex="-1">Taller</h3>
+              <p id="taller-construido" class="ayuda"></p>
+              <div id="taller-recetas"></div>
+            </section>
+          </div>
+
+          <div role="tabpanel" id="panel-habilidades" aria-labelledby="tab-habilidades" tabindex="0" hidden>
+            <p class="ayuda">Tu nivel y tu progreso en cada habilidad, las ofertas de enseñanza que recibes y a quién puedes enseñar.</p>
+            <section id="habilidades-seccion" aria-labelledby="habilidades-titulo" hidden>
+              <h3 id="habilidades-titulo">Tus habilidades</h3>
+              <ul id="habilidades-lista"></ul>
+              <div id="habilidades-ofertas"></div>
+              <h3 id="ensenar-titulo">Enseñar</h3>
+              <div class="selector">
+                <label for="ensenar-opciones">Qué enseñar y a quién</label>
+                <select id="ensenar-opciones"></select>
+                <button id="ensenar-boton" type="button">Ofrecer enseñar</button>
+              </div>
+              <p id="ensenar-ayuda" class="ayuda"></p>
+            </section>
+          </div>
+
+          <div role="tabpanel" id="panel-cadenas" aria-labelledby="tab-cadenas" tabindex="0" hidden>
+            <section aria-labelledby="cadenas-juego-titulo">
+              <h3 id="cadenas-juego-titulo">Cadenas de producción</h3>
+              <p class="ayuda">Qué receta produce cada objeto, en qué edificio y con qué; lo que te falta ahora.</p>
+              <ul id="cadenas-juego" class="cadenas"></ul>
+            </section>
+          </div>
+
+          <div role="tabpanel" id="panel-comunidad" aria-labelledby="tab-comunidad" tabindex="0" hidden>
+            <section aria-labelledby="mision-titulo">
+              <h3 id="mision-titulo">Misiones</h3>
+              <ul id="misiones"></ul>
+            </section>
+            <h3>Novedades</h3>
+            <p id="proyecto-novedades" class="ayuda"></p>
+            <h3>Quién ha aportado</h3>
+            <ul id="proyecto-aportes"></ul>
+            <h3>Actividad reciente</h3>
+            <ol id="proyecto-actividad"></ol>
+            <h3 id="jugadores-titulo">Jugadores</h3>
+            <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
+          </div>
         </section>
-        <section aria-labelledby="comunidad-titulo">
-          <h2 id="comunidad-titulo">Almacén de la comunidad</h2>
-          <table>
-            <thead><tr><th scope="col">Recurso</th><th scope="col">Cantidad</th></tr></thead>
-            <tbody id="comunidad"></tbody>
-          </table>
-        </section>
+
+        <!-- E. Consola: Importantes e Historial (la crea main.ts) -->
+        <div id="zona-consola" class="zona-consola"></div>
       </div>
-      <section id="habilidades-seccion" aria-labelledby="habilidades-titulo" hidden>
-        <h2 id="habilidades-titulo">Tus habilidades</h2>
-        <p id="habilidades-aviso" class="ayuda" role="status" aria-live="polite"></p>
-        <ul id="habilidades-lista"></ul>
-        <div id="habilidades-ofertas"></div>
-        <h3 id="ensenar-titulo">Enseñar</h3>
-        <div class="selector">
-          <label for="ensenar-opciones">Qué enseñar y a quién</label>
-          <select id="ensenar-opciones"></select>
-          <button id="ensenar-boton" type="button">Ofrecer enseñar</button>
-        </div>
-        <p id="ensenar-ayuda" class="ayuda"></p>
-      </section>
-      <h2 id="jugadores-titulo">Jugadores</h2>
-      <ul id="jugadores" aria-labelledby="jugadores-titulo"></ul>
-      <p id="presencia" class="ayuda" role="status" aria-live="polite"></p>
     </section>
   </main>
   <script type="module" src="bundle.js"></script>

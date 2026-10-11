@@ -37,6 +37,9 @@
   --color-flecha: #9fb2c4;
   --color-texto-nodo: #c9d4de;
 
+  /* Velo detrás de los diálogos */
+  --color-velo: rgba(0, 0, 0, 0.7);
+
   /* Tipografía */
   --fuente: system-ui, sans-serif;
   --texto-base: 1rem;
@@ -59,4 +62,31 @@
   /* Tamaños mínimos de objetivo táctil/puntero (WCAG 2.2, criterio 2.5.8: 24×24 px como mínimo) */
   --objetivo-min: 24px;
   --objetivo-principal: 44px;
+}
+
+/*
+ * Tema de alto contraste (G3b, Q210): se activa con <html data-contraste="alto"> (preferencia de accesibilidad).
+ * Texto ≥ 7:1 y bordes de componentes ≥ 4,5:1; los pares se comprueban en scripts/a11y.ts.
+ */
+:root[data-contraste="alto"] {
+  --color-fondo: #000000;
+  --color-superficie: #0a0a0a;
+  --color-campo: #000000;
+  --color-boton: #1a1a1a;
+  --color-mapa: #0a0a0a;
+  --color-texto: #ffffff;
+  --color-texto-suave: #e6e6e6;
+  --color-texto-apagado: #cfcfcf;
+  --color-borde-suave: #8a8a8a;
+  --color-borde: #bdbdbd;
+  --color-borde-campo: #ffffff;
+  --color-borde-fuerte: #ffffff;
+  --color-acento: #ffe066;
+  --color-info: #a8e0ff;
+  --color-error: #ffb3a3;
+  --color-exito: #a6f2b4;
+  --color-nodo-recurso: #0d2b17;
+  --color-nodo-objeto: #2a2500;
+  --color-flecha: #d0d8e0;
+  --color-texto-nodo: #ffffff;
 }

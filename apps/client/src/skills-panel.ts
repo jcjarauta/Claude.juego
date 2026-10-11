@@ -1,3 +1,4 @@
+import type { Feed } from "./feed.ts";
 import {
   checkTeach, practiceProgress, skillLevelName,
   type Position, type SkillDef, type TeachOfferedMessage,
@@ -35,14 +36,13 @@ export interface SkillsActions {
   respond: (offerId: string, accept: boolean) => void;
 }
 
-export function createSkillsPanel(actions: SkillsActions) {
+export function createSkillsPanel(actions: SkillsActions, feed: Feed) {
   const section = byId("habilidades-seccion");
   const list = byId<HTMLUListElement>("habilidades-lista");
   const offersBox = byId("habilidades-ofertas");
   const teachSelect = byId<HTMLSelectElement>("ensenar-opciones");
   const teachButton = byId<HTMLButtonElement>("ensenar-boton");
   const teachHelp = byId("ensenar-ayuda");
-  const live = byId("habilidades-aviso");
   let listSignature = "";
   let offersSignature = "";
   let teachSignature = "";
@@ -52,11 +52,10 @@ export function createSkillsPanel(actions: SkillsActions) {
     if (teachButton.getAttribute("aria-disabled") === "true" || !teachSelect.value) return;
     const [skill, to] = teachSelect.value.split("|") as [string, string];
     actions.offer(to, skill);
-    live.textContent = `Oferta enviada a ${to}. Espera a que la acepte.`;
+    feed.emit({ kind: "oferta", importance: "normal", own: true, priority: 1, text: `Oferta enviada a ${to}. Espera a que la acepte.` });
   };
 
   return {
-    say(text: string) { live.textContent = text; },
     render({ skills, mine, crafts, recipeName, me, others, offers }: SkillsInput) {
       section.hidden = skills.length === 0;
       if (!skills.length) return;
@@ -65,7 +64,7 @@ export function createSkillsPanel(actions: SkillsActions) {
       const rows = skills.map((def) => {
         const level = mine(def.id);
         const before = lastLevels.get(def.id);
-        if (before !== undefined && level > before) live.textContent = `¡Has subido a ${skillLevelName(def, level)} en ${def.name}!`;
+        if (before !== undefined && level > before) feed.emit({ kind: "habilidad", importance: "relevante", own: true, key: `nivel:${def.id}`, text: `¡Has subido a ${skillLevelName(def, level)} en ${def.name}!` });
         lastLevels.set(def.id, level);
         const next = practiceProgress(def, level, crafts);
         const status = level > 0 ? `${skillLevelName(def, level)} (nivel ${level} de ${def.levels.length})` : "no la tienes todavía";
@@ -100,7 +99,6 @@ export function createSkillsPanel(actions: SkillsActions) {
           row.append(text, accept, " ", reject);
           return row;
         }));
-        if (live_offers.length) live.textContent = `${live_offers.at(-1)!.from} te ofrece enseñarte una habilidad.`;
       }
 
       // A quién puedes enseñar ahora: las mismas reglas que el servidor.

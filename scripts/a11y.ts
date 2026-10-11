@@ -9,8 +9,13 @@ const PUBLIC = new URL("../apps/client/public/", import.meta.url);
 const read = (name: string) => readFileSync(new URL(name, PUBLIC), "utf8");
 
 const tokens = read("tokens.css");
-const colors = new Map<string, string>();
-for (const m of tokens.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) colors.set(m[1]!, m[2]!);
+// El tema de alto contraste es el bloque `:root[data-contraste="alto"]`; el normal, todo lo anterior.
+const HIGH_MARK = ':root[data-contraste="alto"]';
+const normalCss = tokens.slice(0, tokens.indexOf(HIGH_MARK));
+const highCss = tokens.slice(tokens.indexOf(HIGH_MARK));
+const parseColors = (css: string) => new Map([...css.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)].map((m) => [m[1]!, m[2]!] as [string, string]));
+const normalColors = parseColors(normalCss);
+const highColors = new Map([...normalColors, ...parseColors(highCss)]); // el alto contraste hereda lo que no redefine
 const size = (name: string) => Number(new RegExp(`--${name}:\\s*(\\d+)px`).exec(tokens)?.[1] ?? 0);
 
 const channel = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
@@ -43,16 +48,20 @@ const PAIRS: [string, string, number, string][] = [
 let failures = 0;
 const fail = (msg: string) => { failures++; console.log(`  ERROR ${msg}`); };
 
-console.log("Pares de color (mínimo 4,5:1 texto, 3:1 componentes):");
 let lowest = Infinity;
-for (const [fg, bg, min, why] of PAIRS) {
-  const a = colors.get(`color-${fg}`), b = colors.get(`color-${bg}`);
-  if (!a || !b) { fail(`falta el token --color-${!a ? fg : bg}`); continue; }
-  const r = ratio(a, b);
-  lowest = Math.min(lowest, r / min);
-  const ok = r >= min;
-  console.log(`  ${ok ? "OK   " : "ERROR"} ${fg} sobre ${bg}: ${r.toFixed(2)}:1 (mín. ${min}) — ${why}`);
-  if (!ok) failures++;
+/** Tema normal: 4,5:1 texto y 3:1 componentes. Alto contraste: 7:1 texto y 4,5:1 componentes. */
+for (const [theme, colors, textMin, graphicMin] of [["normal", normalColors, TEXT, GRAPHIC], ["alto contraste", highColors, 7, 4.5]] as const) {
+  console.log(`Pares de color, tema ${theme} (mínimo ${textMin}:1 texto, ${graphicMin}:1 componentes):`);
+  for (const [fg, bg, min, why] of PAIRS) {
+    const need = min === TEXT ? textMin : graphicMin;
+    const a = colors.get(`color-${fg}`), b = colors.get(`color-${bg}`);
+    if (!a || !b) { fail(`falta el token --color-${!a ? fg : bg}`); continue; }
+    const r = ratio(a, b);
+    lowest = Math.min(lowest, r / need);
+    const ok = r >= need;
+    console.log(`  ${ok ? "OK   " : "ERROR"} ${fg} sobre ${bg}: ${r.toFixed(2)}:1 (mín. ${need}) — ${why}`);
+    if (!ok) failures++;
+  }
 }
 
 console.log("Tamaños de objetivo:");
@@ -82,5 +91,5 @@ for (const file of ["index.html", "panel.html", "estilo.html"]) {
   if (checks.every(([ok]) => ok)) console.log(`  OK    ${file}`);
 }
 
-console.log(failures ? `\nRESULTADO: ${failures} fallo(s)` : `\nRESULTADO: todo correcto (${PAIRS.length} pares; margen mínimo: ${lowest.toFixed(2)}× sobre el mínimo exigido)`);
+console.log(failures ? `\nRESULTADO: ${failures} fallo(s)` : `\nRESULTADO: todo correcto (${PAIRS.length} pares en dos temas; margen mínimo: ${lowest.toFixed(2)}× sobre el mínimo exigido)`);
 process.exit(failures ? 1 : 0);

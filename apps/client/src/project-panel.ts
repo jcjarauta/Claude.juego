@@ -1,3 +1,5 @@
+import type { Feed } from "./feed.ts";
+import type { GameEventInput } from "./ui/game-events.ts";
 import {
   blockedBy, daysBetween, isNextTo, isOverdue, isTaskDone, localDay, missionDefFromState,
   type ContributionSource, type MissionState, type NewsMessage, type Position, type ProjectDef, type ProjectState,
@@ -58,7 +60,7 @@ export interface PanelActions {
   craft: (recipeId: string) => void;
 }
 
-export function createProjectPanel(config: WorldConfig, project: ProjectDef, actions: PanelActions) {
+export function createProjectPanel(config: WorldConfig, project: ProjectDef, actions: PanelActions, feed: Feed) {
   const onContribute = actions.contribute;
   const buildBox = byId("construir");
   const buildButton = byId<HTMLButtonElement>("construir-boton");
@@ -85,7 +87,6 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
   const contributors = byId<HTMLUListElement>("proyecto-aportes");
   const activity = byId<HTMLOListElement>("proyecto-actividad");
   const news = byId("proyecto-novedades");
-  const announcer = byId("proyecto-aviso");
   byId("proyecto-comunidad").textContent = config.community.name;
   byId("proyecto-descripcion").textContent = project.description;
   heading.textContent = `Proyecto: ${project.name}`;
@@ -147,9 +148,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
 
     render({ state, held, community, ownName, structure, structureDef, recipes, itemName, building, chains, missions, projectName, position }: PanelInput) {
       const closed = state.phase === "cerrado";
-      // Avisos de este repintado: se leen juntos para que uno no tape a otro (aportes, misiones…).
-      const messages: string[] = [];
-      const say = (text: string) => { messages.push(text); };
+      // Los avisos van a la consola (G3b, P3): hitos del proyecto como relevantes (con clave, se fusionan) y la rutina como normal.
+      const say = (text: string, extra: Partial<GameEventInput> = {}) => { feed.emit({ kind: "aviso", importance: "normal", text, ...extra }); };
       for (const task of project.tasks) {
         const row = rows.get(task.id)!;
         const done = state.progress.get(task.resource) ?? 0;
@@ -171,7 +171,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         const label = st === "completada" && !state.requiresApproval ? "completa" : TASK_STATUS[st] ?? "pendiente";
         row.text.textContent = `${done}/${task.required} ${name} — ${label}${review}${extra ? ` · ${extra}` : ""}`;
         if (seenReviews && taskState?.decision && seenReviews.get(task.id) !== taskState.reviewedAt) {
-          say(`${task.title}: ${taskState.decision} por ${taskState.reviewedBy}.`);
+          say(`${task.title}: ${taskState.decision} por ${taskState.reviewedBy}.`, { kind: "aporte", importance: "relevante", own: true, key: `revision:${project.id}:${task.id}` });
         }
         for (const button of row.buttons) {
           const balance = button.dataset.from === "player" ? held(task.resource) : community(task.resource);
@@ -180,7 +180,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
           button.setAttribute("aria-disabled", String(available === 0));
         }
         if (remaining === 0 && !completed.has(task.id)) {
-          if (lastStatus) say(`Tarea completa: ${task.title}.`);
+          if (lastStatus) say(`Tarea completa: ${task.title}.`, { kind: "aporte", importance: "relevante", own: true, key: `tarea:${project.id}:${task.id}` });
           completed.add(task.id);
         }
       }
@@ -193,12 +193,12 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         status.textContent = built
           ? `Construido: ${structureDef.name} en pie.`
           : ready ? "Listo para construir: todas las tareas están completas." : "En curso.";
-        if (lastStatus && lastStatus !== state.status && ready) say(`¡Proyecto ${project.name} listo para construir!`);
+        if (lastStatus && lastStatus !== state.status && ready) say(`¡Proyecto ${project.name} listo para construir!`, { kind: "construccion", importance: "relevante", own: true, key: `listo:${project.id}` });
       } else {
         // Proyectos sin estructura (F1a, Q173): se completan con sus tareas (y aprobaciones, si se exigen).
         status.textContent = state.status === "completado" ? "Completado: todas las tareas están hechas."
           : state.status === "en-revision" ? "Tareas completas: falta la aprobación de la coordinación." : "En curso.";
-        if (lastStatus && lastStatus !== state.status && state.status === "completado") say(`¡Proyecto ${project.name} completado!`);
+        if (lastStatus && lastStatus !== state.status && state.status === "completado") say(`¡Proyecto ${project.name} completado!`, { kind: "construccion", importance: "relevante", own: true, key: `completado:${project.id}` });
       }
       if (closed) status.textContent = `Cerrado por ${state.closedBy}: ya no admite aportes. ${status.textContent}`;
       // Fecha objetivo (F1b): solo lectura; se replanifica desde el panel de proyectos.
@@ -222,9 +222,11 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
           : `Acércate al solar (contorno discontinuo en la aldea, casillas ${structureDef.x}–${structureDef.x + structureDef.width - 1}, ${structureDef.y}–${structureDef.y + structureDef.height - 1}).`;
       }
       if (lastBuilt === false && built) {
-        say(`¡${structure!.builtBy} ha construido el ${structureDef?.name.toLowerCase() ?? "edificio"}!`);
+        say(`¡${structure!.builtBy} ha construido el ${structureDef?.name.toLowerCase() ?? "edificio"}!`, { kind: "construccion", importance: "relevante", own: true, key: `construido:${project.id}` });
         // El botón de construir desaparece: si tenía el foco, pasa a la sección del taller.
         if (document.activeElement === buildButton || document.activeElement === document.body) {
+          // El botón de construir desaparece: el foco pasa al taller, que está en otra pestaña (la acción la ha pedido la persona).
+          document.dispatchEvent(new CustomEvent("mostrar-pestana", { detail: "taller" }));
           workshop.hidden = false;
           byId("taller-titulo").focus();
         }
@@ -274,7 +276,11 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
           for (const p of recipeProducts(recipe)) {
             const stock = community(p.item);
             const before = lastStock.get(p.item);
-            if (before !== undefined && stock > before) say(`Se ha obtenido ${stock - before} ${itemName(p.item)}.`);
+            if (before !== undefined && stock > before) {
+              // Si acabas de pulsar «Fabricar», es el resultado de tu acción (se anuncia); si no, es rutina de otra persona.
+              const mine = feed.recentOwn("fabricacion");
+              say(`Se ha obtenido ${stock - before} ${itemName(p.item)}.`, { kind: "fabricacion", importance: "normal", ...(mine ? { own: true, priority: 1 as const } : {}) });
+            }
             lastStock.set(p.item, stock);
           }
         }
@@ -303,7 +309,7 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
           ? `${def.name} (${goal}): completada por ${mission.completedBy} a las ${time(mission.completedAt)}. ¡Enhorabuena a toda la comunidad!`
           : `${def.name} (${goal}): pendiente. ${def.description}`;
         if (seenMissions.get(id) === "pendiente" && mission.status === "completada") {
-          say(`¡Misión ${def.name} completada por ${mission.completedBy}!`);
+          say(`¡Misión ${def.name} completada por ${mission.completedBy}!`, { kind: "mision", importance: "relevante", own: true, key: `mision:${id}` });
         }
         seenMissions.set(id, mission.status);
         return li;
@@ -329,7 +335,8 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
       if (seenRecent) {
         for (const c of recent.filter((c) => !seenRecent!.has(key(c)))) {
           const what = `${c.amount} de ${resourceName.get(c.resource) ?? c.resource}`;
-          say(c.name === ownName ? `Has aportado ${what} al proyecto.` : `${c.name} ha aportado ${what} al proyecto.`);
+          say(c.name === ownName ? `Has aportado ${what} al proyecto.` : `${c.name} ha aportado ${what} al proyecto.`,
+            { kind: "aporte", importance: "normal", ...(c.name === ownName ? { own: true, priority: 1 as const } : {}) });
         }
       }
       seenRecent = new Set(recent.map(key));
@@ -338,20 +345,16 @@ export function createProjectPanel(config: WorldConfig, project: ProjectDef, act
         li.textContent = `${time(c.at)} — ${c.name} aportó ${c.amount} de ${resourceName.get(c.resource) ?? c.resource}`;
         return li;
       }));
-      if (messages.length) announcer.textContent = messages.join(" ");
     },
 
     showNews(message: NewsMessage) {
-      if (message.since === null) {
-        news.textContent = "Es tu primera visita a este mundo.";
-        return;
-      }
-      if (message.items.length === 0) {
-        news.textContent = `Sin aportes de otros desde tu última visita (${time(message.since)}).`;
-        return;
-      }
-      const lines = message.items.map((n) => `${n.name} aportó ${n.amount} de ${resourceName.get(n.resource) ?? n.resource} (${time(n.at)})`);
-      news.textContent = `Desde tu última visita: ${lines.join("; ")}.`;
+      // El resumen queda como texto en la pestaña Comunidad y además entra en el historial como rutina.
+      let text: string;
+      if (message.since === null) text = "Es tu primera visita a este mundo.";
+      else if (message.items.length === 0) text = `Sin aportes de otros desde tu última visita (${time(message.since)}).`;
+      else text = `Desde tu última visita: ${message.items.map((n) => `${n.name} aportó ${n.amount} de ${resourceName.get(n.resource) ?? n.resource} (${time(n.at)})`).join("; ")}.`;
+      news.textContent = text;
+      feed.emit({ kind: "mundo", importance: "normal", text });
     },
   };
 }

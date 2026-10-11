@@ -1,3 +1,12 @@
+import { createLiveRegions, startAnnouncer } from "./ui/announcer.ts";
+import { createBadge } from "./ui/badge.ts";
+import { createConsole } from "./ui/console-log.ts";
+import { openDialog } from "./ui/dialog.ts";
+import { createEventLog } from "./ui/event-log-model.ts";
+import { createGameEvents } from "./ui/game-events.ts";
+import { createNotificationCenter } from "./ui/notification-center-model.ts";
+import { applyPreferences, createPreferencesForm } from "./ui/preferences.ts";
+import { DEFAULT_PREFERENCES, type Preferences } from "./ui/preferences-model.ts";
 import { dataTable } from "./ui/data-table.ts";
 import { el } from "./ui/dom.ts";
 import { dynamicList } from "./ui/dynamic-list.ts";
@@ -123,6 +132,75 @@ section("progreso", "Tarjeta de progreso", "Barra nativa <progress> con etiqueta
 // --- Tabla de datos ---
 section("tabla", "Tabla de datos", "<table> nativa con <caption> y cabeceras scope=col.",
   dataTable("Habilidades de las personas conectadas", ["Persona", "Habilidad", "Nivel"], [["Ana", "Molinero", "Maestro"], ["Bea", "Molinero", "Aprendiz"], ["Bea", "Panadero", "Oficial"]]));
+
+// --- Consola, notificaciones y anunciador (una única fuente de eventos) ---
+const bus = createGameEvents();
+const log = createEventLog();
+const center = createNotificationCenter();
+bus.subscribe((e) => log.add(e));
+bus.subscribe((e) => center.add(e));
+window.setInterval(() => center.tick(Date.now()), 1000);
+let offerCounter = 0;
+const demoConsole = createConsole({
+  log, center, idPrefix: "demo-consola",
+  onAction: (key, action) => {
+    // Rechazar u aceptar una oferta es una OPERACIÓN: aquí la simula el servidor respondiendo y RESOLVIENDO la notificación.
+    center.resolve(key);
+    bus.emit({ kind: "oferta", importance: "normal", own: true, text: action === "aceptar" ? "Has aceptado la oferta." : "Has rechazado la oferta." });
+  },
+});
+const emit = (label: string, run: () => void) => { const b = el("button", { type: "button" }, label); b.onclick = run; return b; };
+const toolbar = el("p", { className: "filas" },
+  emit("Recoger madera (normal)", () => bus.emit({ kind: "recoleccion", importance: "normal", own: true, text: "Has recogido 1 de madera", group: { key: "recoleccion:madera", amount: 1, text: (t) => `Has recogido ${t} de madera` } })),
+  emit("Aporte de otra persona (normal)", () => bus.emit({ kind: "aporte", importance: "normal", text: "Bea aportó 2 de piedra" })),
+  emit("Subir de nivel (relevante, 10 s)", () => bus.emit({ kind: "habilidad", importance: "relevante", own: true, key: "nivel", text: "¡Has subido a Oficial en Molinero!" })),
+  emit("Oferta de enseñanza (crítica)", () => { const n = ++offerCounter; bus.emit({ kind: "oferta", importance: "critica", own: true, key: `oferta:${n}`, text: `Bea te ofrece enseñarte Molinero (Aprendiz) [oferta ${n}]`, actions: [{ id: "aceptar", label: "Aceptar" }, { id: "rechazar", label: "Rechazar" }] }); }),
+  emit("Error (crítica, asertivo)", () => bus.emit({ kind: "error", importance: "critica", key: "error:permiso", text: "No tienes permiso para esa acción." })),
+  emit("Conexión perdida (crítica)", () => bus.emit({ kind: "conexion", importance: "critica", key: "conexion", text: "Conexión perdida, reconectando…" })),
+  emit("Conexión restablecida (resuelve el aviso)", () => { center.resolve("conexion"); bus.emit({ kind: "conexion", importance: "normal", own: true, text: "Reconectado." }); }),
+  emit("Enviar 250 eventos normales (tope del historial)", () => { for (let i = 1; i <= 250; i++) bus.emit({ kind: "aporte", importance: "normal", text: `Evento de rutina ${i}` }); }),
+);
+const echo = el("ul", { id: "anunciado", className: "ayuda" });
+const echoBox = el("div", {}, el("h3", {}, "Lo que se anunciaría (para ver las reglas sin lector de pantalla)"), echo);
+const regions = createLiveRegions(demo);
+const started = startAnnouncer(bus, {
+  alert: (t) => { regions.alert(t); echo.append(el("li", {}, `ASERTIVO: ${t}`)); },
+  polite: (t) => { regions.polite(t); echo.append(el("li", {}, `educado: ${t}`)); },
+}, "normales");
+const verbosity = el("select");
+for (const [v, l] of [["minimos", "Mínimos"], ["normales", "Normales"], ["completos", "Completos"]] as const) verbosity.append(el("option", { value: v, textContent: l }));
+verbosity.value = "normales";
+verbosity.onchange = () => started.setVerbosity(verbosity.value as "minimos" | "normales" | "completos");
+section("consola", "Consola, notificaciones y anunciador",
+  "Una única fuente de eventos con dos almacenes: Importantes (pendientes; «Descartar» solo oculta el aviso, las acciones son operaciones) e Historial (tope de 200, no vivo). El anunciador reparte los avisos por prioridad: P0 inmediato, P1 en cola sin perder nada, P2 mudo (o resumen con «Completos»). Prueba a pulsar varias veces «Subir de nivel» y «Oferta de enseñanza» seguidas, y a enviar los 250 eventos: la oferta sigue pendiente aunque el historial la haya expulsado.",
+  toolbar, field("Anuncios", verbosity, "Mínimos: solo errores y conexión. Normales: además lo que te concierne. Completos: además un resumen de la rutina cada 10 s."), demoConsole.element, echoBox);
+
+// --- Insignia ---
+const badge = createBadge();
+const badgeTab = el("button", { type: "button" }, "Habilidades ", badge.element);
+let novedades = 0;
+const sumarNovedad = el("button", { type: "button" }, "Nueva novedad");
+sumarNovedad.onclick = () => { badge.update(++novedades); announce(`Habilidades: ${novedades} novedades.`); };
+const limpiarNovedades = el("button", { type: "button" }, "Marcar como vistas");
+limpiarNovedades.onclick = () => { novedades = 0; badge.update(0); };
+section("insignia", "Insignia numérica", "Cuenta de novedades sobre una pestaña. El número visible lleva un texto oculto («2 novedades») para lectores de pantalla y nunca mueve el foco.",
+  el("p", {}, badgeTab, " ", sumarNovedad, " ", limpiarNovedades));
+
+// --- Diálogo ---
+const abrirDialogo = el("button", { type: "button" }, "Abrir un diálogo");
+abrirDialogo.onclick = () => openDialog({
+  title: "Diálogo de ejemplo",
+  content: el("p", {}, "Diálogo nativo (<dialog>): el foco queda dentro, Escape lo cierra y, al cerrar, el foco vuelve a este botón."),
+  onClose: () => announce("Diálogo cerrado."),
+});
+section("dialogo", "Diálogo modal", "Se abre con showModal(): atrapa el foco, se cierra con Escape o con «Cerrar» y devuelve el foco al control que lo abrió.", abrirDialogo);
+
+// --- Preferencias de accesibilidad (se aplican a esta página, sin guardarse) ---
+let current: Preferences = { ...DEFAULT_PREFERENCES };
+const restablecer = el("button", { type: "button" }, "Restablecer");
+const form = createPreferencesForm(current, (prefs) => { current = prefs; applyPreferences(prefs); started.setVerbosity(prefs.announcements); });
+restablecer.onclick = () => { current = { ...DEFAULT_PREFERENCES }; applyPreferences(current); form.replaceWith(createPreferencesForm(current, (prefs) => { applyPreferences(prefs); })); };
+section("preferencias", "Preferencias de accesibilidad", "Tamaño de texto, alto contraste, menos movimiento, anuncios, pestañas sugeridas y consola. Aquí se aplican solo a esta página y no se guardan; en el juego se guardarán en el navegador (G3b, puerta P4).", form, restablecer);
 
 // --- Atajos ---
 section("atajos", "Atajos de teclado globales", "Mismo método de entrada para el juego y la interfaz: todo se puede hacer con teclado.",

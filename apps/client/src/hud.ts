@@ -24,17 +24,13 @@ export interface ResourceRow {
 export function createHud(maxPlayers: number) {
   const zone = byId("zona");
   const position = byId("posicion");
-  const notice = byId("aviso");
   const connection = byId("conexion");
-  const presence = byId("presencia");
   const title = byId("jugadores-titulo");
   const list = byId<HTMLUListElement>("jugadores");
   const rejoin = byId<HTMLButtonElement>("volver");
-  const actions = byId("acciones");
   const inventory = byId<HTMLTableSectionElement>("inventario");
   const community = byId<HTMLTableSectionElement>("comunidad");
   const communityTitle = byId("comunidad-titulo");
-  let clearTimer: number | undefined;
 
   return {
     setZone(name: string) {
@@ -43,15 +39,7 @@ export function createHud(maxPlayers: number) {
     setPosition(name: string, x: number, y: number) {
       position.textContent = `${name} en la casilla ${x}, ${y}`;
     },
-    notify(text: string) {
-      notice.textContent = text;
-      window.clearTimeout(clearTimer);
-      clearTimer = window.setTimeout(() => { notice.textContent = ""; }, 2500);
-    },
-    /** Llegadas y salidas de otros jugadores (anuncio cortés). */
-    announcePresence(text: string) {
-      presence.textContent = text;
-    },
+    /** Estado de la conexión en la barra superior (los avisos van a la consola, no aquí). */
     setConnection(text: string) {
       connection.textContent = text;
     },
@@ -65,10 +53,6 @@ export function createHud(maxPlayers: number) {
           if (!p.connected) li.className = "desconectado";
           return li;
         }));
-    },
-    /** Resultado de las propias acciones (recolectar, depositar). */
-    announceAction(text: string) {
-      actions.textContent = text;
     },
     /**
      * Inventario propio con botones de depósito. Las filas se crean una vez y luego solo

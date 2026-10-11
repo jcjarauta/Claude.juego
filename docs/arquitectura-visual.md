@@ -25,17 +25,17 @@ Fijar las **reglas visuales y de comunicación** del juego y del panel profesion
 
 Se elige **HUD no diegético por zonas más capa espacial**: es un juego de gestión y cooperación con mucha información contextual.
 
-## 4. Zonas de la pantalla del juego (objetivo; se construyen en G3b–G3d)
+## 4. Zonas de la pantalla del juego (A, B, D, E y F construidas en G3b; C en G3c y G en F2d)
 
 | Zona | Tipo | Contenido | Hoy |
 |---|---|---|---|
-| A. Barra superior | Fija | Identidad, conexión, zona y posición, ayuda y accesibilidad (tamaño de texto, contraste, menos movimiento) | Texto de ayuda, zona y posición dispersos |
-| B. Mundo | Fija | Mapa + capa espacial de marcadores | Mapa (lienzo) |
-| C. Objetivo actual | Fija | Una tarea destacada con su progreso y «Mostrar en el mapa» | No existe |
-| D. Panel contextual | Variable | Pestañas: Proyecto · Taller y recetas · Habilidades · Cadenas · Comunidad | Una columna larga (panel P) |
-| E. Consola | Fija, plegable | Registro cronológico y filtrable, región `aria-live` educada | Varios avisos sueltos |
-| F. Barra de recursos | Fija | Inventario propio y almacén de la comunidad | Dos tablas al final de la página |
-| G. Conversación | Reservada | La Guía y el canal común (F2d) | No existe |
+| A. Barra superior | Fija | Identidad, conexión, zona y posición, ayuda y accesibilidad (tamaño de texto, contraste, menos movimiento) | **Construida (G3b):** `header.zona-barra` con zona, posición, conexión, Ayuda (?), Accesibilidad y Salir |
+| B. Mundo | Fija | Mapa + capa espacial de marcadores | **Construida (G3b):** `section.zona-mundo`, sin cambios de controles |
+| C. Objetivo actual | Fija | Una tarea destacada con su progreso y «Mostrar en el mapa» | Región `#objetivo` reservada y oculta (G3c) |
+| D. Panel contextual | Variable | Pestañas: Proyecto · Taller y recetas · Habilidades · Cadenas · Comunidad | **Construida (G3b):** `section#proyecto` con cinco pestañas, insignias y regla de actividad |
+| E. Consola | Fija, plegable | Registro cronológico y filtrable, región `aria-live` educada | **Construida (G3b):** `#zona-consola` con Importantes e Historial, plegable; anunciador con dos regiones ocultas |
+| F. Barra de recursos | Fija | Inventario propio y almacén de la comunidad | **Construida (G3b):** `section.zona-recursos` bajo el mapa |
+| G. Conversación | Reservada | La Guía y el canal común (F2d) | Región `#conversacion` reservada y oculta |
 
 El **panel profesional** (`/panel`) adopta el mismo marco con navegación lateral por áreas (Proyectos, Biblioteca, Cadenas, Habilidades, Ajustes de diseño).
 

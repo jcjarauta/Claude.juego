@@ -1,5 +1,6 @@
 import { chainsFromState } from "./views/cadenas.ts";
 import { createSkillsPanel, type SkillsPanel } from "./skills-panel.ts";
+import type { Feed } from "./feed.ts";
 import * as Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
@@ -19,6 +20,8 @@ export interface WorldSceneData {
   room: WorldRoom;
   config: WorldConfig;
   hud: Hud;
+  /** Fuente única de eventos: la consola, las notificaciones y el anunciador cuelgan de ella (G3b). */
+  feed: Feed;
 }
 
 interface PlayerView {
@@ -52,9 +55,14 @@ const hex = (color: string) => Number.parseInt(color.slice(1), 16);
 
 const isTextInput = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
-/** Controles donde las flechas y las letras tienen su propio uso (lista desplegable, texto): no mueven al personaje. */
+/**
+ * Controles donde las flechas y las letras tienen su propio uso (lista desplegable, texto, pestañas, regiones
+ * con desplazamiento, diálogos): no mueven al personaje (KEY-01).
+ */
 const isEditable = (target: EventTarget | null) =>
-  target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+  target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
+  || (target instanceof HTMLElement && (target.isContentEditable || target.closest('[role="tab"], [role="tablist"], [role="tabpanel"], [role="log"], dialog') !== null
+    && !target.closest("button:not([role=\"tab\"])")));
 
 const isFormControl = (target: EventTarget | null) =>
   target instanceof HTMLButtonElement || isEditable(target);
@@ -79,6 +87,8 @@ export class WorldScene extends Phaser.Scene {
   private projectPanel: ProjectPanel | undefined;
   /** Panel de habilidades (F2c) y ofertas de enseñanza recibidas. */
   private skillsPanel!: SkillsPanel;
+  private feed!: Feed;
+  private lastZone: string | undefined;
   private offers: TeachOfferedMessage[] = [];
   /** Proyecto que se ve en el panel (F1a: hay varios; por defecto, el primero de la configuración). */
   private selectedProject: string | undefined;
@@ -100,6 +110,7 @@ export class WorldScene extends Phaser.Scene {
     this.room = data.room;
     this.config = data.config;
     this.hud = data.hud;
+    this.feed = data.feed;
     this.index = createWorldIndex(data.config);
     this.tile = data.config.map.tileSize;
   }
@@ -116,7 +127,7 @@ export class WorldScene extends Phaser.Scene {
       view?.body.destroy();
       view?.label.destroy();
       this.views.delete(sessionId);
-      if (this.announcing && sessionId !== this.room.sessionId) this.hud.announcePresence(`${player.name} ha salido del mundo.`);
+      if (this.announcing && sessionId !== this.room.sessionId) this.feed.emit({ kind: "mundo", importance: "normal", text: `${player.name} ha salido del mundo.` });
       this.refreshPlayerList();
     });
 
@@ -137,24 +148,50 @@ export class WorldScene extends Phaser.Scene {
     this.room.onStateChange(() => this.refreshResources());
     this.refreshResources();
 
+    // Rechazos del servidor: prioridad 0 (se anuncian al momento, sin repetirse) y quedan unos segundos en «Importantes».
     this.room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
-      if (reason !== "movimiento-demasiado-rapido") this.hud.notify([REJECT_TEXT[reason], ...(details ?? [])].join(" "));
+      if (reason === "movimiento-demasiado-rapido") return;
+      this.feed.emit({ kind: "error", importance: "relevante", priority: 0, own: true, key: `error:${reason}`, text: [REJECT_TEXT[reason], ...(details ?? [])].join(" ") });
+    });
+    // Las acciones de las notificaciones (aceptar o rechazar una oferta) son operaciones del juego: se envían al servidor.
+    this.feed.setActionHandler((key, action) => {
+      if (key.startsWith("oferta:")) this.room.send(MESSAGE.teachRespond, { requestId: newRequestId(), offerId: key.slice("oferta:".length), accept: action === "aceptar" } satisfies TeachRespondMessage);
     });
 
     // Habilidades (F2c): ofertas de enseñanza recibidas y su desenlace.
     this.skillsPanel = createSkillsPanel({
       offer: (to, skill) => this.room.send(MESSAGE.teachOffer, { requestId: newRequestId(), to, skill } satisfies TeachOfferMessage),
       respond: (offerId, accept) => this.room.send(MESSAGE.teachRespond, { requestId: newRequestId(), offerId, accept } satisfies TeachRespondMessage),
+    }, this.feed);
+    this.room.onMessage(MESSAGE.teachOffered, (offer: TeachOfferedMessage) => {
+      this.offers.push(offer);
+      const def = this.room.state.skills.get(offer.skill);
+      const levelName = def?.levels[offer.level - 1]?.name ?? `nivel ${offer.level}`;
+      // Crítica y pendiente hasta que se resuelva (aceptada, rechazada, caducada o anulada); descartar el aviso no la rechaza.
+      this.feed.emit({
+        kind: "oferta", importance: "critica", own: true, key: `oferta:${offer.offerId}`,
+        text: `${offer.from} te ofrece enseñarte ${def?.name ?? offer.skill} (${levelName}).`,
+        actions: [{ id: "aceptar", label: "Aceptar" }, { id: "rechazar", label: "Rechazar" }],
+      });
+      // Una oferta no cambia de pestaña por sí sola: insignia en «Habilidades» y sugerencia en Importantes (regla de actividad).
+      document.dispatchEvent(new CustomEvent("sugerir-pestana", { detail: { tab: "habilidades", key: offer.offerId, text: `Tienes una oferta de enseñanza de ${offer.from}.` } }));
+      this.refreshResources();
     });
-    this.room.onMessage(MESSAGE.teachOffered, (offer: TeachOfferedMessage) => { this.offers.push(offer); this.refreshResources(); });
     this.room.onMessage(MESSAGE.teachResult, (result: TeachResultMessage) => {
       this.offers = this.offers.filter((o) => o.offerId !== result.offerId);
+      // La oferta terminó (aceptada, rechazada, caducada o anulada): su sugerencia de pestaña y su insignia ya no valen (UX-03).
+      document.dispatchEvent(new CustomEvent("sugerencia-resuelta", { detail: result.offerId }));
       const own = result.to === this.room.state.players.get(this.room.sessionId)?.name;
       const skill = this.room.state.skills.get(result.skill)?.name ?? result.skill;
       const who = own ? result.from : result.to;
-      this.skillsPanel.say(result.status === "aceptada" ? (own ? `Has aprendido ${skill}.` : `${who} ha aceptado y ha aprendido ${skill}.`)
-        : result.status === "rechazada" ? (own ? "Has rechazado la oferta." : `${who} ha rechazado tu oferta de ${skill}.`)
-          : result.status === "caducada" ? "La oferta ha caducado." : "La oferta se ha anulado.");
+      // El resultado de la operación RESUELVE la notificación (no es lo mismo que descartar el aviso).
+      this.feed.resolve(`oferta:${result.offerId}`);
+      this.feed.emit({
+        kind: "oferta", importance: "normal", own: true, priority: 1,
+        text: result.status === "aceptada" ? (own ? `Has aprendido ${skill}.` : `${who} ha aceptado y ha aprendido ${skill}.`)
+          : result.status === "rechazada" ? (own ? "Has rechazado la oferta." : `${who} ha rechazado tu oferta de ${skill}.`)
+            : result.status === "caducada" ? "La oferta ha caducado." : "La oferta se ha anulado.",
+      });
       this.refreshResources();
     });
 
@@ -177,9 +214,15 @@ export class WorldScene extends Phaser.Scene {
         event.preventDefault();
         if (!event.repeat) this.sendCollect();
       }
+      // Ayuda (?) y consola (C): no actúan con el foco en campos, pestañas, registros ni diálogos.
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target) && !document.querySelector("dialog[open]")) {
+        if (event.key === "?") { event.preventDefault(); document.dispatchEvent(new CustomEvent("mostrar-ayuda")); }
+        if (event.code === "KeyC") { event.preventDefault(); document.dispatchEvent(new CustomEvent("enfocar-consola")); }
+      }
       // Cambio de vista (RF-010): P al proyecto, M al mapa; el juego sigue y nada se pierde.
       if (event.code === "KeyP" && !isTextInput(event.target)) {
         event.preventDefault();
+        document.dispatchEvent(new CustomEvent("mostrar-pestana", { detail: "proyecto" }));
         this.projectPanel?.focus();
       }
       if (event.code === "KeyM" && !isTextInput(event.target)) {
@@ -278,14 +321,14 @@ export class WorldScene extends Phaser.Scene {
   private panelActions: PanelActions = {
     contribute: (projectId, taskId, from, amount) => this.contribute(projectId, taskId, from, amount),
     build: (structureId) => this.room.send(MESSAGE.build, { requestId: newRequestId(), structureId } satisfies BuildMessage),
-    craft: (recipeId) => this.room.send(MESSAGE.craft, { requestId: newRequestId(), recipeId } satisfies CraftMessage),
+    craft: (recipeId) => { this.feed.markOwn("fabricacion"); this.room.send(MESSAGE.craft, { requestId: newRequestId(), recipeId } satisfies CraftMessage); },
   };
 
   /** Crea el panel del proyecto elegido a partir de su definición en el estado. */
   private openProjectPanel() {
     const id = this.selectedProject;
     const projectState = id ? this.room.state.projects.get(id) : undefined;
-    this.projectPanel = id && projectState ? createProjectPanel(this.config, projectDefFromState(id, projectState), this.panelActions) : undefined;
+    this.projectPanel = id && projectState ? createProjectPanel(this.config, projectDefFromState(id, projectState), this.panelActions, this.feed) : undefined;
   }
 
   /** Opciones del selector: proyectos abiertos y cerrados, en orden de creación. */
@@ -323,9 +366,18 @@ export class WorldScene extends Phaser.Scene {
       const now = me.inventory.get(r.id) ?? 0;
       const before = this.lastInventory.get(r.id);
       if (before !== undefined && now > before) {
-        this.hud.announceAction(`Has recogido ${now - before} de ${names.get(r.id)} (${now}/${this.config.inventoryMax}).`);
+        const label = names.get(r.id) ?? r.id;
+        // Resultado de tu acción: se anuncia (prioridad 1) agrupando las recogidas seguidas («Has recogido 3 de madera»).
+        this.feed.emit({
+          kind: "recoleccion", importance: "normal", own: true, priority: 1, text: `Has recogido ${now - before} de ${label} (${now}/${this.config.inventoryMax}).`,
+          group: { key: `recoleccion:${r.id}`, amount: now - before, text: (total) => `Has recogido ${total} de ${label}` },
+        });
       } else if (before !== undefined && now < before && this.lastOwnAction === "deposit") {
-        this.hud.announceAction(`Has depositado ${before - now} de ${names.get(r.id)} en la comunidad.`);
+        const label = names.get(r.id) ?? r.id;
+        this.feed.emit({
+          kind: "deposito", importance: "normal", own: true, priority: 1, text: `Has depositado ${before - now} de ${label} en la comunidad.`,
+          group: { key: `deposito:${r.id}`, amount: before - now, text: (total) => `Has depositado ${total} de ${label} en la comunidad` },
+        });
       }
       // Los aportes al proyecto los anuncia el panel del proyecto.
       this.lastInventory.set(r.id, now);
@@ -445,7 +497,7 @@ export class WorldScene extends Phaser.Scene {
     };
     label.setY(placeLabel(player.y));
     this.views.set(sessionId, { body, label });
-    if (this.announcing && !own) this.hud.announcePresence(`${player.name} se ha unido al mundo.`);
+    if (this.announcing && !own) this.feed.emit({ kind: "mundo", importance: "normal", text: `${player.name} se ha unido al mundo.` });
     let wasConnected = player.connected;
 
     const render = () => {
@@ -458,11 +510,14 @@ export class WorldScene extends Phaser.Scene {
       label.setAlpha(player.connected ? 1 : 0.6);
       if (player.connected !== wasConnected) {
         wasConnected = player.connected;
-        if (!own) this.hud.announcePresence(`${player.name} ${player.connected ? "ha vuelto" : "ha perdido la conexión"}.`);
+        if (!own) this.feed.emit({ kind: "mundo", importance: "normal", text: `${player.name} ${player.connected ? "ha vuelto" : "ha perdido la conexión"}.` });
         this.refreshPlayerList();
       }
       if (own) {
-        this.hud.setZone(this.index.zoneNameAt(player.x, player.y));
+        const zone = this.index.zoneNameAt(player.x, player.y);
+        this.hud.setZone(zone);
+        if (this.lastZone !== undefined && zone !== this.lastZone) this.feed.emit({ kind: "mundo", importance: "normal", own: true, priority: 1, text: `Entras en la zona ${zone}.` });
+        this.lastZone = zone;
         this.hud.setPosition(player.name, player.x, player.y);
       }
     };

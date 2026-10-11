@@ -1,0 +1,157 @@
+{
+  "map": {
+    "width": 14,
+    "height": 9,
+    "tileSize": 32,
+    "defaultZoneName": "Pradera",
+    "defaultColor": "#3a4a3f"
+  },
+  "spawn": {
+    "x": 2,
+    "y": 2
+  },
+  "moveCooldownMs": 100,
+  "collectCooldownMs": 100,
+  "inventoryMax": 20,
+  "regenIntervalMs": 1000,
+  "session": {
+    "reconnectSeconds": 5
+  },
+  "community": {
+    "id": "aldea",
+    "name": "Comunidad de prueba"
+  },
+  "admins": [
+    "coordinacion"
+  ],
+  "projects": [
+    {
+      "id": "construir-taller",
+      "name": "Construir taller",
+      "description": "Proyecto de prueba de la interfaz.",
+      "tasks": [
+        {
+          "id": "madera",
+          "title": "Aportar madera",
+          "resource": "madera",
+          "required": 4
+        },
+        {
+          "id": "piedra",
+          "title": "Aportar piedra",
+          "resource": "piedra",
+          "required": 2
+        }
+      ],
+      "coordinators": [
+        "coordinacion"
+      ]
+    }
+  ],
+  "structures": [
+    {
+      "id": "taller",
+      "name": "Taller",
+      "projectId": "construir-taller",
+      "x": 8,
+      "y": 4,
+      "width": 2,
+      "height": 2,
+      "color": "#a0522d"
+    }
+  ],
+  "items": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "herramienta",
+      "name": "Herramienta",
+      "structureId": "taller",
+      "inputs": {
+        "madera": 2,
+        "piedra": 1
+      },
+      "output": {
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
+  "missions": [
+    {
+      "id": "primera-herramienta",
+      "name": "Primera herramienta",
+      "description": "Fabricad una herramienta.",
+      "objective": {
+        "kind": "item-in-community",
+        "item": "herramienta",
+        "amount": 1
+      }
+    }
+  ],
+  "resources": [
+    {
+      "id": "madera",
+      "name": "Madera",
+      "color": "#8d5a2b",
+      "shape": "triangle"
+    },
+    {
+      "id": "piedra",
+      "name": "Piedra",
+      "color": "#9aa0a6",
+      "shape": "square"
+    },
+    {
+      "id": "fibra",
+      "name": "Fibra",
+      "color": "#c9d46a",
+      "shape": "diamond"
+    }
+  ],
+  "zones": [
+    {
+      "id": "bosque",
+      "name": "Bosque",
+      "x": 0,
+      "y": 0,
+      "width": 7,
+      "height": 5,
+      "color": "#1f4d2b"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "arbol-1",
+      "resource": "madera",
+      "x": 4,
+      "y": 2,
+      "max": 30
+    },
+    {
+      "id": "arbol-2",
+      "resource": "madera",
+      "x": 4,
+      "y": 3,
+      "max": 30
+    },
+    {
+      "id": "roca-1",
+      "resource": "piedra",
+      "x": 5,
+      "y": 2,
+      "max": 30
+    },
+    {
+      "id": "fibra-1",
+      "resource": "fibra",
+      "x": 5,
+      "y": 3,
+      "max": 30
+    }
+  ]
+}
