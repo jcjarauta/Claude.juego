@@ -179,6 +179,8 @@ export class WorldScene extends Phaser.Scene {
     });
     this.room.onMessage(MESSAGE.teachResult, (result: TeachResultMessage) => {
       this.offers = this.offers.filter((o) => o.offerId !== result.offerId);
+      // La oferta terminó (aceptada, rechazada, caducada o anulada): su sugerencia de pestaña y su insignia ya no valen (UX-03).
+      document.dispatchEvent(new CustomEvent("sugerencia-resuelta", { detail: result.offerId }));
       const own = result.to === this.room.state.players.get(this.room.sessionId)?.name;
       const skill = this.room.state.skills.get(result.skill)?.name ?? result.skill;
       const who = own ? result.from : result.to;

@@ -93,6 +93,17 @@ export function setupFrame(options: { feed: Feed; console: GameConsole; announce
     });
   });
 
+  // La operación que motivó la sugerencia terminó: se retira la sugerencia y se descuenta la insignia.
+  document.addEventListener("sugerencia-resuelta", (event) => {
+    const key = (event as CustomEvent<string>).detail;
+    for (const [name, keys] of pending) {
+      if (!keys.delete(key)) continue;
+      feed.resolve(`sugerencia:${key}`);
+      badges.get(name)?.update(keys.size);
+      if (keys.size === 0) pending.delete(name);
+    }
+  });
+
   /** Acciones propias del marco en las notificaciones; devuelve true si la ha atendido. */
   const handleAction = (key: string, action: string): boolean => {
     if (!key.startsWith("sugerencia:") || action !== "abrir") return false;

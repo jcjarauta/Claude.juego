@@ -76,7 +76,11 @@ export function createConsole(options: ConsoleOptions) {
     const active = document.activeElement as HTMLElement | null;
     const mark = active && element.contains(active) ? active.dataset.foco : undefined;
     render();
-    if (mark) element.querySelector<HTMLElement>(`[data-foco="${CSS.escape(mark)}"]`)?.focus();
+    if (!mark) return;
+    // Si el control ya no existe (la notificación se resolvió), el foco pasa a otra acción pendiente o al botón de la consola: nunca se pierde.
+    const target = element.querySelector<HTMLElement>(`[data-foco="${CSS.escape(mark)}"]`)
+      ?? element.querySelector<HTMLElement>("[data-foco]") ?? toggle;
+    target.focus();
   }
 
   function notificationItem(n: Notification): HTMLLIElement {
