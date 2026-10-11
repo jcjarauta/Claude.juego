@@ -32,6 +32,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | F2c | Habilidades: niveles que se practican, se conceden o se enseñan; recetas que las exigen (RF-026) | F2b | Una habilidad creada en el panel se gana por las tres vías y abre una receta que la exige, y persiste — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 | G3a | Fundamentos visuales y de accesibilidad: documento de arquitectura visual, tokens de diseño, componentes reutilizables accesibles, guía de estilo `/estilo`, `npm.cmd run a11y` (Q200–Q205) | F2c | Pantallas actuales con los mismos tokens, componentes en `ui/` y comprobación automática de contraste — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; probada por la persona responsable) |
 | G3b | Marco de pantalla del juego: zonas, panel con pestañas, fuente única de eventos con consola (Importantes e Historial), anunciador con prioridades, preferencias de accesibilidad y regla de actividad (RF-027, Q206–Q214) | G3a | Pantalla del juego en zonas con los mismos ids, avisos unificados y pruebas T1–T4 con dos sesiones — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
+| G3c | Objetivo actual, marcadores y Guía: modelo del siguiente paso con estados y planificador de cadenas, zona C con objetivo elegido, marcadores y etiquetas del mapa, pestaña «Guía» con «Qué hay cerca» (RF-028, Q215–Q226) | G3b | Zona C, marcadores, Guía y modelo probado con servidor real — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -100,4 +101,4 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba y fusión de G3b por la persona responsable; después, plan de G3c (próximo paso, objetivo actual y marcadores) por preguntas. Quedan planteadas G3d (gamificación), G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación) y F2e (bots).
+**NEXT:** prueba y fusión de G3c por la persona responsable; después, valorar las mejoras listadas en `docs/pruebas.md` (G3c, «Valoración de mejoras») y planificar G3d (gamificación) por preguntas. Quedan planteadas G1 (arreglos de diseño), G2 (biblioteca y versiones), F2d (conversación) y F2e (bots).
