@@ -151,3 +151,10 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Archivar y restaurar usan un `<dialog>` nativo (foco devuelto al abrir y, si el botón desaparece al archivar, a `archivo-mostrar`). Los motivos del servidor (`definicion-en-uso`) se listan junto a la sección. Un participante no ve ninguna de las dos secciones.
 - Guion de humo: `await s.g1()` de `scripts/ui-smoke.js` (14 comprobaciones del panel de diseño, en `/panel` con administración).
 
+### Navegación lateral y Biblioteca (puerta P2 de G2)
+
+- El cuerpo de `section#panel` ya no apila los bloques: tras el aviso y el rechazo hay `div#secciones-anfitrion` con `div.layout` = `nav#secciones` (`aria-label="Secciones"`, lista de enlaces `a[href="#id"]` con `aria-current="page"` en el activo) + `div.secciones`, que contiene **una sección visible a la vez** (las demás con `hidden`): `div#seccion-proyectos` (`#vistas` y las cuatro `role="tabpanel"` de las vistas de gestión, que no cambian), `section#biblioteca` (solo administración), `section.admin` («Crear», solo administración), `section#diseno` (límites y archivo; solo administración) y `div#seccion-cadenas` (cadenas y habilidades).
+- Los ids de las vistas (`vistas`, `vista-lista`, `vista-tablero`…) y los de las pestañas **no cambian**: solo se mueven de sitio. `admin-titulo` ahora dice «Crear».
+- `#hash` = id de la sección (`proyectos`, `biblioteca`, `crear`, `diseno`, `cadenas`); uno desconocido o no disponible cae en `proyectos`. Al cambiar de sección el foco va a su primer `h2` (`tabindex="-1"`).
+- Biblioteca: `div#biblioteca-listas` con una `dataTable` por tipo (`caption`, `th scope="col"`); el botón «Historial» de cada fila lleva `aria-label` («Historial de receta «X»») y abre un diálogo con la tabla de versiones.
+- CSS en `panel.html`: `.layout`, `#secciones` y `.secciones`; a menos de 900 px una sola columna con la navegación en fila; `#biblioteca-listas table` sin ancho mínimo.

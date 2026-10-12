@@ -21,8 +21,8 @@
     caption { text-align: left; font-weight: 600; padding: 4px 0; }
     th, td { text-align: left; vertical-align: top; padding: 6px; border-bottom: 1px solid var(--color-borde-suave); }
     /* Archivo de definiciones (G1b): cuatro columnas cortas que caben en estrecho; la acción envuelve bajo el nombre en vez de desplazar */
-    #archivo-listas table { min-width: 0; table-layout: auto; }
-    #archivo-listas th, #archivo-listas td { overflow-wrap: anywhere; }
+    #archivo-listas table, #biblioteca-listas table { min-width: 0; table-layout: auto; }
+    #archivo-listas th, #archivo-listas td, #biblioteca-listas th, #biblioteca-listas td { overflow-wrap: anywhere; }
     td progress { width: 100%; min-width: 90px; accent-color: var(--color-acento); }
     td button { padding: 2px 8px; margin: 0 4px 4px 0; }
     .estado-aprobada { color: var(--color-exito); font-weight: 600; }
@@ -32,7 +32,9 @@
     .actividad, .misiones { margin: 0; padding-left: 20px; }
     .misiones li { margin: 4px 0; }
     .admin { border: 1px solid var(--color-borde); border-radius: 6px; padding: 8px 14px 12px; background: var(--color-superficie); margin: 12px 0; }
-    .admin form { max-width: 640px; }
+    .admin form { max-width: 640px; grid-template-columns: minmax(0, 1fr); }
+    .admin form > *, .admin .campo > * { min-width: 0; }
+    .admin select, .admin input:not([type=checkbox]):not([type=radio]), .admin textarea { max-width: 100%; box-sizing: border-box; }
     .tareas-nuevas { display: grid; gap: 12px; padding-left: 20px; }
     .tarea-nueva { display: grid; gap: 6px; border-left: 2px solid var(--color-borde); padding-left: 10px; }
     .error ul { margin: 4px 0; padding-left: 20px; }
@@ -99,6 +101,17 @@
     .estado-solar { font-weight: 600; }
     .estado-solar.cabe { color: var(--color-exito); }
     .estado-solar.no-cabe { color: var(--color-error); }
+    /* Navegación lateral (G2): a la izquierda en pantallas anchas y arriba, en fila, en las estrechas */
+    .layout { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); gap: 16px; align-items: start; }
+    #secciones ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+    #secciones a { display: block; padding: 6px 10px; border: 1px solid var(--color-borde); border-radius: 4px; color: var(--color-texto); text-decoration: none; background: var(--color-superficie); }
+    #secciones a:hover { border-color: var(--color-acento); }
+    #secciones a[aria-current="page"] { border: 2px solid var(--color-acento); padding: 5px 9px; font-weight: 700; }
+    .secciones > * { min-width: 0; }
+    @media (max-width: 899px) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+      #secciones ul { display: flex; flex-wrap: wrap; }
+    }
     /* Tamaños propios de esta página */
     input, select, textarea { padding: 6px 8px; }
     button { padding: 4px 12px; }

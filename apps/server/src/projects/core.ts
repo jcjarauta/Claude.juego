@@ -375,13 +375,11 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       const kind = message.kind as DefinitionKind;
       const id = message.id as string;
       // Revisión de concurrencia (G2, Q249): si la pantalla se abrió sobre un estado anterior, no se aplica.
-      if (message.expectedRev !== undefined) {
-        const rev = revOf(kind, id);
-        if (!Number.isInteger(message.expectedRev)) return { kind: "rejected", reason: "solicitud-invalida" };
-        if (message.expectedRev !== rev) {
-          const last = revInfo.get(vkey(kind, id));
-          return { kind: "rejected", reason: "version-obsoleta", details: [`La revisión vigente es la ${rev} y tú tenías la ${message.expectedRev}${last ? `: ${last.change} (${last.by})` : ""}.`] };
-        }
+      if (!Number.isInteger(message.expectedRev)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const currentRev = revOf(kind, id);
+      if (message.expectedRev !== currentRev) {
+        const last = revInfo.get(vkey(kind, id));
+        return { kind: "rejected", reason: "version-obsoleta", details: [`La revisión vigente es la ${currentRev} y tú tenías la ${message.expectedRev}${last ? `: ${last.change} (${last.by})` : ""}.`] };
       }
       if (archive) store.addArchive(kind, id, actor, at); else store.removeArchive(kind, id);
       const rev = store.bumpDefRev(kind, id, actor, at, archive ? "archivada" : "restaurada");

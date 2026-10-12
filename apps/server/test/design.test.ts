@@ -14,7 +14,16 @@ import { fixture, joinWorld, sleep, startServer, tempDb, waitFor, type TestPlaye
 // G1, P0 (TP-31): límites editables, archivo de definiciones y migración v11, con servidor real y base temporal. Mundo de prueba 6×5
 // (aparición (0,0), árbol (1,0), Taller (2,1) sin construir; configuración: objeto y receta «herramienta» y la misión «primera-herramienta»).
 const WORLD = fixture("regen-world.json");
-const send = (p: TestPlayer, type: string, fields: Record<string, unknown> = {}) => p.room.send(type, { requestId: randomUUID(), ...fields });
+/** Como el cliente real: al archivar o restaurar se manda siempre la revisión que se ve (G2, Q249). */
+const seenRev = (p: TestPlayer, kind: unknown, id: unknown) => {
+  const state = p.room.state;
+  const map = kind === "objeto" ? state.items : kind === "receta" ? state.recipes : kind === "habilidad" ? state.skills : state.missions;
+  return typeof id === "string" ? map.get(id)?.rev ?? 1 : 1;
+};
+const send = (p: TestPlayer, type: string, fields: Record<string, unknown> = {}) => {
+  const extra = (type === MESSAGE.archiveDef || type === MESSAGE.restoreDef) && fields.expectedRev === undefined ? { expectedRev: seenRev(p, fields.kind, fields.id) } : {};
+  p.room.send(type, { requestId: randomUUID(), ...fields, ...extra });
+};
 const limit = (p: TestPlayer, key: string) => p.room.state.limits.get(key);
 const itemId = (p: TestPlayer, name: string) => [...p.room.state.items.entries()].filter(([, i]) => i.name === name).map(([id]) => id);
 const lastReason = (p: TestPlayer) => p.rejections.at(-1);

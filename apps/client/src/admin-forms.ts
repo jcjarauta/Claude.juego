@@ -30,7 +30,7 @@ function readable(detail: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
-export function createAdminForms(container: HTMLElement, config: WorldConfig, room: Room<unknown, WorldState>, announce: (text: string) => void) {
+export function createAdminForms(config: WorldConfig, room: Room<unknown, WorldState>, announce: (text: string) => void) {
   const resources = config.resources;
   // Límites de diseño vigentes (G1): se actualizan en vivo desde el estado cuando la administración los cambia.
   const limits: BuildLimits = { ...config.buildLimits };
@@ -40,7 +40,7 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const design = createDesignSections(config, room, announce);
   const section = el("section", { className: "admin" });
   section.setAttribute("aria-labelledby", "admin-titulo");
-  section.append(el("h2", { id: "admin-titulo" }, "Administración"),
+  section.append(el("h2", { id: "admin-titulo" }, "Crear"),
     el("p", { className: "ayuda" }, "Crea proyectos, construcciones, objetos, recetas y misiones sin programar. Todo queda publicado al crearlo y no se puede modificar: para corregir un proyecto, ciérralo y crea otro."));
 
   // --- Nuevo proyecto ---
@@ -449,8 +449,10 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
     pending = undefined;
   });
 
-  section.append(projectForm, itemForm, recipeForm, skillForm, grantForm, missionForm, ...design.elements);
-  container.before(section); // antes de la lista de proyectos
+  section.append(projectForm, itemForm, recipeForm, skillForm, grantForm, missionForm);
+  // «Diseño» (límites y archivo) es otra sección del panel (G2, Q248).
+  const designSection = el("section", { id: "diseno" }, el("h2", { id: "diseno-titulo" }, "Diseño"), ...design.elements);
+  designSection.setAttribute("aria-labelledby", "diseno-titulo");
 
   let knownProjects: Set<string> | undefined;
   let knownMissions: Set<string> | undefined;
@@ -460,6 +462,9 @@ export function createAdminForms(container: HTMLElement, config: WorldConfig, ro
   const errorBox = { proyecto: projectErrors, mision: missionErrors, objeto: itemErrors, receta: recipeErrors, habilidad: skillErrors, concesion: grantErrors };
   refreshSolar();
   return {
+    /** Sección «Crear» (los formularios de creación) y sección «Diseño» (límites y archivo): el panel las coloca. */
+    element: section,
+    designElement: designSection,
     /** Motivo de rechazo del servidor junto al formulario que lo provocó. */
     showRejection(text: string, details: string[] = []) {
       if (design.showRejection(text, details)) return true;
