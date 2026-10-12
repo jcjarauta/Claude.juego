@@ -1,6 +1,6 @@
 # ENGREMIAT — juego cooperativo multijugador
 
-**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores F1a, F1b, F1c y F2a cerradas; F2b (cadenas de producción) cerrada; F2c (habilidades), G3a (fundamentos visuales) y G3b (marco de pantalla), G3c (objetivo actual, marcadores y Guía) G3d (logros y reconocimiento cooperativo) y G1 (arreglos de diseño: límites editables, escalas de niveles y archivo de definiciones) y G1b (mejoras de cierre: preferencias en el panel, tablas en estrecho y pruebas estables) cerradas.
+**Estado:** **MVP aceptado** el 2026-10-10 (M1–M6 cerradas; `docs/aceptacion-mvp.md`). Fases posteriores F1a, F1b, F1c y F2a cerradas; F2b (cadenas de producción) cerrada; F2c (habilidades), G3a (fundamentos visuales) y G3b (marco de pantalla), G3c (objetivo actual, marcadores y Guía) G3d (logros y reconocimiento cooperativo) y G1 (arreglos de diseño: límites editables, escalas de niveles y archivo de definiciones) G1b (mejoras de cierre: preferencias en el panel, tablas en estrecho y pruebas estables) y G2 (biblioteca y versiones: edición por versiones, retirar edificios, cascada, duplicar y plantillas, y navegación lateral) cerradas.
 
 Juego cooperativo web con mundo persistente, comunidades, proyectos y misiones. El primer objetivo es un MVP vertical 2D: varios jugadores exploran, recolectan, construyen un taller y completan una misión, con persistencia.
 
