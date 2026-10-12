@@ -29,6 +29,12 @@ export interface LibraryRow {
   editable: boolean;
   /** Si no se puede editar, por qué. */
   whyNot: string;
+  /** ¿Se puede archivar con lo que depende de ello (cascada)? Objetos, recetas, habilidades y misiones activos. */
+  archivable: boolean;
+  /** ¿Se puede retirar? Edificios del panel no retirados (también construidos). */
+  retirable: boolean;
+  /** ¿Se puede restaurar? Edificios del panel retirados. */
+  restorable: boolean;
 }
 
 interface Entry { name: string; origin: string; version: number; rev: number }
@@ -51,7 +57,7 @@ const collator = new Intl.Collator("es", { sensitivity: "base" });
 
 function row(kind: LibraryKind, id: string, e: Entry, status: string, whyNot = ""): LibraryRow {
   const panel = e.origin === "panel";
-  return { kind, id, name: e.name, origin: originText(e.origin), version: `v${e.version || 1}`, status, rev: e.rev || 1, hasHistory: panel, editable: panel && !whyNot, whyNot: panel ? whyNot : "viene de la configuración" };
+  return { kind, id, name: e.name, origin: originText(e.origin), version: `v${e.version || 1}`, status, rev: e.rev || 1, hasHistory: panel, editable: panel && !whyNot, whyNot: panel ? whyNot : "viene de la configuración", archivable: false, retirable: false, restorable: false };
 }
 
 /** La versión de contenido vigente de una definición (1 si aún no consta). */
@@ -63,12 +69,15 @@ export function currentVersion(state: LibraryState, kind: LibraryKind, id: strin
 /** Las filas de un tipo, por nombre. */
 export function libraryRows(state: LibraryState, kind: LibraryKind): LibraryRow[] {
   const rows: LibraryRow[] = [];
-  const archivable = (map: ReadonlyMap<string, Archivable>) => { for (const [id, e] of map) rows.push(row(kind, id, e, e.archived ? "Archivado" : "Activo", e.archived ? "restáurala antes en Diseño" : "")); };
+  const archivable = (map: ReadonlyMap<string, Archivable>) => { for (const [id, e] of map) rows.push({ ...row(kind, id, e, e.archived ? "Archivado" : "Activo", e.archived ? "restáurala antes en Diseño" : ""), archivable: !e.archived }); };
   if (kind === "objeto") archivable(state.items);
   else if (kind === "receta") archivable(state.recipes);
   else if (kind === "habilidad") archivable(state.skills);
-  else if (kind === "mision") for (const [id, e] of state.missions) rows.push(row(kind, id, e, e.archived ? "Archivada" : e.status === "completada" ? "Cumplida" : "Pendiente", e.archived ? "restáurala antes en Diseño" : e.status === "completada" ? "ya está cumplida" : ""));
-  else for (const [id, e] of state.structures) rows.push(row(kind, id, e, e.retired ? "Retirado" : e.built ? "Construido" : "Sin construir", e.retired ? "está retirado" : e.built ? "ya está construido" : state.projects.get(id)?.phase === "cerrado" ? "su proyecto está cerrado" : ""));
+  else if (kind === "mision") for (const [id, e] of state.missions) rows.push({ ...row(kind, id, e, e.archived ? "Archivada" : e.status === "completada" ? "Cumplida" : "Pendiente", e.archived ? "restáurala antes en Diseño" : e.status === "completada" ? "ya está cumplida" : ""), archivable: !e.archived });
+  else for (const [id, e] of state.structures) {
+    const base = row(kind, id, e, e.retired ? "Retirado" : e.built ? "Construido" : "Sin construir", e.retired ? "está retirado" : e.built ? "ya está construido" : state.projects.get(id)?.phase === "cerrado" ? "su proyecto está cerrado" : "");
+    rows.push({ ...base, retirable: base.hasHistory && !e.retired, restorable: base.hasHistory && e.retired });
+  }
   return rows.sort((a, b) => collator.compare(a.name, b.name) || a.id.localeCompare(b.id));
 }
 

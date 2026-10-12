@@ -70,3 +70,14 @@ test("la pantalla avisa de lo que no se puede editar y por qué (el servidor dec
   assert.deepEqual(why("construccion", "faro"), [false, "está retirado"]);
   assert.deepEqual([currentVersion(state, "objeto", "harina"), currentVersion(state, "objeto", "no-existe"), currentVersion(state, "construccion", "molino")], [3, 1, 2]);
 });
+
+test("qué acciones admite cada fila: archivar en cascada, retirar y restaurar edificios", () => {
+  const flags = (kind: Parameters<typeof libraryRows>[1], id: string) => { const r = libraryRows(state, kind).find((x) => x.id === id)!; return [r.archivable, r.retirable, r.restorable]; };
+  assert.deepEqual(flags("objeto", "harina"), [true, false, false]);
+  assert.deepEqual(flags("objeto", "pan"), [false, false, false], "lo archivado ya no se archiva");
+  assert.deepEqual(flags("mision", "m2"), [true, false, false], "también lo de la configuración se archiva");
+  assert.deepEqual(flags("mision", "m3"), [false, false, false]);
+  assert.deepEqual(flags("construccion", "molino"), [false, true, false], "un edificio construido se puede retirar");
+  assert.deepEqual(flags("construccion", "horno"), [false, true, false]);
+  assert.deepEqual(flags("construccion", "faro"), [false, false, true], "uno retirado solo se restaura");
+});

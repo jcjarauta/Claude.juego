@@ -346,3 +346,10 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - «Editar» abre un `<dialog>` modal con el formulario del tipo (los mismos controles y listas dinámicas que al crear), el campo «Nota del cambio (opcional)» (`#edicion-nota`), la zona `div.analisis` (el análisis o el rechazo, `role="status"` o `role="alert"`) y los botones «Revisar el cambio» → «Confirmar el cambio» o «Cargar lo vigente».
 - «Historial» abre un `<dialog>` con una tabla (`Versión`, `Nombre en esa versión`, `Quién`, `Cuándo`, `Nota`, `Acción`); la acción «Volver a esta versión» abre otro diálogo con «Revisar la vuelta» → «Confirmar y volver a esa versión». Al aplicarse, se cierran los dos.
 - Mensajes nuevos: `edit-def`, `restore-version`, `definition-history`, respuestas `history` y `def-saved`; un rechazo puede traer `analysis`. Foco: dentro del diálogo al abrir; al cerrar vuelve al control que lo abrió.
+
+### Retirar edificios y archivar en cascada (puerta P4 de G2)
+
+- En la fila de un edificio del panel: «Retirar» (también construido) o, si está retirado, «Restaurar»; en la de un objeto, receta, habilidad o misión activos: «Archivar con lo que depende». Cada botón lleva `aria-label` («Retirar edificio «X»», «Archivar objeto «X» con lo que depende de ello»).
+- «Retirar» abre un `<dialog>` con «Revisar el impacto» → zona `div.analisis` con dos listas (**Lo que cambia ahora (estado operativo)** y **Lo que se conserva (resultados históricos)**) y «Confirmar la retirada». «Restaurar» abre un diálogo con «Restaurar el edificio».
+- «Archivar con lo que depende» pide la vista previa (`cascade-preview`) y abre un `<dialog>` con la lista ordenada de lo que se archivará, «Lo que lo impide» (cada bloqueo con su «Camino: A → B → C») y «Archivar todo (N)», que con bloqueos queda con `aria-disabled="true"`. Si el plan cambia (`plan-desactualizado`), el diálogo se repinta con el aviso y el plan actual.
+- El servidor confirma con `def-saved` (retirar, restaurar y cascada también); un rechazo `version-obsoleta` ofrece «Cargar lo vigente».

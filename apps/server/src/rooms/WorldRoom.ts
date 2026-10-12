@@ -511,6 +511,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details, outcome.analysis);
       this.syncStructure(outcome.value.structureId);
+      client.send(MESSAGE.defSaved, { requestId: (payload as { requestId: string }).requestId, kind: "construccion", id: outcome.value.structureId, version: this.core.versionOf("construccion", outcome.value.structureId), rev: outcome.value.rev } satisfies DefSavedMessage);
       log("info", "edificio-retirado", outcome.value);
     },
 
@@ -522,6 +523,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details, outcome.analysis);
       this.syncStructure(outcome.value.structureId);
+      client.send(MESSAGE.defSaved, { requestId: (payload as { requestId: string }).requestId, kind: "construccion", id: outcome.value.structureId, version: this.core.versionOf("construccion", outcome.value.structureId), rev: outcome.value.rev } satisfies DefSavedMessage);
       log("info", "edificio-restaurado", outcome.value);
     },
 
@@ -1041,6 +1043,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       return;
     }
     for (const n of outcome.value.nodes) this.syncArchived(n.kind, n.id);
+    const root = outcome.value.nodes.at(-1);
+    const message = (payload ?? {}) as { requestId: string; kind: string; id: string };
+    client.send(MESSAGE.defSaved, { requestId: message.requestId, kind: message.kind, id: message.id, version: root ? this.core.versionOf(root.kind, root.id) : 1, rev: root?.rev ?? 0 } satisfies DefSavedMessage);
     log("info", "cascada-archivada", { nodes: outcome.value.nodes.length });
   }
 

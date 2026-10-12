@@ -1,5 +1,5 @@
 import {
-  MESSAGE, type BuildLimits, type DefinitionHistoryMessage, type DefSavedMessage, type EditDefMessage, type HistoryMessage, type RejectedMessage, type RestoreVersionMessage, type WorldConfig, type WorldState,
+  MESSAGE, type ArchiveDefMessage, type BuildLimits, type CascadePlanMessage, type CascadePreviewMessage, type DefinitionHistoryMessage, type DefSavedMessage, type HistoryMessage, type RejectedMessage, type RetireStructureMessage, type WorldConfig, type WorldState,
 } from "@juego/shared";
 import type { Room } from "@colyseus/sdk";
 import { currentLimits } from "./admin-design.ts";
@@ -22,7 +22,9 @@ type Analysis = NonNullable<RejectedMessage["analysis"]>;
 
 /** Lo que se está enviando al servidor y puede necesitar confirmación o recarga. */
 interface Operation {
-  type: "edit" | "restore";
+  type: "edit" | "restore" | "retire" | "restore-structure" | "cascade";
+  /** Mensaje que se envía al servidor. */
+  send: string;
   kind: LibraryKind;
   id: string;
   name: string;
@@ -60,19 +62,21 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     op.feedback.replaceChildren(el("p", { role: "status" }, "Enviando…"));
     const message = { requestId: newRequestId(), ...op.body, ...(basis ? { basis } : {}) };
     op.sent = message.requestId;
-    room.send(op.type === "edit" ? MESSAGE.editDef : MESSAGE.restoreVersion, message as EditDefMessage | RestoreVersionMessage);
+    room.send(op.send, message);
   }
 
   const list = (title: string, items: string[]) => items.length ? el("div", {}, el("h3", {}, title), el("ul", {}, ...items.map((t) => el("li", {}, t)))) : el("span");
 
   /** El análisis previo: lo que cambia y lo que se conserva, con el botón para confirmar. */
   function showAnalysis(op: Operation, analysis: Analysis) {
-    const confirm = el("button", { type: "button" }, op.type === "edit" ? "Confirmar el cambio" : "Confirmar y volver a esa versión");
+    const retire = op.type === "retire";
+    const confirm = el("button", { type: "button" }, retire ? "Confirmar la retirada" : op.type === "edit" ? "Confirmar el cambio" : "Confirmar y volver a esa versión");
     confirm.onclick = () => submit(analysis.basis);
     op.feedback.replaceChildren(
       el("div", { role: "status" },
         el("p", {}, el("strong", {}, "Revisa esto antes de confirmar.")),
-        list("Lo que cambia", analysis.avisos), list("Lo que se conserva", analysis.efectos)));
+        list(retire ? "Lo que cambia ahora (estado operativo)" : "Lo que cambia", analysis.avisos),
+        list(retire ? "Lo que se conserva (resultados históricos)" : "Lo que se conserva", analysis.efectos)));
     op.buttons.replaceChildren(confirm);
     confirm.focus();
     announce("Revisa lo que cambia y confirma el cambio.");
@@ -86,7 +90,7 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     if (reason === "version-obsoleta") {
       const reload = el("button", { type: "button" }, "Cargar lo vigente");
       reload.onclick = () => { op.dialog.close(); op.reopen(); };
-      op.feedback.replaceChildren(el("div", { role: "alert" }, el("p", {}, el("strong", {}, "Otra persona ha cambiado esto mientras lo editabas.")), ...details.map((d) => el("p", {}, d)),
+      op.feedback.replaceChildren(el("div", { role: "alert" }, el("p", {}, el("strong", {}, "Otra persona ha cambiado esto mientras lo mirabas.")), ...details.map((d) => el("p", {}, d)),
         el("p", {}, "No se ha aplicado nada. Carga lo vigente y vuelve a hacer tu cambio sobre ello.")));
       op.buttons.replaceChildren(reload);
       reload.focus();
@@ -114,7 +118,7 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
       const read = form.read();
       if ("errors" in read) { feedback.replaceChildren(el("div", { role: "alert" }, ...read.errors.map((e) => el("p", {}, e)))); return; }
       operation = {
-        type: "edit", kind: row.kind, id: row.id, name: row.name, afterName: nameInVersion(read.def), dialog, feedback, buttons,
+        type: "edit", send: MESSAGE.editDef, kind: row.kind, id: row.id, name: row.name, afterName: nameInVersion(read.def), dialog, feedback, buttons,
         body: { kind: row.kind, id: row.id, def: read.def, expectedRev: row.rev, ...(note.value.trim() ? { note: note.value.trim() } : {}) },
         reopen: () => { const fresh = libraryRows(room.state, row.kind).find((r) => r.id === row.id); if (fresh) openEdit(fresh); },
       };
@@ -122,6 +126,84 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     };
     form.focus();
   }
+
+  // ---------------------------------------------------------------------------------- retirar y restaurar edificios
+  function openStructureDialog(row: LibraryRow, retire: boolean) {
+    const feedback = el("div", { className: "analisis" });
+    const send = el("button", { type: "button" }, retire ? "Revisar el impacto" : "Restaurar el edificio");
+    const buttons = el("p", {}, send);
+    const content = el("div", {},
+      el("p", {}, retire
+        ? `Retirar «${row.name}» lo quita del mapa y deja sin edificio las recetas que lo usan. No se borra ningún recurso, aporte, misión cumplida ni logro: se conserva todo lo ocurrido y podrás restaurarlo. Antes se explica el impacto.`
+        : `Restaurar «${row.name}» lo devuelve al mapa si su solar sigue libre y su proyecto no está cerrado. Si no se puede, se explica el motivo.`),
+      feedback, buttons);
+    const dialog = openDialog({ title: `${retire ? "Retirar" : "Restaurar"} edificio «${row.name}»`, content, closeLabel: "Cancelar", onClose: () => { if (operation?.dialog === dialog) operation = undefined; } });
+    send.onclick = () => {
+      const body: Omit<RetireStructureMessage, "requestId" | "basis"> = { structureId: row.id, expectedRev: row.rev };
+      operation = {
+        type: retire ? "retire" : "restore-structure", send: retire ? MESSAGE.retireStructure : MESSAGE.restoreStructure, kind: row.kind, id: row.id, name: row.name, afterName: row.name, dialog, feedback, buttons,
+        body: { ...body },
+        reopen: () => { const fresh = libraryRows(room.state, "construccion").find((r) => r.id === row.id); if (fresh) openStructureDialog(fresh, retire); },
+      };
+      submit();
+    };
+    send.focus();
+  }
+
+  // ---------------------------------------------------------------------------------- archivar en cascada
+  let pendingPlan: { kind: LibraryKind; id: string; name: string } | undefined;
+
+  function requestPlan(row: LibraryRow) {
+    pendingPlan = { kind: row.kind, id: row.id, name: row.name };
+    const message: CascadePreviewMessage = { kind: row.kind as CascadePreviewMessage["kind"], id: row.id };
+    room.send(MESSAGE.cascadePreview, message);
+  }
+
+  /** Pinta el plan (orden, bloqueos con su camino) y el botón «Archivar todo»; sirve para la vista previa y para un plan que cambió. */
+  function renderPlan(op: Operation, plan: CascadePlanMessage, notice?: string) {
+    const kindName = (k: string) => LIBRARY_KINDS.find((x) => x.kind === k)?.singular ?? k;
+    const steps = plan.order.map((n) => `Archivar ${kindName(n.kind)} «${n.name}»`);
+    op.feedback.replaceChildren(el("div", {},
+      ...(notice ? [el("p", { role: "alert" }, el("strong", {}, notice))] : []),
+      el("p", {}, plan.order.length === 1 ? "Solo se archiva este elemento: nada depende de él." : `Para archivar «${op.name}» hay que archivar antes lo que depende de él. Se hace todo de una vez, en este orden:`),
+      el("ol", {}, ...steps.map((t) => el("li", {}, t))),
+      ...(plan.blockers.length ? [el("div", { role: "alert" }, el("h3", {}, "Lo que lo impide"),
+        el("ul", {}, ...plan.blockers.map((b) => el("li", {}, `${b.reason}. `, el("span", { className: "ayuda" }, `Camino: ${b.path.join(" → ")}.`)))),
+        el("p", {}, "No se puede archivar todo mientras haya bloqueos. Resuélvelos (por ejemplo, gasta las existencias) o archiva lo que no dependa de ellos."))] : [])));
+    const all = el("button", { type: "button" }, `Archivar todo (${plan.order.length})`);
+    if (!plan.executable) { all.setAttribute("aria-disabled", "true"); all.onclick = () => announce("No se puede archivar todo: hay bloqueos. Lee lo que lo impide."); }
+    else all.onclick = () => {
+      op.body = { ...op.body, cascade: { planHash: plan.planHash } } as Record<string, unknown>;
+      submit();
+    };
+    op.buttons.replaceChildren(all);
+  }
+
+  room.onMessage(MESSAGE.cascadePlan, (plan: CascadePlanMessage) => {
+    const live = operation;
+    // Un plan nuevo para la operación abierta (el anterior cambió): se repinta con el aviso.
+    if (live?.type === "cascade" && live.id === plan.id) {
+      renderPlan(live, plan, "El plan ha cambiado desde que lo previsualizaste: este es el plan actual. No se ha archivado nada.");
+      announce("El plan de archivado ha cambiado: revisa el plan actual.");
+      return;
+    }
+    if (!pendingPlan || pendingPlan.id !== plan.id) return;
+    const { kind, id, name } = pendingPlan;
+    pendingPlan = undefined;
+    const row = libraryRows(room.state, kind).find((r) => r.id === id);
+    const feedback = el("div", { className: "analisis" });
+    const buttons = el("p", {});
+    const dialog = openDialog({ title: `Archivar «${name}» con lo que depende de ello`, content: el("div", {}, feedback, buttons), closeLabel: "Cancelar", onClose: () => { if (operation?.dialog === dialog) operation = undefined; } });
+    const op: Operation = {
+      type: "cascade", send: MESSAGE.archiveDef, kind, id, name, afterName: name, dialog, feedback, buttons,
+      body: { kind, id, expectedRev: row?.rev ?? 1 } as Omit<ArchiveDefMessage, "requestId" | "cascade"> as Record<string, unknown>,
+      reopen: () => { if (row) requestPlan(row); },
+    };
+    operation = op;
+    renderPlan(op, plan);
+    (buttons.querySelector("button") as HTMLElement | null)?.focus();
+    announce(`Plan de archivado de «${name}»: ${plan.order.length} ${plan.order.length === 1 ? "elemento" : "elementos"}${plan.executable ? "" : ", con bloqueos"}.`);
+  });
 
   // ---------------------------------------------------------------------------------- historial y volver a una versión
   function openHistory(message: HistoryMessage, name: string, row: LibraryRow | undefined) {
@@ -154,7 +236,7 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     const dialog = openDialog({ title: `Volver a la versión ${toVersion} de «${name}»`, content, closeLabel: "Cancelar", onClose: () => { if (operation?.dialog === dialog) operation = undefined; } });
     send.onclick = () => {
       operation = {
-        type: "restore", kind, id: history.id, name, afterName: nameInVersion(history.versions.find((v) => v.version === toVersion)?.definition), dialog, feedback, buttons,
+        type: "restore", send: MESSAGE.restoreVersion, kind, id: history.id, name, afterName: nameInVersion(history.versions.find((v) => v.version === toVersion)?.definition), dialog, feedback, buttons,
         body: { kind, id: history.id, toVersion, expectedRev: history.rev },
         reopen: () => requestHistory(kind, history.id, name),
       };
@@ -171,7 +253,10 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     op.dialog.close();
     historyDialog?.close(); // el historial que quedaba debajo ya no está al día
     const name = op.afterName === "—" ? op.name : op.afterName;
-    announce(`«${name}» ${op.type === "edit" ? "actualizado" : "vuelve a una versión anterior"}: ahora es v${saved.version}.`);
+    announce(op.type === "retire" ? `«${op.name}» retirado: ya no está en el mapa; su historia se conserva.`
+      : op.type === "restore-structure" ? `«${op.name}» restaurado: vuelve al mapa.`
+      : op.type === "cascade" ? `Archivado «${op.name}» con lo que dependía de ello.`
+      : `«${name}» ${op.type === "edit" ? "actualizado" : "vuelve a una versión anterior"}: ahora es v${saved.version}.`);
   });
 
   room.onMessage(MESSAGE.history, (message: HistoryMessage) => {
@@ -196,15 +281,28 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     signature = next;
     tables.replaceChildren(...sections.map(({ info, rows }) => {
       if (!rows.length) return el("div", {}, el("h3", {}, info.plural), el("p", { className: "vacia" }, `Todavía no hay ${info.plural.toLowerCase()}.`));
+      const archive = (r: LibraryRow) => {
+        const b = Object.assign(el("button", { type: "button" }, "Archivar con lo que depende"), { onclick: () => requestPlan(r) });
+        b.setAttribute("aria-label", `Archivar ${info.singular} «${r.name}» con lo que depende de ello`);
+        return b;
+      };
       const cells = rows.map((r) => {
-        if (!r.hasHistory) return [r.name, r.version, r.origin, r.status, el("span", {}, "Solo lectura: viene de la configuración")];
+        if (!r.hasHistory) return [r.name, r.version, r.origin, r.status, el("span", {}, "Solo lectura: viene de la configuración", ...(r.archivable ? [" ", archive(r)] : []))];
         const history = Object.assign(el("button", { type: "button" }, "Historial"), { onclick: () => requestHistory(r.kind, r.id, r.name) });
         history.setAttribute("aria-label", `Historial de ${info.singular} «${r.name}»`);
         const editable = r.editable;
         const edit = Object.assign(el("button", { type: "button" }, "Editar"), { onclick: () => openEdit(r) });
         edit.setAttribute("aria-label", `Editar ${info.singular} «${r.name}»`);
         if (!editable) { edit.setAttribute("aria-disabled", "true"); edit.title = r.whyNot; edit.onclick = () => announce(`No se puede editar «${r.name}»: ${r.whyNot}`); }
-        return [r.name, r.version, r.origin, r.status, el("span", {}, edit, " ", history, ...(editable ? [] : [el("span", { className: "ayuda" }, ` ${r.whyNot}`)]))];
+        const retire = Object.assign(el("button", { type: "button" }, "Retirar"), { onclick: () => openStructureDialog(r, true) });
+        retire.setAttribute("aria-label", `Retirar edificio «${r.name}»`);
+        const restore = Object.assign(el("button", { type: "button" }, "Restaurar"), { onclick: () => openStructureDialog(r, false) });
+        restore.setAttribute("aria-label", `Restaurar edificio «${r.name}»`);
+        const extra: (Node | string)[] = [];
+        if (r.retirable) extra.push(" ", retire);
+        if (r.restorable) extra.push(" ", restore);
+        if (r.archivable) extra.push(" ", archive(r));
+        return [r.name, r.version, r.origin, r.status, el("span", {}, edit, " ", history, ...extra, ...(editable ? [] : [el("span", { className: "ayuda" }, ` ${r.whyNot}`)]))];
       });
       return dataTable(`${info.plural} (${rows.length})`, ["Nombre", "Versión", "Origen", "Estado", "Acción"], cells);
     }));
