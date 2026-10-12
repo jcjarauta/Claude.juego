@@ -172,3 +172,9 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - «Retirar» abre un `<dialog>` con «Revisar el impacto» → zona `div.analisis` con dos listas (**Lo que cambia ahora (estado operativo)** y **Lo que se conserva (resultados históricos)**) y «Confirmar la retirada». «Restaurar» abre un diálogo con «Restaurar el edificio».
 - «Archivar con lo que depende» pide la vista previa (`cascade-preview`) y abre un `<dialog>` con la lista ordenada de lo que se archivará, «Lo que lo impide» (cada bloqueo con su «Camino: A → B → C») y «Archivar todo (N)», que con bloqueos queda con `aria-disabled="true"`. Si el plan cambia (`plan-desactualizado`), el diálogo se repinta con el aviso y el plan actual.
 - El servidor confirma con `def-saved` (retirar, restaurar y cascada también); un rechazo `version-obsoleta` ofrece «Cargar lo vigente».
+
+### Duplicar y plantillas (puerta P5 de G2)
+
+- En la Biblioteca, `fieldset#plantillas` («Crear a partir de una plantilla») con `select#plantilla-elegir` (ayuda enlazada con `aria-describedby="plantilla-ayuda"`) y el botón «Empezar con la plantilla». Va **antes** de las tablas.
+- Cada fila tiene un botón «Duplicar» (`aria-label` «Duplicar receta «X»»), también las de la configuración, que además dicen «Solo lectura: viene de la configuración».
+- «Duplicar» y las plantillas abren un `<dialog>` con el mismo formulario de edición, relleno, el botón «Crear <tipo>» (y «Cancelar») y la zona `div.analisis` para el rechazo del servidor. Al aparecer lo nuevo en el estado, el diálogo se cierra y se anuncia «creado: aparece en la Biblioteca como v1». No hay mensaje de confirmación del servidor para las creaciones.

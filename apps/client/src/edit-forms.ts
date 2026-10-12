@@ -2,6 +2,7 @@ import {
   itemDefFromState, missionDefFromState, projectDefFromState, recipeDefFromState, skillDefFromState, structureDefFromState,
   type BuildLimits, type WorldConfig, type WorldState,
 } from "@juego/shared";
+import type { Seed } from "./edit-model.ts";
 import type { LibraryKind } from "./library-model.ts";
 import { dynamicList } from "./ui/dynamic-list.ts";
 import { el } from "./ui/dom.ts";
@@ -48,8 +49,7 @@ const structureOptions = (state: WorldState, keep: string[] = []): Option[] =>
 
 // ---------------------------------------------------------------------------------------------- objeto
 
-function objectForm(id: string, ctx: EditContext): EditForm {
-  const current = itemDefFromState(id, ctx.state.items.get(id)!);
+function objectForm(current: Extract<Seed, { kind: "objeto" }>["def"], ctx: EditContext): EditForm {
   const name = text("Nombre", current.name, 60, "Un objeto no es un recurso: su nombre no puede coincidir con el de otro objeto ni con el de un recurso. Las recetas y misiones que lo usan siguen apuntando al mismo objeto con el nombre nuevo.");
   return {
     element: el("div", {}, name.wrapper),
@@ -60,8 +60,7 @@ function objectForm(id: string, ctx: EditContext): EditForm {
 
 // ---------------------------------------------------------------------------------------------- misión
 
-function missionForm(id: string, ctx: EditContext): EditForm {
-  const current = missionDefFromState(id, ctx.state.missions.get(id)!);
+function missionForm(current: Extract<Seed, { kind: "mision" }>["def"], ctx: EditContext): EditForm {
   const name = text("Nombre", current.name, 60);
   const description = text("Descripción", current.description, 500, "Opcional.");
   const kind = choose("Objetivo", [["item-in-community", "Tener un objeto en el almacén de la comunidad"], ["project-completed", "Completar un proyecto"]], current.objective.kind);
@@ -94,8 +93,7 @@ function missionForm(id: string, ctx: EditContext): EditForm {
 
 // ---------------------------------------------------------------------------------------------- habilidad
 
-function skillForm(id: string, ctx: EditContext): EditForm {
-  const current = skillDefFromState(id, ctx.state.skills.get(id)!);
+function skillForm(current: Extract<Seed, { kind: "habilidad" }>["def"], ctx: EditContext): EditForm {
   const name = text("Nombre", current.name, 60);
   const description = text("Descripción", current.description, 200, "Opcional.");
   const practice: Option[] = [...ctx.state.recipes.entries()].filter(([rid, r]) => (r.requiresSkills.size === 0 && !r.archived) || current.levels.some((l) => l.practice.recipe === rid)).map(([rid, r]): Option => [rid, r.name]);
@@ -122,8 +120,7 @@ function skillForm(id: string, ctx: EditContext): EditForm {
 
 // ---------------------------------------------------------------------------------------------- receta
 
-function recipeForm(id: string, ctx: EditContext): EditForm {
-  const current = recipeDefFromState(id, ctx.state.recipes.get(id)!);
+function recipeForm(current: Extract<Seed, { kind: "receta" }>["def"], ctx: EditContext): EditForm {
   const used = [...Object.keys(current.inputs), current.output.item, ...(current.byproducts ?? []).map((b) => b.item)];
   const items = itemOptions(ctx.state, used);
   const buildings = structureOptions(ctx.state, [current.structureId, ...(current.alsoNeeds ?? [])]);
@@ -203,9 +200,8 @@ function recipeForm(id: string, ctx: EditContext): EditForm {
 
 // ---------------------------------------------------------------------------------------------- construcción
 
-function constructionForm(id: string, ctx: EditContext): EditForm {
-  const project = projectDefFromState(id, ctx.state.projects.get(id)!);
-  const structure = structureDefFromState(id, ctx.state.structures.get(id)!);
+function constructionForm(seed: Extract<Seed, { kind: "construccion" }>["def"], ctx: EditContext): EditForm {
+  const { project, structure } = seed;
   const name = text("Nombre", structure.name, 60, "Es el del proyecto y el del edificio.");
   const description = text("Descripción del proyecto", project.description, 500, "Opcional.");
   const side = (label: string, value: number, min: number, max: number) => { const input = el("input", { type: "number", min: String(min), max: String(max), value: String(value), inputMode: "numeric" }); return { input, wrapper: field(label, input) }; };
@@ -253,10 +249,24 @@ function constructionForm(id: string, ctx: EditContext): EditForm {
   };
 }
 
+/** La definición vigente de un elemento, tal como la rellena un formulario. */
+export function seedFromState(kind: LibraryKind, id: string, state: WorldState): Seed {
+  if (kind === "objeto") return { kind, def: itemDefFromState(id, state.items.get(id)!) };
+  if (kind === "mision") return { kind, def: missionDefFromState(id, state.missions.get(id)!) };
+  if (kind === "habilidad") return { kind, def: skillDefFromState(id, state.skills.get(id)!) };
+  if (kind === "receta") return { kind, def: recipeDefFromState(id, state.recipes.get(id)!) };
+  return { kind, def: { project: projectDefFromState(id, state.projects.get(id)!), structure: structureDefFromState(id, state.structures.get(id)!) } };
+}
+
+/** El formulario de un tipo relleno con una definición (para editar, duplicar o empezar desde una plantilla). */
+export function buildSeedForm(seed: Seed, ctx: EditContext): EditForm {
+  if (seed.kind === "objeto") return objectForm(seed.def, ctx);
+  if (seed.kind === "mision") return missionForm(seed.def, ctx);
+  if (seed.kind === "habilidad") return skillForm(seed.def, ctx);
+  if (seed.kind === "receta") return recipeForm(seed.def, ctx);
+  return constructionForm(seed.def, ctx);
+}
+
 export function buildEditForm(kind: LibraryKind, id: string, ctx: EditContext): EditForm {
-  if (kind === "objeto") return objectForm(id, ctx);
-  if (kind === "mision") return missionForm(id, ctx);
-  if (kind === "habilidad") return skillForm(id, ctx);
-  if (kind === "receta") return recipeForm(id, ctx);
-  return constructionForm(id, ctx);
+  return buildSeedForm(seedFromState(kind, id, ctx.state), ctx);
 }

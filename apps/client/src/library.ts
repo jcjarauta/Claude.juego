@@ -1,13 +1,15 @@
 import {
-  MESSAGE, type ArchiveDefMessage, type BuildLimits, type CascadePlanMessage, type CascadePreviewMessage, type DefinitionHistoryMessage, type DefSavedMessage, type HistoryMessage, type RejectedMessage, type RetireStructureMessage, type WorldConfig, type WorldState,
+  MESSAGE, structureDefFromState, type ArchiveDefMessage, type BuildLimits, type CascadePlanMessage, type CascadePreviewMessage, type DefinitionHistoryMessage, type DefSavedMessage, type HistoryMessage, type RejectedMessage, type RetireStructureMessage, type WorldConfig, type WorldState,
 } from "@juego/shared";
 import type { Room } from "@colyseus/sdk";
 import { currentLimits } from "./admin-design.ts";
 import { readable } from "./admin-forms.ts";
-import { buildEditForm } from "./edit-forms.ts";
+import { buildEditForm, buildSeedForm, seedFromState } from "./edit-forms.ts";
+import { copyName, findFreeSolar, seedFromTemplate, TEMPLATES, toCreatePayload, type Seed } from "./edit-model.ts";
 import { historyRows, LIBRARY_KINDS, libraryRows, nameInVersion, type LibraryKind, type LibraryRow } from "./library-model.ts";
 import { newRequestId } from "./request-id.ts";
 import { dataTable } from "./ui/data-table.ts";
+import { field } from "./ui/field.ts";
 import { openDialog, type OpenDialog } from "./ui/dialog.ts";
 import { el } from "./ui/dom.ts";
 
@@ -43,16 +45,26 @@ interface Operation {
 
 export function createLibrary(room: Room<unknown, WorldState>, config: WorldConfig, announce: (text: string) => void) {
   const tables = el("div", { id: "biblioteca-listas" });
+  // Plantillas de arranque (G2, Q245): rellenan el mismo formulario de creación; todo se puede cambiar antes de crear.
+  const templateSelect = el("select", { id: "plantilla-elegir" });
+  templateSelect.append(...TEMPLATES.map((t) => el("option", { value: t.id, textContent: t.name })));
+  const templateStart = el("button", { type: "button" }, "Empezar con la plantilla");
+  const templateHelp = el("p", { className: "ayuda", id: "plantilla-ayuda" }, TEMPLATES[0]!.description);
+  templateSelect.setAttribute("aria-describedby", "plantilla-ayuda");
+  templateSelect.onchange = () => { templateHelp.textContent = TEMPLATES.find((t) => t.id === templateSelect.value)?.description ?? ""; };
+  const templates = el("fieldset", { id: "plantillas" }, el("legend", {}, "Crear a partir de una plantilla"), field("Plantilla", templateSelect), templateHelp, el("p", {}, templateStart));
   const section = el("section", { id: "biblioteca" },
     el("h2", { id: "biblioteca-titulo" }, "Biblioteca"),
-    el("p", { className: "ayuda" }, "Todo lo que hay en el mundo, con su versión, de dónde viene y en qué estado está. Lo creado en el panel se edita por versiones: cada cambio añade una versión nueva y nada se borra; antes de aplicarlo se explica qué cambia. Lo que viene de la configuración no se edita."),
-    tables);
+    el("p", { className: "ayuda" }, "Todo lo que hay en el mundo, con su versión, de dónde viene y en qué estado está. Lo creado en el panel se edita por versiones: cada cambio añade una versión nueva y nada se borra; antes de aplicarlo se explica qué cambia. Lo que viene de la configuración no se edita: se duplica para tener una copia editable."),
+    templates, tables);
   section.setAttribute("aria-labelledby", "biblioteca-titulo");
 
   let historyDialog: OpenDialog | undefined;
   let pendingHistory: { kind: LibraryKind; id: string; name: string } | undefined;
   let operation: Operation | undefined;
   let signature = "";
+  /** Una creación en curso (duplicar o plantilla): el servidor no la confirma con un mensaje; se ve cuando aparece lo nuevo en el estado. */
+  let pendingCreate: { kind: LibraryKind; before: Set<string>; dialog: OpenDialog; feedback: HTMLElement } | undefined;
   const limits = (): BuildLimits => currentLimits(room.state, config);
 
   // ---------------------------------------------------------------------------------- enviar, confirmar y recargar
@@ -85,7 +97,11 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
   /** Rechazo del servidor para la operación abierta; devuelve true si lo mostró aquí. */
   function showRejection(text: string, details: string[] = [], analysis?: Analysis, reason?: string): boolean {
     const op = operation;
-    if (!op) return false;
+    if (!op) {
+      if (!pendingCreate) return false;
+      pendingCreate.feedback.replaceChildren(el("div", { role: "alert" }, el("p", {}, text), ...(details.length ? [el("ul", {}, ...details.map((d) => el("li", {}, readable(d))))] : [])));
+      return true;
+    }
     if (reason === "analisis-desactualizado" && analysis) { showAnalysis(op, analysis); return true; }
     if (reason === "version-obsoleta") {
       const reload = el("button", { type: "button" }, "Cargar lo vigente");
@@ -126,6 +142,64 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
     };
     form.focus();
   }
+
+  // ---------------------------------------------------------------------------------- duplicar y plantillas
+  const CREATE: Record<LibraryKind, string> = { objeto: MESSAGE.createItem, receta: MESSAGE.createRecipe, habilidad: MESSAGE.createSkill, mision: MESSAGE.createMission, construccion: MESSAGE.createConstruction };
+  const idsOf = (kind: LibraryKind): Set<string> => new Set((kind === "objeto" ? room.state.items : kind === "receta" ? room.state.recipes : kind === "habilidad" ? room.state.skills : kind === "mision" ? room.state.missions : room.state.structures).keys());
+
+  /** El mapa tal como está (sin los edificios retirados): para encontrar un hueco libre. */
+  const solarMap = () => ({
+    width: config.map.width, height: config.map.height, nodeCells: new Set(config.nodes.map((n) => `${n.x},${n.y}`)), spawn: config.spawn, side: limits().side,
+    structures: [...room.state.structures.entries()].filter(([, s]) => !s.retired).map(([id, s]) => structureDefFromState(id, s)),
+  });
+
+  /** Diálogo de creación: el mismo formulario relleno con una definición (copia o plantilla). */
+  function openCreate(seed: Seed, title: string, intro: string) {
+    const info = LIBRARY_KINDS.find((k) => k.kind === seed.kind)!;
+    const form = buildSeedForm(seed, { state: room.state, config, limits: limits(), announce });
+    const feedback = el("div", { className: "analisis" });
+    const send = el("button", { type: "button" }, `Crear ${info.singular}`);
+    const dialog = openDialog({
+      title, content: el("div", {}, el("p", { className: "ayuda" }, intro), form.element, feedback, el("p", {}, send)), closeLabel: "Cancelar",
+      onClose: () => { if (pendingCreate?.dialog === dialog) pendingCreate = undefined; },
+    });
+    send.onclick = () => {
+      const read = form.read();
+      if ("errors" in read) { feedback.replaceChildren(el("div", { role: "alert" }, ...read.errors.map((e) => el("p", {}, e)))); return; }
+      pendingCreate = { kind: seed.kind, before: idsOf(seed.kind), dialog, feedback };
+      feedback.replaceChildren(el("p", { role: "status" }, "Creando…"));
+      room.send(CREATE[seed.kind], { requestId: newRequestId(), ...toCreatePayload({ kind: seed.kind, def: read.def } as Seed) });
+    };
+    form.focus();
+  }
+
+  /** Una copia: lo mismo con el nombre «X (copia)» (y, en una construcción, en el primer hueco libre). */
+  function duplicate(row: LibraryRow) {
+    const info = LIBRARY_KINDS.find((k) => k.kind === row.kind)!;
+    const seed = seedFromState(row.kind, row.id, room.state);
+    const name = copyName(row.name);
+    let note = "Es una copia: se crea como algo nuevo, con su propia historia, y se puede cambiar antes de crearla.";
+    if (seed.kind === "construccion") {
+      const spot = findFreeSolar(solarMap(), seed.def.structure.width, seed.def.structure.height);
+      seed.def.project = { ...seed.def.project, name };
+      seed.def.structure = { ...seed.def.structure, name, ...(spot ?? {}) };
+      note += spot ? ` Se coloca en el primer hueco libre del mapa (${spot.x}, ${spot.y}).` : " No hay hueco libre para ese tamaño: elige un solar que quepa.";
+    } else (seed.def as { name: string }).name = name;
+    openCreate(seed, `Duplicar ${info.singular} «${row.name}»`, note);
+  }
+
+  function startTemplate() {
+    const template = TEMPLATES.find((t) => t.id === templateSelect.value)!;
+    const state = room.state;
+    const built = new Set([...state.structures.entries()].filter(([, s]) => s.built).map(([id]) => id));
+    const structureIds = [...state.structures.entries()].filter(([, s]) => !s.retired).map(([id]) => id).sort((a, b) => Number(built.has(b)) - Number(built.has(a)));
+    const seed = seedFromTemplate(template.id, {
+      resources: config.resources, itemIds: [...state.items.entries()].filter(([, i]) => !i.archived).map(([id]) => id), structureIds, map: solarMap(),
+    });
+    if (!seed) { announce("No hay hueco libre en el mapa para una construcción nueva."); return; }
+    openCreate(seed, `Plantilla: ${template.name}`, `${template.description} Está rellena con valores de ejemplo: cámbialos antes de crear.`);
+  }
+  templateStart.onclick = startTemplate;
 
   // ---------------------------------------------------------------------------------- retirar y restaurar edificios
   function openStructureDialog(row: LibraryRow, retire: boolean) {
@@ -275,6 +349,17 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
   // ---------------------------------------------------------------------------------- listas
   function render() {
     const state = room.state;
+    // Una creación en curso: aparece algo nuevo del tipo en el estado.
+    if (pendingCreate) {
+      const created = [...idsOf(pendingCreate.kind)].find((id) => !pendingCreate!.before.has(id));
+      if (created) {
+        const done = pendingCreate;
+        pendingCreate = undefined;
+        done.dialog.close();
+        const row = libraryRows(state, done.kind).find((r) => r.id === created);
+        announce(`«${row?.name ?? "Lo nuevo"}» creado: aparece en la Biblioteca como v1.`);
+      }
+    }
     const sections = LIBRARY_KINDS.map((info) => ({ info, rows: libraryRows(state, info.kind) }));
     const next = JSON.stringify(sections.map((s) => s.rows));
     if (next === signature) return;
@@ -286,8 +371,13 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
         b.setAttribute("aria-label", `Archivar ${info.singular} «${r.name}» con lo que depende de ello`);
         return b;
       };
+      const copy = (r: LibraryRow) => {
+        const b = Object.assign(el("button", { type: "button" }, "Duplicar"), { onclick: () => duplicate(r) });
+        b.setAttribute("aria-label", `Duplicar ${info.singular} «${r.name}»`);
+        return b;
+      };
       const cells = rows.map((r) => {
-        if (!r.hasHistory) return [r.name, r.version, r.origin, r.status, el("span", {}, "Solo lectura: viene de la configuración", ...(r.archivable ? [" ", archive(r)] : []))];
+        if (!r.hasHistory) return [r.name, r.version, r.origin, r.status, el("span", {}, "Solo lectura: viene de la configuración. ", copy(r), ...(r.archivable ? [" ", archive(r)] : []))];
         const history = Object.assign(el("button", { type: "button" }, "Historial"), { onclick: () => requestHistory(r.kind, r.id, r.name) });
         history.setAttribute("aria-label", `Historial de ${info.singular} «${r.name}»`);
         const editable = r.editable;
@@ -298,7 +388,7 @@ export function createLibrary(room: Room<unknown, WorldState>, config: WorldConf
         retire.setAttribute("aria-label", `Retirar edificio «${r.name}»`);
         const restore = Object.assign(el("button", { type: "button" }, "Restaurar"), { onclick: () => openStructureDialog(r, false) });
         restore.setAttribute("aria-label", `Restaurar edificio «${r.name}»`);
-        const extra: (Node | string)[] = [];
+        const extra: (Node | string)[] = [" ", copy(r)];
         if (r.retirable) extra.push(" ", retire);
         if (r.restorable) extra.push(" ", restore);
         if (r.archivable) extra.push(" ", archive(r));
