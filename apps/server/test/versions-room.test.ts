@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Client } from "@colyseus/sdk";
-import { MESSAGE, ROOM_NAME, WorldState, type CascadePlanMessage, type DefSavedMessage, type HistoryMessage, type MoveMessage, type Player, type RejectedMessage } from "@juego/shared";
+import { achievementSnapshotFromState, evaluateAchievements, MESSAGE, ROOM_NAME, snapshotFromState, WorldState, type CascadePlanMessage, type WorldConfig, type DefSavedMessage, type HistoryMessage, type MoveMessage, type Player, type RejectedMessage } from "@juego/shared";
 import { fixture, sessionFor, sleep, startServer, tempDb, waitFor } from "./helpers.ts";
 
 // G2, P1 (TP-32): edición por versiones, concurrencia, historial, retirada de edificios y cascada, con el servidor REAL.
@@ -283,6 +283,14 @@ test("TP-32: editar una construcción antes de construirla; retirar un edificio 
       [true, "ana", 1, "completada"]);
     ana.room.send(MESSAGE.move, RIGHT);
     await waitFor(() => ana.me().x === 4, 2000);
+    // El juego (planificador y logros): el retirado no existe para el objetivo, pero su historia sigue en los logros (Q252).
+    const config = JSON.parse(readFileSync(fixture("regen-world.json"), "utf8")) as WorldConfig;
+    const snapshot = snapshotFromState(ana.room.state, config, ana.room.sessionId);
+    assert.ok(snapshot.structures.some((x) => x.def.id === "taller"), "el taller de la configuración sigue en el planificador");
+    assert.ok(!snapshot.structures.some((x) => x.def.id === id), "el edificio retirado ya no existe para el planificador");
+    const history = achievementSnapshotFromState(ana.room.state, ana.room.sessionId);
+    assert.ok(history.structures.some((x) => x.id === id && x.built && x.builtBy === "ana"), "pero consta como construido en la historia de los logros");
+    assert.ok(evaluateAchievements(history).some((a) => a.status === "conseguido"), "y los logros conseguidos se conservan");
 
     // Restaurar: reglas propias (revisión vigente y solar libre).
     await step();
