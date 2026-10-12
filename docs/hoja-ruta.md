@@ -36,6 +36,7 @@ Microservicios lógicamente separados; no introducir federación, RAG, IA comple
 | G3d | Logros y reconocimiento cooperativo: modelo de logros verificables y catálogo versionado, pestaña «Logros», almacén local versionado, celebraciones desactivables y reconocimientos locales aparte (RF-029, Q227–Q236) | G3c | Logros derivados del estado, reconocimiento por papeles sin clasificaciones, celebraciones por preferencia y probado con servidor real — **CERRADA** 2026-10-11 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 | G1 | Arreglos de diseño: límites de diseño editables con techos más altos y límites del planificador, escalas de niveles y archivo de definiciones con restaurar (RF-030, Q237–Q241) | G3d | Límites vigentes editables, escalas en desplegable y archivar sin borrar, probado con servidor real y con dos sesiones — **CERRADA** 2026-10-12 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 | G1b | Mejoras de cierre de G1: preferencias de accesibilidad en el panel profesional, tablas del archivo en pantallas estrechas y pruebas de sala real estables (Q242) | G1 | El panel respeta y sigue en vivo el tamaño de texto, el contraste y el movimiento del juego; el archivo no obliga a desplazarse en estrecho; las pruebas esperan el parche propio de cada sesión — **CERRADA** 2026-10-12 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
+| G2 | Biblioteca y versiones: edición por versiones con historial y concurrencia, retirar edificios, archivado en cascada, duplicar y plantillas, y navegación lateral del panel (RF-031, Q243–Q253) | G1b | Versiones con id estable y `expectedRev`, análisis previo, retirada sin perder lo histórico y cascada atómica, probado con dos administradores y con dos sesiones — **CERRADA** 2026-10-12 (evidencia en `docs/pruebas.md` §5; pendiente de la prueba de la persona responsable y de la fusión) |
 
 El orden es **PROPUESTA**, no un cronograma aprobado. Fechas, responsables, costes y horas de esfuerzo: **NO VERIFICADO**.
 
@@ -104,7 +105,7 @@ Una vez aprobado G0, avanzar dentro del alcance aprobado y detenerse en el sigui
 
 **Gate 0 cerrado el 2026-10-09:** BL-01–BL-04 resueltos y BL-05 suficiente para empezar. Siguen como PROPUESTA revisable las cifras del bucle, los umbrales y la reclasificación de decisiones.
 
-**NEXT:** prueba y fusión de G1b por la persona responsable; después, planificar la siguiente etapa por preguntas entre G2 (biblioteca y versiones), F2d (conversación y objetivos de equipo) y F2e (bots).
+**NEXT:** prueba y fusión de G2 por la persona responsable; después, planificar la siguiente etapa por preguntas entre F2d (conversación y objetivos de equipo) y F2e (bots).
 
 ## 8. Mejoras futuras anotadas (no planificadas)
 
@@ -120,7 +121,7 @@ Surgidas de la valoración de cierre de G3d (`docs/pruebas.md`):
 
 | # | Mejora | Cuándo |
 |---|---|---|
-| N3 | Cobertura en sala real de retirar un elemento y de los niveles de habilidad (hoy en pruebas de tabla) | G2; G1 añadió el archivo y las habilidades en sala real, pero «retirar» sigue pendiente |
+| N3 | Cobertura en sala real de retirar un elemento y de los niveles de habilidad (hoy en pruebas de tabla) | **HECHA en G2** (retirar y niveles de habilidad en sala real) |
 | N4 | Catálogo de logros definido por datos desde el panel profesional | G2 |
 | N5 | Logros y reconocimientos en el servidor (mismo resultado en cualquier dispositivo, sin «primera visita» por navegador) | Solo si se revisa Q227 |
 | N6 | Logros de equipo con objetivo compartido («Usar como mi objetivo») | F2d / M10 |

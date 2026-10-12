@@ -151,3 +151,30 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - Archivar y restaurar usan un `<dialog>` nativo (foco devuelto al abrir y, si el botón desaparece al archivar, a `archivo-mostrar`). Los motivos del servidor (`definicion-en-uso`) se listan junto a la sección. Un participante no ve ninguna de las dos secciones.
 - Guion de humo: `await s.g1()` de `scripts/ui-smoke.js` (14 comprobaciones del panel de diseño, en `/panel` con administración).
 
+### Navegación lateral y Biblioteca (puerta P2 de G2)
+
+- El cuerpo de `section#panel` ya no apila los bloques: tras el aviso y el rechazo hay `div#secciones-anfitrion` con `div.layout` = `nav#secciones` (`aria-label="Secciones"`, lista de enlaces `a[href="#id"]` con `aria-current="page"` en el activo) + `div.secciones`, que contiene **una sección visible a la vez** (las demás con `hidden`): `div#seccion-proyectos` (`#vistas` y las cuatro `role="tabpanel"` de las vistas de gestión, que no cambian), `section#biblioteca` (solo administración), `section.admin` («Crear», solo administración), `section#diseno` (límites y archivo; solo administración) y `div#seccion-cadenas` (cadenas y habilidades).
+- Los ids de las vistas (`vistas`, `vista-lista`, `vista-tablero`…) y los de las pestañas **no cambian**: solo se mueven de sitio. `admin-titulo` ahora dice «Crear».
+- `#hash` = id de la sección (`proyectos`, `biblioteca`, `crear`, `diseno`, `cadenas`); uno desconocido o no disponible cae en `proyectos`. Al cambiar de sección el foco va a su primer `h2` (`tabindex="-1"`).
+- Biblioteca: `div#biblioteca-listas` con una `dataTable` por tipo (`caption`, `th scope="col"`); el botón «Historial» de cada fila lleva `aria-label` («Historial de receta «X»») y abre un diálogo con la tabla de versiones.
+- CSS en `panel.html`: `.layout`, `#secciones` y `.secciones`; a menos de 900 px una sola columna con la navegación en fila; `#biblioteca-listas table` sin ancho mínimo.
+
+### Edición por versiones en la Biblioteca (puerta P3 de G2)
+
+- En cada fila de la Biblioteca de lo creado en el panel: botones «Editar» e «Historial» (con `aria-label` que nombran el elemento); «Editar» queda con `aria-disabled="true"` y el motivo en texto si no se puede (archivado, cumplida, construido, retirado). Lo de la configuración dice «Solo lectura».
+- «Editar» abre un `<dialog>` modal con el formulario del tipo (los mismos controles y listas dinámicas que al crear), el campo «Nota del cambio (opcional)» (`#edicion-nota`), la zona `div.analisis` (el análisis o el rechazo, `role="status"` o `role="alert"`) y los botones «Revisar el cambio» → «Confirmar el cambio» o «Cargar lo vigente».
+- «Historial» abre un `<dialog>` con una tabla (`Versión`, `Nombre en esa versión`, `Quién`, `Cuándo`, `Nota`, `Acción`); la acción «Volver a esta versión» abre otro diálogo con «Revisar la vuelta» → «Confirmar y volver a esa versión». Al aplicarse, se cierran los dos.
+- Mensajes nuevos: `edit-def`, `restore-version`, `definition-history`, respuestas `history` y `def-saved`; un rechazo puede traer `analysis`. Foco: dentro del diálogo al abrir; al cerrar vuelve al control que lo abrió.
+
+### Retirar edificios y archivar en cascada (puerta P4 de G2)
+
+- En la fila de un edificio del panel: «Retirar» (también construido) o, si está retirado, «Restaurar»; en la de un objeto, receta, habilidad o misión activos: «Archivar con lo que depende». Cada botón lleva `aria-label` («Retirar edificio «X»», «Archivar objeto «X» con lo que depende de ello»).
+- «Retirar» abre un `<dialog>` con «Revisar el impacto» → zona `div.analisis` con dos listas (**Lo que cambia ahora (estado operativo)** y **Lo que se conserva (resultados históricos)**) y «Confirmar la retirada». «Restaurar» abre un diálogo con «Restaurar el edificio».
+- «Archivar con lo que depende» pide la vista previa (`cascade-preview`) y abre un `<dialog>` con la lista ordenada de lo que se archivará, «Lo que lo impide» (cada bloqueo con su «Camino: A → B → C») y «Archivar todo (N)», que con bloqueos queda con `aria-disabled="true"`. Si el plan cambia (`plan-desactualizado`), el diálogo se repinta con el aviso y el plan actual.
+- El servidor confirma con `def-saved` (retirar, restaurar y cascada también); un rechazo `version-obsoleta` ofrece «Cargar lo vigente».
+
+### Duplicar y plantillas (puerta P5 de G2)
+
+- En la Biblioteca, `fieldset#plantillas` («Crear a partir de una plantilla») con `select#plantilla-elegir` (ayuda enlazada con `aria-describedby="plantilla-ayuda"`) y el botón «Empezar con la plantilla». Va **antes** de las tablas.
+- Cada fila tiene un botón «Duplicar» (`aria-label` «Duplicar receta «X»»), también las de la configuración, que además dicen «Solo lectura: viene de la configuración».
+- «Duplicar» y las plantillas abren un `<dialog>` con el mismo formulario de edición, relleno, el botón «Crear <tipo>» (y «Cancelar») y la zona `div.analisis` para el rechazo del servidor. Al aparecer lo nuevo en el estado, el diálogo se cierra y se anuncia «creado: aparece en la Biblioteca como v1». No hay mensaje de confirmación del servidor para las creaciones.

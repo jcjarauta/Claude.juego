@@ -27,6 +27,8 @@ interface Entry {
   name: string;
   origin: string;
   archived: boolean;
+  /** Revisión de concurrencia con la que se abrió la pantalla (G2, Q249). */
+  rev: number;
 }
 
 /** Los límites vigentes: lo que dice el estado y, si aún no ha llegado, los de la configuración. */
@@ -104,10 +106,10 @@ export function createDesignSections(config: WorldConfig, room: Room<unknown, Wo
   showArchived.onchange = () => { signature = ""; render(); };
 
   const entries = (state: WorldState): Entry[] => [
-    ...[...state.items.entries()].map(([id, e]): Entry => ({ kind: "objeto", id, name: e.name, origin: e.origin, archived: e.archived })),
-    ...[...state.recipes.entries()].map(([id, e]): Entry => ({ kind: "receta", id, name: e.name, origin: e.origin, archived: e.archived })),
-    ...[...state.skills.entries()].map(([id, e]): Entry => ({ kind: "habilidad", id, name: e.name, origin: e.origin, archived: e.archived })),
-    ...[...state.missions.entries()].map(([id, e]): Entry => ({ kind: "mision", id, name: e.name, origin: e.origin, archived: e.archived })),
+    ...[...state.items.entries()].map(([id, e]): Entry => ({ kind: "objeto", id, name: e.name, origin: e.origin, archived: e.archived, rev: e.rev })),
+    ...[...state.recipes.entries()].map(([id, e]): Entry => ({ kind: "receta", id, name: e.name, origin: e.origin, archived: e.archived, rev: e.rev })),
+    ...[...state.skills.entries()].map(([id, e]): Entry => ({ kind: "habilidad", id, name: e.name, origin: e.origin, archived: e.archived, rev: e.rev })),
+    ...[...state.missions.entries()].map(([id, e]): Entry => ({ kind: "mision", id, name: e.name, origin: e.origin, archived: e.archived, rev: e.rev })),
   ];
 
   function confirmAction(entry: Entry, archive: boolean) {
@@ -121,7 +123,7 @@ export function createDesignSections(config: WorldConfig, room: Room<unknown, Wo
       archiveFeedback.errors.replaceChildren();
       archiveFeedback.confirm.textContent = "";
       pending = "archivo";
-      const message: ArchiveDefMessage = { requestId: newRequestId(), kind: entry.kind, id: entry.id };
+      const message: ArchiveDefMessage = { requestId: newRequestId(), kind: entry.kind, id: entry.id, expectedRev: entry.rev };
       room.send(archive ? MESSAGE.archiveDef : MESSAGE.restoreDef, message);
       dialog.close();
     };

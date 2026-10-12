@@ -6,6 +6,8 @@ import {
 } from "@juego/shared";
 import { enter, logout } from "./account.ts";
 import { createAdminForms } from "./admin-forms.ts";
+import { createLibrary } from "./library.ts";
+import { setupSections } from "./sections.ts";
 import { setupTabs } from "./ui/tabs.ts";
 import { createBoard } from "./views/board.ts";
 import { blockers, el, visibleTask, type ViewContext } from "./views/common.ts";
@@ -61,7 +63,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const coordinator = authorize(me, "review", project);
   const admin = authorize(me, "close-project", { admins: config.admins });
-  const hasStructure = [...room.state.structures.values()].some((s) => s.projectId === project.id);
+  const hasStructure = [...room.state.structures.values()].some((s) => s.projectId === project.id && !s.retired);
   const headingId = `proyecto-${project.id}`;
   const status = el("span");
   const phase = el("span");
@@ -314,7 +316,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
   };
 
   const container = byId("proyectos");
-  const adminForms = admin ? createAdminForms(byId("vistas"), config, room, announce) : undefined;
+  const adminForms = admin ? createAdminForms(config, room, announce) : undefined;
+  const library = admin ? createLibrary(room, config, announce) : undefined;
 
   // Vistas de gestión (F1b): pestañas y selector de proyecto sobre los mismos datos.
   const projectFilter = byId<HTMLSelectElement>("vista-proyecto");
@@ -349,7 +352,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
   projectFilter.onchange = () => render();
 
   let rejectionTimer: number | undefined;
-  room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
+  room.onMessage(MESSAGE.rejected, ({ reason, details, analysis }: RejectedMessage) => {
+    if (library?.showRejection(REJECT_TEXT[reason], details, analysis, reason)) return;
     if (adminForms?.showRejection(REJECT_TEXT[reason], details)) return;
     rejection.textContent = REJECT_TEXT[reason];
     window.clearTimeout(rejectionTimer);
@@ -367,6 +371,22 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
   missionsSection.after(chains.element);
   const skillsView = createSkillsView(room);
   chains.element.after(skillsView.element);
+
+  // Navegación lateral (G2, Q248): cada bloque pasa a su sección y se ve una a la vez. Los participantes ven solo Proyectos y
+  // Cadenas y habilidades, como hasta ahora; la administración añade Biblioteca, Crear y Diseño.
+  const projectsSection = el("div", { id: "seccion-proyectos" }, byId("vistas"), byId("vista-lista"), byId("vista-tablero"), byId("vista-cronograma"), byId("vista-indicadores"));
+  const chainsSection = el("div", { id: "seccion-cadenas" }, chains.element, skillsView.element);
+  const sectionsHost = el("div", { id: "secciones-anfitrion" });
+  byId("rechazo").after(sectionsHost);
+  const sections = setupSections(sectionsHost, [
+    { id: "proyectos", label: "Proyectos", element: projectsSection },
+    ...(adminForms && library ? [
+      { id: "biblioteca", label: "Biblioteca", element: library.element },
+      { id: "crear", label: "Crear", element: adminForms.element },
+      { id: "diseno", label: "Diseño", element: adminForms.designElement },
+    ] : []),
+    { id: "cadenas", label: "Cadenas y habilidades", element: chainsSection },
+  ]);
 
   // Una vista por proyecto, creada al aparecer en el estado (también los que se crean después).
   const views = new Map<string, ReturnType<typeof createProjectView>>();
@@ -400,7 +420,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
     metrics.render();
     comments.render();
     // Al entrar, el foco va al primer proyecto en cuanto aparece (TP-11).
-    if (!focused && views.size) {
+    if (!focused && views.size && sections.current() === "proyectos") {
       focused = true;
       container.querySelector<HTMLElement>("h2")?.focus();
     }
@@ -419,6 +439,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
     chains.render();
     skillsView.render();
     adminForms?.render();
+    library?.render();
   };
   room.onStateChange(render);
   container.addEventListener("change", render); // la tarea elegida para revisar cambia el aviso

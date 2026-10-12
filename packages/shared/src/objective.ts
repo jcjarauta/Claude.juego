@@ -675,6 +675,10 @@ const REJECTION_TABLE: Record<RejectReason, RejectionClass | "bloqueo"> = {
   "demasiados-objetos": "error-tecnico",
   "demasiadas-recetas": "error-tecnico",
   "definicion-en-uso": "bloqueo",
+  // G2: otra persona cambió la definición, una dependencia o el plan entre que se miró y que se confirmó.
+  "version-obsoleta": "estado-desactualizado",
+  "analisis-desactualizado": "estado-desactualizado",
+  "plan-desactualizado": "estado-desactualizado",
 };
 
 export const REJECTION_REASONS = Object.keys(REJECTION_TABLE) as RejectReason[];

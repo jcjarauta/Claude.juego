@@ -401,12 +401,14 @@ export class WorldScene extends Phaser.Scene {
     const t = this.tile;
     // Solares y edificios del estado (F2a): también los creados desde el panel; los retirados desaparecen.
     for (const [id, view] of [...this.structureViews]) {
-      if (this.room.state.structures.has(id)) continue;
+      const current = this.room.state.structures.get(id);
+      if (current && !current.retired) continue;
       view.graphics.destroy();
       view.label.destroy();
       this.structureViews.delete(id);
     }
     for (const [id, structure] of this.room.state.structures) {
+      if (structure.retired) continue;
       const def = structureDefFromState(id, structure);
       let view = this.structureViews.get(def.id);
       if (!view) {
@@ -515,14 +517,14 @@ export class WorldScene extends Phaser.Scene {
     const projectId = this.selectedProject;
     const projectState = projectId ? state.projects.get(projectId) : undefined;
     if (this.projectPanel && projectId && projectState) {
-      const structureEntry = [...state.structures.entries()].find(([, s]) => s.projectId === projectId);
+      const structureEntry = [...state.structures.entries()].find(([, s]) => s.projectId === projectId && !s.retired);
       const structureDef = structureEntry && structureDefFromState(structureEntry[0], structureEntry[1]);
       this.projectPanel.render({
         state: projectState,
         structureDef,
         recipes: structureDef ? [...state.recipes.entries()].filter(([, r]) => r.structureId === structureDef.id && !r.archived).map(([id, r]) => recipeDefFromState(id, r)) : [],
         itemName: (id) => state.items.get(id)?.name.toLowerCase() ?? id,
-        building: (id) => { const s = state.structures.get(id); return s && { name: s.name, built: s.built }; },
+        building: (id) => { const s = state.structures.get(id); return s && !s.retired ? { name: s.name, built: s.built } : undefined; },
         chains: chainsFromState(state, this.config, (id) => state.community.get(id) ?? 0, (skill) => me.skills.get(skill) ?? 0),
         held: (resource) => me.inventory.get(resource) ?? 0,
         community: (resource) => state.community.get(resource) ?? 0,
