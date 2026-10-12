@@ -88,7 +88,7 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 
 ### 4.2 Versiones de definiciones y recuperación (G2, Q243–Q253)
 
-**Estado:** P0 construido (reglas puras y migración v12); las operaciones del servidor llegan en P1.
+**Estado:** P0 (reglas puras y migración v12) y P1 (operaciones del servidor) construidos; el panel llega en P2–P5 y el juego en P6.
 
 - **Versiones con id estable.** La v1 de una definición sigue en su tabla `*_def` y no se toca; `def_version(kind, id, version ≥ 2, definition, changed_by, changed_at, note)` guarda las siguientes y la vigente es la de mayor número. Volver a una versión crea una versión nueva.
 - **Dos contadores.** `version` (contenido) solo sube al editar o volver a una versión; `rev` (concurrencia, tabla `def_rev`, sin fila = 1) sube con cualquier cambio de estado: editar, archivar, restaurar, retirar. Toda operación lleva `expectedRev`; un análisis (`analyzeEdit`, `analyzeRetire`) devuelve su forma canónica y el servidor la firma con SHA-256 (`apps/server/src/projects/hash.ts`): esa firma es la `basis` que la confirmación reenvía.
@@ -96,21 +96,23 @@ Mantener transacciones en cambios de inventario/recursos, evitar doble consumo, 
 
 | Registro | Dónde vive | Guarda hoy | Versión usada |
 |---|---|---|---|
-| Fabricar una receta | evento `craft` | recipe, consumed, produced | `recipeVersion` (P1) |
-| Subir de nivel practicando | evento `skill-level` | skill, level, recipe | `skillVersion` (P1) |
-| Aprender enseñado | evento `skill-taught` | teacher, skill, level | `skillVersion` (P1) |
-| Habilidad concedida | evento `skill-granted` | player, skill, level | `skillVersion` (P1) |
-| Misión cumplida | evento `mission-complete` | mission | `missionVersion` (P1) |
-| Construir un edificio | evento `build` | structure, project, consumed | `structureVersion` (P1) |
-| Nivel de una persona | tabla `player_skill` | level, source, at | columna `def_version` (creada en v12, nula) |
-| Edificio construido | tabla `structure` | built_at, built_by | columna `def_version` (creada en v12, nula) |
-| Misión cumplida | tabla `mission` | completed_at, completed_by | columna `def_version` (creada en v12, nula) |
-| Oferta de enseñanza | memoria de la sala (`WorldRoom.offers`, no se persiste) | id, from, to, skill, level, expiresAt | `skillVersion` y revalidación al aceptar (P1) |
+| Fabricar una receta | evento `craft` | recipe, consumed, produced | `recipeVersion` |
+| Subir de nivel practicando | evento `skill-level` | skill, level, recipe | `skillVersion` |
+| Aprender enseñado | evento `skill-taught` | teacher, skill, level | `skillVersion` |
+| Habilidad concedida | evento `skill-granted` | player, skill, level | `skillVersion` |
+| Misión cumplida | evento `mission-complete` | mission | `missionVersion` |
+| Construir un edificio | evento `build` | structure, project, consumed | `structureVersion` |
+| Nivel de una persona | tabla `player_skill` | level, source, at | columna `def_version` (nula en lo anterior a v12, con la versión usada en lo nuevo) |
+| Edificio construido | tabla `structure` | built_at, built_by | columna `def_version` (nula en lo anterior a v12, con la versión usada en lo nuevo) |
+| Misión cumplida | tabla `mission` | completed_at, completed_by | columna `def_version` (nula en lo anterior a v12, con la versión usada en lo nuevo) |
+| Oferta de enseñanza | memoria de la sala (`WorldRoom.offers`, no se persiste) | id, from, to, skill, level, expiresAt | `skillVersion`, y al aceptar se revalida que el nivel sigue existiendo |
 | Aportación a una tarea | evento `contribute` | project, task, resource, amount, from | no hace falta: la tarea se identifica por recurso |
 | Veces fabricadas por receta | tabla `craft_count` | player, recipe, n | no hace falta: contador agregado por receta |
 
 - **Solo hacia delante (Q251).** Las filas y eventos anteriores a v12 **no se rellenan ni se infieren**: quedan sin versión (`NULL` o campo ausente) y la interfaz los mostrará como «anterior a G2 (versión no registrada)», nunca como «v1». La migración no toca ninguna fila existente y una prueba lo comprueba.
 - **Reversibilidad en tres niveles (Q250), separados:** (1) restauración funcional (archivo y versiones, con `expectedRev`); (2) restauración de construcciones, con reglas propias (solar libre y dentro del mapa, proyecto no cerrado); (3) recuperación de bases de datos, que es lo siguiente.
+
+**Operaciones del servidor (P1).** Mensajes `edit-def`, `restore-version`, `definition-history` (respuesta `history`), `retire-structure`, `restore-structure`, `cascade-preview` (respuesta `cascade-plan`) y `archive-def` con `cascade: { planHash }`; `archive-def` y `restore-def` aceptan `expectedRev` (hoy opcional por compatibilidad con el panel actual; P2 lo enviará siempre). Todo en una transacción con `requestId` idempotente. Un rechazo puede llevar `analysis` (`bloqueos`, `avisos`, `efectos`, `basis`, y `operativo`/`historico` en una retirada): sin la `basis`, un cambio con avisos o efectos devuelve el análisis en lugar de aplicarse. El estado sincronizado lleva `version` y `rev` en objetos, recetas, habilidades, misiones, estructuras y proyectos, y las estructuras llevan `retired`: un edificio retirado **sigue en el estado** (historia), se oculta del mapa y sus casillas dejan de bloquear. La orden `archive-def` en cascada recalcula el plan **dentro de la transacción** y solo aplica el lote si la firma coincide; si no, responde `plan-desactualizado` y manda el plan nuevo.
 
 **Procedimiento de recuperación de la base de datos.** Antes de migrar una base con datos, `openStore` guarda una copia coherente `*.v<N>.bak` con `VACUUM INTO` (para v12: `*.v11.bak`; no se sobrescribe si ya existe). Si hay que volver atrás: (1) **detener el servidor**; (2) conservar la base actual aparte (`mv base.db base.db.malo`) y borrar sus `-wal` y `-shm`; (3) copiar `base.db.v11.bak` como `base.db`; (4) arrancar la versión anterior del código (o la nueva: reabrir la copia vuelve a migrar a v12 y recrea las tablas vacías); (5) comprobar con `npm.cmd test` en un clon y con la auditoría. **Se pierde todo lo escrito después de migrar**, por eso la copia es el último recurso y la reversión funcional (versiones y archivo) es la vía normal. Este procedimiento se prueba **exclusivamente con bases temporales** (`tempDb`, comprobado en la propia prueba); nunca se ejecuta sobre la base de la persona responsable sin su orden expresa.
 

@@ -116,7 +116,7 @@ test("el hash es determinista: mismo texto canónico → misma firma de 32 hex; 
 
 // ---------------------------------------------------------------- inventario de registros históricos (Q251), sobre una sala real
 
-test("inventario: hoy ningún registro histórico guarda la versión usada; las columnas nuevas existen y las filas reales quedan sin versión", async () => {
+test("inventario: desde P1 los registros nuevos guardan la versión usada (solo hacia delante); las columnas existen y lo anterior sigue sin versión", async () => {
   const dbPath = tempDb();
   assert.ok(resolve(dbPath).startsWith(resolve(tmpdir())));
   const server = await startServer({ WORLD_CONFIG: WORLD, DB_PATH: dbPath });
@@ -136,10 +136,11 @@ test("inventario: hoy ningún registro histórico guarda la versión usada; las 
   const db = new DatabaseSync(dbPath);
   const events = db.prepare("SELECT type, data FROM event WHERE type IN ('skill-created', 'skill-granted')").all() as { type: string; data: string }[];
   const granted = JSON.parse(events.find((e) => e.type === "skill-granted")!.data) as Record<string, unknown>;
-  // P0: los eventos solo llevan ids. P1 añadirá `skillVersion` hacia delante (y esta aserción se actualizará entonces).
-  assert.deepEqual(Object.keys(granted).sort(), ["level", "player", "skill"], "el evento real de conceder una habilidad solo guarda ids");
+  // Desde P1 el evento nuevo lleva la versión de la habilidad usada; los eventos anteriores a v12 (ver la prueba de migración) no la llevan.
+  assert.deepEqual(Object.keys(granted).sort(), ["level", "player", "skill", "skillVersion"], "el evento nuevo guarda la versión usada");
+  assert.equal(granted.skillVersion, 1);
   const row = db.prepare("SELECT level, source, def_version FROM player_skill WHERE player = 'ana'").get() as { level: number; source: string; def_version: number | null };
-  assert.deepEqual({ ...row }, { level: 1, source: "concesion", def_version: null }, "la fila real queda sin versión: no se infiere");
+  assert.deepEqual({ ...row }, { level: 1, source: "concesion", def_version: 1 }, "la fila nueva guarda la versión usada");
   // cada tabla del inventario con campo def_version lo tiene de verdad
   for (const r of HISTORICAL_RECORDS) {
     assert.equal(r.backfilled, false, `${r.record}: no se rellena hacia atrás`);

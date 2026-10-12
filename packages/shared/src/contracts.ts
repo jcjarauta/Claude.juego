@@ -30,6 +30,17 @@ export const MESSAGE = {
   updateLimits: "update-limits",
   archiveDef: "archive-def",
   restoreDef: "restore-def",
+  /** Biblioteca (G2): editar por versiones, volver a una versión, ver el historial, retirar edificios y archivar en cascada. */
+  editDef: "edit-def",
+  restoreVersion: "restore-version",
+  definitionHistory: "definition-history",
+  retireStructure: "retire-structure",
+  restoreStructure: "restore-structure",
+  cascadePreview: "cascade-preview",
+  /** Servidor → quien lo pidió: historial de una definición. */
+  history: "history",
+  /** Servidor → quien lo pidió: plan de archivado en cascada con su firma. */
+  cascadePlan: "cascade-plan",
   teachOffer: "teach-offer",
   teachRespond: "teach-respond",
   /** Servidor → destinatario: alguien le ofrece enseñarle una habilidad. */
@@ -268,6 +279,69 @@ export interface ArchiveDefMessage {
   requestId: string;
   kind: "objeto" | "receta" | "habilidad" | "mision";
   id: string;
+  /** Revisión de la definición con la que se abrió la pantalla (G2, Q249). */
+  expectedRev?: number;
+  /** Archivar en cascada (G2, Q253): firma del plan previsualizado; el servidor lo recalcula y compara dentro de la transacción. */
+  cascade?: { planHash: string };
+}
+
+/** Editar una definición por versiones (G2): el contenido completo propuesto, la revisión esperada y, tras ver el análisis, su base. */
+export interface EditDefMessage {
+  requestId: string;
+  kind: "objeto" | "receta" | "habilidad" | "mision" | "construccion";
+  id: string;
+  def: Record<string, unknown>;
+  expectedRev: number;
+  basis?: string;
+  note?: string;
+}
+
+export interface RestoreVersionMessage {
+  requestId: string;
+  kind: "objeto" | "receta" | "habilidad" | "mision" | "construccion";
+  id: string;
+  toVersion: number;
+  expectedRev: number;
+  basis?: string;
+  note?: string;
+}
+
+export interface DefinitionHistoryMessage {
+  kind: "objeto" | "receta" | "habilidad" | "mision" | "construccion";
+  id: string;
+}
+
+export interface RetireStructureMessage {
+  requestId: string;
+  structureId: string;
+  expectedRev: number;
+  basis?: string;
+}
+
+export interface CascadePreviewMessage {
+  kind: "objeto" | "receta" | "habilidad" | "mision";
+  id: string;
+}
+
+/** Respuesta a `definition-history`. */
+export interface HistoryMessage {
+  kind: string;
+  id: string;
+  /** Versión de contenido vigente y revisión de concurrencia vigente. */
+  version: number;
+  rev: number;
+  versions: { version: number; definition: unknown; changedBy: string; changedAt: number; note: string }[];
+}
+
+/** Respuesta a `cascade-preview`: el plan, sus bloqueos y la firma que hay que reenviar para ejecutarlo. */
+export interface CascadePlanMessage {
+  kind: string;
+  id: string;
+  order: { kind: string; id: string; name: string }[];
+  blockers: { node: { kind: string; id: string; name: string }; reason: string; path: string[] }[];
+  cycles: string[];
+  executable: boolean;
+  planHash: string;
 }
 
 export interface TeachOfferMessage {
@@ -419,6 +493,8 @@ export interface RejectedMessage {
   reason: RejectReason;
   /** Detalle legible (p. ej. qué campos de una definición no son válidos). */
   details?: string[];
+  /** Análisis previo (G2): se devuelve al pedir confirmar un cambio; `basis` es lo que hay que reenviar para confirmarlo. */
+  analysis?: { bloqueos: string[]; avisos: string[]; efectos: string[]; basis: string; operativo?: unknown; historico?: unknown };
 }
 
 export const REJECT_TEXT: Record<RejectReason, string> = {

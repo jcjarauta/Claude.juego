@@ -3,9 +3,12 @@ import {
   authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateConstruction, checkCreateItem, checkCreateMission,
   checkCreateProject, checkCreateRecipe, checkCreateSkill, checkGrantSkill, checkReschedule, checkReview, isTaskDone, isValidRequestId, levelAfterCraft,
   checkArchive, checkRestore, checkUpdateLimits, HARD_BUILD_LIMITS, LIMIT_KEYS, missionSatisfied, projectStatus, taskStatus,
-  type BuildLimits, type ContributionSource, type DefinitionKind, type DesignView, type ItemDef, type MissionDef, type ProjectDef, type RecipeDef, type RejectReason, type ReviewDecision, type SkillDef,
+  cascadePlan, checkEditDef, checkRestoreStructure, checkRestoreVersion, checkRetireStructure, keyOf,
+  type BuildLimits, type CascadePlan, type ConstructionDef, type ContributionSource, type DefinitionKind, type DefMeta, type DefVersion, type DesignView, type EditableDef, type EditableKind, type EditView,
+  type ItemDef, type MissionDef, type PlayerFacts, type ProjectDef, type RecipeDef, type RejectedMessage, type RetireAnalysis, type RejectReason, type ReviewDecision, type SkillDef,
   type StructureDef, type WorldConfig,
 } from "@juego/shared";
+import { canonicalHash } from "./hash.ts";
 import { COMMUNITY, playerScope, projectScope, type ContributionRow, type ReviewRow, type Store } from "../store.ts";
 
 // Núcleo de proyectos (M5b, ADR-001): fuente de verdad de proyectos, tareas y misiones.
@@ -17,7 +20,7 @@ import { COMMUNITY, playerScope, projectScope, type ContributionRow, type Review
 export type Outcome<T> =
   | { kind: "done"; value: T }
   | { kind: "duplicate" }
-  | { kind: "rejected"; reason: RejectReason; details?: string[] };
+  | { kind: "rejected"; reason: RejectReason; details?: string[]; analysis?: RejectedMessage["analysis"] };
 
 /** Misión completada en la misma transacción que la operación que la cumple (Q158, Q174). */
 export interface MissionCompleted {
@@ -139,6 +142,16 @@ export interface ProjectSnapshot {
   comments: Record<string, { count: number; last: { by: string; at: number; text: string } }>;
 }
 
+/** Resultado de editar o volver a una versión (G2). */
+export interface EditDone {
+  kind: EditableKind;
+  id: string;
+  /** Versión de contenido nueva y revisión de concurrencia nueva. */
+  version: number;
+  rev: number;
+  def: EditableDef;
+}
+
 export const RECENT_CONTRIBUTIONS = 10;
 
 export function createProjectCore(store: Store, config: WorldConfig) {
@@ -163,6 +176,45 @@ export function createProjectCore(store: Store, config: WorldConfig) {
   const skills = new Map<string, SkillEntry>();
   for (const def of config.skills) skills.set(def.id, { def, origin: "configuracion" });
   for (const row of store.getSkillDefs()) skills.set(row.def.id, { def: row.def, origin: "panel" });
+
+  // Versiones de contenido y revisiones de concurrencia (G2, Q243, Q249). La v1 de cada definición del panel queda guardada tal cual
+  // (`originals`) y las siguientes se aplican encima; sin fila de revisión, la revisión vale 1.
+  const vkey = (kind: EditableKind, id: string) => `${kind}:${id}`;
+  const originals = new Map<string, { definition: unknown; by: string; at: number }>();
+  for (const row of store.getItemDefs()) originals.set(vkey("objeto", row.def.id), { definition: row.def, by: row.createdBy, at: row.createdAt });
+  for (const row of store.getRecipeDefs()) originals.set(vkey("receta", row.def.id), { definition: row.def, by: row.createdBy, at: row.createdAt });
+  for (const row of store.getSkillDefs()) originals.set(vkey("habilidad", row.def.id), { definition: row.def, by: row.createdBy, at: row.createdAt });
+  for (const row of store.getMissionDefs()) originals.set(vkey("mision", row.def.id), { definition: row.def, by: row.createdBy, at: row.createdAt });
+  for (const entry of structures.values()) {
+    const project = projects.get(entry.def.id);
+    if (entry.origin === "panel" && project) originals.set(vkey("construccion", entry.def.id), { definition: { project: project.def, structure: entry.def } satisfies ConstructionDef, by: entry.createdBy, at: project.createdAt });
+  }
+  const versionOfMap = new Map<string, number>();
+  const revInfo = new Map<string, { rev: number; change: string; by: string; at: number }>();
+  function applyDefinition(kind: EditableKind, id: string, def: unknown) {
+    if (kind === "objeto") items.get(id)!.def = def as ItemDef;
+    else if (kind === "receta") recipes.get(id)!.def = def as RecipeDef;
+    else if (kind === "habilidad") skills.get(id)!.def = def as SkillDef;
+    else if (kind === "mision") missions.get(id)!.def = def as MissionDef;
+    else {
+      const c = def as ConstructionDef;
+      projects.get(id)!.def = c.project;
+      structures.get(id)!.def = c.structure;
+    }
+  }
+  for (const row of store.getAllDefVersions()) {
+    const kind = row.kind as EditableKind;
+    applyDefinition(kind, row.id, row.definition);
+    versionOfMap.set(vkey(kind, row.id), row.version);
+  }
+  for (const r of store.getDefRevs()) revInfo.set(vkey(r.kind as EditableKind, r.id), { rev: r.rev, change: r.change, by: r.changedBy, at: r.changedAt });
+  const versionOf = (kind: EditableKind, id: string) => versionOfMap.get(vkey(kind, id)) ?? 1;
+  const revOf = (kind: EditableKind, id: string) => revInfo.get(vkey(kind, id))?.rev ?? 1;
+  const originOf = (kind: EditableKind, id: string) => (kind === "objeto" ? items : kind === "receta" ? recipes : kind === "habilidad" ? skills : kind === "mision" ? missions : structures).get(id)?.origin;
+  const metaOf = (kind: EditableKind, id: string): DefMeta | undefined => {
+    const origin = originOf(kind, id);
+    return origin ? { origin, version: versionOf(kind, id), rev: revOf(kind, id) } : undefined;
+  };
   const skillDefs = () => new Map(activeSkills().map((e) => [e.def.id, e.def]));
   const activeStructures = () => [...structures.values()].filter((e) => !e.retiredAt);
 
@@ -199,6 +251,30 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     resourceNames: config.resources.map((r) => r.name),
     stock: (id) => store.getAmount(COMMUNITY, id),
   });
+  /** Personas con sus niveles y su práctica (para los análisis de edición, G2). */
+  const playerFacts = (): PlayerFacts[] => {
+    const byName = new Map<string, { skills: Record<string, number>; crafts: Record<string, number> }>();
+    const of = (name: string) => byName.get(name) ?? byName.set(name, { skills: {}, crafts: {} }).get(name)!;
+    for (const r of store.getAllPlayerSkills()) of(r.player).skills[r.skill] = r.level;
+    for (const r of store.getAllCraftCounts()) of(r.player).crafts[r.recipe] = r.n;
+    return [...byName.entries()].map(([name, v]) => ({ name, ...v }));
+  };
+  /** Todo lo que las reglas de edición, retirada y cascada necesitan, leído del estado actual (dentro de la transacción en curso). */
+  const editView = (offers: readonly { skill: string; level: number }[] = []): EditView => {
+    const built = new Set(store.getStructures().map((s) => s.id));
+    return {
+      ...designView(),
+      structures: [...structures.values()].map((e) => ({ def: e.def, built: built.has(e.def.id), retired: Boolean(e.retiredAt) })),
+      projects: [...projects.values()].map((e) => ({ def: e.def, closed: Boolean(e.closedAt) })),
+      meta: metaOf,
+      lastChange: (kind, id) => { const r = revInfo.get(vkey(kind, id)); return r ? `${r.change} (${r.by})` : undefined; },
+      resourceIds, limits,
+      map: { width: config.map.width, height: config.map.height, nodeCells, spawn: config.spawn },
+      contributed: (projectId, resource) => store.contributedAmount(projectId, resource),
+      players: playerFacts(), offers,
+      completedMissions: new Set(store.getMissions().map((m) => m.id)),
+    };
+  };
   const entryName = (id: string) => items.get(id)?.def.name ?? config.resources.find((r) => r.id === id)?.name ?? id;
   const allProjects = () => [...projects.values()].map((e) => e.def);
   const projectById = (id: unknown) => (typeof id === "string" ? projects.get(id)?.def : undefined);
@@ -286,25 +362,127 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     return isComplete(project) && !approvalMissing(project);
   }
 
-  function changeArchive(actor: string, payload: unknown, archive: boolean): Outcome<{ kind: DefinitionKind; id: string }> {
+  function changeArchive(actor: string, payload: unknown, archive: boolean): Outcome<{ kind: DefinitionKind; id: string; rev: number }> {
     const message = (payload ?? {}) as Record<string, unknown>;
     if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
     const requestId = message.requestId;
     const at = Date.now();
-    const outcome = store.transaction((): Outcome<{ kind: DefinitionKind; id: string }> => {
+    const outcome = store.transaction((): Outcome<{ kind: DefinitionKind; id: string; rev: number }> => {
       if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
       const input = { actor, admins: config.admins, payload, view: designView() };
       const check = archive ? checkArchive(input) : checkRestore(input);
       if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
       const kind = message.kind as DefinitionKind;
       const id = message.id as string;
+      // Revisión de concurrencia (G2, Q249): si la pantalla se abrió sobre un estado anterior, no se aplica.
+      if (message.expectedRev !== undefined) {
+        const rev = revOf(kind, id);
+        if (!Number.isInteger(message.expectedRev)) return { kind: "rejected", reason: "solicitud-invalida" };
+        if (message.expectedRev !== rev) {
+          const last = revInfo.get(vkey(kind, id));
+          return { kind: "rejected", reason: "version-obsoleta", details: [`La revisión vigente es la ${rev} y tú tenías la ${message.expectedRev}${last ? `: ${last.change} (${last.by})` : ""}.`] };
+        }
+      }
       if (archive) store.addArchive(kind, id, actor, at); else store.removeArchive(kind, id);
+      const rev = store.bumpDefRev(kind, id, actor, at, archive ? "archivada" : "restaurada");
       store.event(archive ? "def-archived" : "def-restored", actor, requestId, { kind, id });
-      return { kind: "done", value: { kind, id } };
+      return { kind: "done", value: { kind, id, rev } };
     });
     if (outcome.kind === "done") {
       const key = `${outcome.value.kind}:${outcome.value.id}`;
       if (archive) archived.add(key); else archived.delete(key);
+      revInfo.set(key, { rev: outcome.value.rev, change: archive ? "archivada" : "restaurada", by: actor, at });
+    }
+    return outcome;
+  }
+
+  const analysisOf = (a: { bloqueos: string[]; avisos: string[]; efectos: string[]; canonical: string }, extra: Record<string, unknown> = {}): RejectedMessage["analysis"] =>
+    ({ bloqueos: a.bloqueos, avisos: a.avisos, efectos: a.efectos, basis: canonicalHash(a.canonical), ...extra });
+
+  /** El análisis de una retirada con la forma común de los análisis: lo operativo como avisos y lo histórico como efectos que se conservan. */
+  const retireAnalysisOf = (a: RetireAnalysis): RejectedMessage["analysis"] => analysisOf({
+    bloqueos: a.bloqueos,
+    avisos: [
+      ...a.operativo.recetas.map((r) => `Receta que queda sin edificio: ${r}`),
+      ...a.operativo.tareasPendientes.map((t) => `Tarea pendiente que ya no podrá cumplirse: ${t}`),
+      ...a.operativo.misionesActivas.map((m) => `Misión activa afectada: ${m}`),
+      ...a.operativo.objetivos, ...a.operativo.dependencias,
+    ],
+    efectos: [
+      ...a.historico.misionesCompletadas.map((m) => `Misión completada, se conserva: ${m}`),
+      ...a.historico.aportaciones.map((x) => `Aportación, se conserva: ${x}`),
+      a.historico.construccion, ...a.historico.conservado.map((c) => `Se conserva: ${c}`),
+    ].filter(Boolean),
+    canonical: a.canonical,
+  }, { operativo: a.operativo, historico: a.historico });
+
+  function writeVersion(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[], fromHistory: boolean): Outcome<EditDone> {
+    const message = (payload ?? {}) as Record<string, unknown>;
+    if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+    const requestId = message.requestId;
+    const at = Date.now();
+    const outcome = store.transaction((): Outcome<EditDone> => {
+      if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+      const view = editView(offers);
+      let check;
+      if (fromHistory) {
+        const history = typeof message.kind === "string" && typeof message.id === "string" ? this_history(message.kind as EditableKind, message.id) : undefined;
+        check = checkRestoreVersion({ actor, admins: config.admins, payload, view, versions: history ?? [], hash: canonicalHash });
+      } else {
+        check = checkEditDef({ actor, admins: config.admins, payload, view, hash: canonicalHash });
+      }
+      if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details, ...(check.analysis ? { analysis: analysisOf(check.analysis) } : {}) };
+      // Una construcción: los coordinadores deben tener cuenta (igual que al crearla).
+      if (check.kind === "construccion") {
+        const next = check.next as ConstructionDef;
+        const unknown = next.project.coordinators.filter((name) => !store.getAccountByName(name));
+        if (unknown.length) return { kind: "rejected", reason: "definicion-invalida", details: unknown.map((n) => `coordinador sin cuenta: "${n}"`) };
+        next.project.coordinators = next.project.coordinators.map((n) => store.getAccountByName(n)!.name);
+      }
+      store.addDefVersion(check.kind, check.id, check.newVersion, check.next, actor, at, check.note);
+      const rev = store.bumpDefRev(check.kind, check.id, actor, at, `${fromHistory ? "vuelve a una versión anterior" : "editada"} (v${check.newVersion})`);
+      store.event(fromHistory ? "def-version-restored" : "def-edited", actor, requestId, { kind: check.kind, id: check.id, version: check.newVersion, note: check.note });
+      return { kind: "done", value: { kind: check.kind, id: check.id, version: check.newVersion, rev, def: check.next } };
+    });
+    if (outcome.kind === "done") {
+      const v = outcome.value;
+      applyDefinition(v.kind, v.id, v.def);
+      versionOfMap.set(vkey(v.kind, v.id), v.version);
+      revInfo.set(vkey(v.kind, v.id), { rev: v.rev, change: `${fromHistory ? "vuelve a una versión anterior" : "editada"} (v${v.version})`, by: actor, at });
+    }
+    return outcome;
+  }
+
+  /** Historial completo de una definición como lista de versiones (la 1 desde su tabla original). */
+  function this_history(kind: EditableKind, id: string): DefVersion[] | undefined {
+    const original = originals.get(vkey(kind, id));
+    if (!original) return undefined;
+    return [{ version: 1, definition: original.definition, changedBy: original.by, changedAt: original.at, note: "Versión original" },
+      ...store.getDefVersions(kind, id).map((v) => ({ version: v.version, definition: v.definition, changedBy: v.changedBy, changedAt: v.changedAt, note: v.note }))];
+  }
+
+  const retireAnalysis = (check: object): RetireAnalysis | undefined => (check as { analysis?: RetireAnalysis }).analysis;
+
+  function changeStructure(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[], retire: boolean): Outcome<{ structureId: string; rev: number }> {
+    const message = (payload ?? {}) as Record<string, unknown>;
+    if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+    const requestId = message.requestId;
+    const at = Date.now();
+    const outcome = store.transaction((): Outcome<{ structureId: string; rev: number }> => {
+      if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+      const input = { actor, admins: config.admins, payload, view: editView(offers), hash: canonicalHash };
+      const check = retire ? checkRetireStructure(input) : checkRestoreStructure(input);
+      if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details, ...(retireAnalysis(check) ? { analysis: retireAnalysisOf(retireAnalysis(check)!) } : {}) };
+      const structureId = message.structureId as string;
+      if (retire) store.retireStructureDef(structureId, at); else store.unretireStructureDef(structureId);
+      const rev = store.bumpDefRev("construccion", structureId, actor, at, retire ? "retirada" : "restaurada");
+      store.event(retire ? "structure-retired" : "structure-restored", actor, requestId, { structure: structureId });
+      return { kind: "done", value: { structureId, rev } };
+    });
+    if (outcome.kind === "done") {
+      const entry = structures.get(outcome.value.structureId)!;
+      structures.set(entry.def.id, { ...entry, retiredAt: retire ? at : 0 });
+      revInfo.set(vkey("construccion", entry.def.id), { rev: outcome.value.rev, change: retire ? "retirada" : "restaurada", by: actor, at });
     }
     return outcome;
   }
@@ -319,8 +497,9 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     const completed: MissionCompleted[] = [];
     for (const mission of [...activeMissions().map((e) => e.def), ...extra]) {
       if (done.has(mission.id) || !missionSatisfied(mission, { stock, projectCompleted })) continue;
-      store.completeMission(mission.id, actor, at);
-      store.event("mission-complete", actor, null, { mission: mission.id });
+      const missionVersion = versionOf("mision", mission.id);
+      store.completeMission(mission.id, actor, at, missionVersion);
+      store.event("mission-complete", actor, null, { mission: mission.id, missionVersion });
       completed.push({ mission, by: actor, at });
     }
     return completed;
@@ -366,7 +545,10 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         store.event("skill-created", actor, requestId, { skill: check.def });
         return { kind: "done", value: { def: check.def, origin: "panel" } };
       });
-      if (outcome.kind === "done") skills.set(outcome.value.def.id, outcome.value);
+      if (outcome.kind === "done") {
+        skills.set(outcome.value.def.id, outcome.value);
+        originals.set(vkey("habilidad", outcome.value.def.id), { definition: outcome.value.def, by: actor, at });
+      }
       return outcome;
     },
 
@@ -386,8 +568,9 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         });
         if (!check.ok) return { kind: "rejected", reason: check.reason, details: check.details };
         const { target, skill, level } = check.def;
-        store.setPlayerSkill(target, skill, level, "concesion", at);
-        store.event("skill-granted", actor, requestId, { player: target, skill, level });
+        const skillVersion = versionOf("habilidad", skill);
+        store.setPlayerSkill(target, skill, level, "concesion", at, skillVersion);
+        store.event("skill-granted", actor, requestId, { player: target, skill, level, skillVersion });
         return { kind: "done", value: { player: target, skill, level, source: "concesion" } };
       });
     },
@@ -396,7 +579,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
      * Enseñanza aceptada (F2c, Q198): sube a `learner` al nivel `toLevel` si el maestro sigue teniendo al menos uno más
      * y la persona aún está justo un nivel por debajo. La cercanía y la conexión las comprueba la sala (sin esperas entre medias).
      */
-    teach(learner: string, requestId: string, teacher: string, skillId: string, toLevel: number): Outcome<SkillGained> {
+    teach(learner: string, requestId: string, teacher: string, skillId: string, toLevel: number, offeredVersion?: number): Outcome<SkillGained> {
       const at = Date.now();
       return store.transaction((): Outcome<SkillGained> => {
         if (store.hasRequest(learner, requestId)) return { kind: "duplicate" };
@@ -406,8 +589,9 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         if (!def || learnerLevel + 1 !== toLevel || toLevel > def.levels.length || toLevel > teacherLevel - 1) {
           return { kind: "rejected", reason: "oferta-invalida", details: ["La oferta ya no es válida: han cambiado los niveles."] };
         }
-        store.setPlayerSkill(learner, skillId, toLevel, "ensenanza", at);
-        store.event("skill-taught", learner, requestId, { teacher, skill: skillId, level: toLevel });
+        const skillVersion = versionOf("habilidad", skillId);
+        store.setPlayerSkill(learner, skillId, toLevel, "ensenanza", at, skillVersion);
+        store.event("skill-taught", learner, requestId, { teacher, skill: skillId, level: toLevel, skillVersion, ...(offeredVersion === undefined ? {} : { offeredVersion }) });
         return { kind: "done", value: { player: learner, skill: skillId, level: toLevel, source: "ensenanza" } };
       });
     },
@@ -425,8 +609,9 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const current = levels[def.id] ?? 0;
         const next = levelAfterCraft(def, current, recipeId, (r) => counts[r] ?? 0);
         if (next <= current) continue;
-        store.setPlayerSkill(player, def.id, next, "practica", Date.now());
-        store.event("skill-level", player, null, { skill: def.id, level: next, recipe: recipeId });
+        const skillVersion = versionOf("habilidad", def.id);
+        store.setPlayerSkill(player, def.id, next, "practica", Date.now(), skillVersion);
+        store.event("skill-level", player, null, { skill: def.id, level: next, recipe: recipeId, skillVersion });
         gained.push({ player, skill: def.id, level: next, source: "practica" });
       }
       return gained;
@@ -470,6 +655,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
       if (outcome.kind === "done") {
         projects.set(outcome.value.project.def.id, outcome.value.project);
         structures.set(outcome.value.structure.def.id, outcome.value.structure);
+        originals.set(vkey("construccion", outcome.value.structure.def.id), { definition: { project: outcome.value.project.def, structure: outcome.value.structure.def } satisfies ConstructionDef, by: actor, at });
       }
       return outcome;
     },
@@ -492,7 +678,10 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         store.event("item-created", actor, requestId, { item: check.def });
         return { kind: "done", value: { def: check.def, origin: "panel" } };
       });
-      if (outcome.kind === "done") items.set(outcome.value.def.id, outcome.value);
+      if (outcome.kind === "done") {
+        items.set(outcome.value.def.id, outcome.value);
+        originals.set(vkey("objeto", outcome.value.def.id), { definition: outcome.value.def, by: actor, at });
+      }
       return outcome;
     },
 
@@ -514,7 +703,10 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         store.event("recipe-created", actor, requestId, { recipe: check.def });
         return { kind: "done", value: { def: check.def, origin: "panel" } };
       });
-      if (outcome.kind === "done") recipes.set(outcome.value.def.id, outcome.value);
+      if (outcome.kind === "done") {
+        recipes.set(outcome.value.def.id, outcome.value);
+        originals.set(vkey("receta", outcome.value.def.id), { definition: outcome.value.def, by: actor, at });
+      }
       return outcome;
     },
 
@@ -551,6 +743,95 @@ export function createProjectCore(store: Store, config: WorldConfig) {
     restore(actor: string, payload: unknown): Outcome<{ kind: DefinitionKind; id: string }> {
       return changeArchive(actor, payload, false);
     },
+
+    // ------------------------------------------------------------ G2: versiones, retirada y cascada
+
+    /** Versión de contenido y revisión de concurrencia vigentes de una definición. */
+    versionOf,
+    revOf,
+    metaOf,
+
+    /** Historial de una definición: todas sus versiones, de la 1 a la vigente (solo lectura). */
+    definitionHistory(kind: EditableKind, id: string): { version: number; rev: number; versions: DefVersion[] } | undefined {
+      const original = originals.get(vkey(kind, id));
+      if (!original) return undefined;
+      return {
+        version: versionOf(kind, id), rev: revOf(kind, id),
+        versions: [{ version: 1, definition: original.definition, changedBy: original.by, changedAt: original.at, note: "Versión original" },
+          ...store.getDefVersions(kind, id).map((v) => ({ version: v.version, definition: v.definition, changedBy: v.changedBy, changedAt: v.changedAt, note: v.note }))],
+      };
+    },
+
+    /**
+     * Editar una definición creando una versión nueva (administración, G2, Q243–Q245): con `expectedRev`, análisis de compatibilidad
+     * confirmado con su `basis` y todo en una transacción. Sin la `basis` devuelve el análisis en el rechazo.
+     */
+    editDef(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[] = []): Outcome<EditDone> {
+      return writeVersion(actor, payload, offers, false);
+    },
+
+    /** Volver a una versión anterior: crea una versión nueva con su contenido (nunca borra historial). */
+    restoreVersion(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[] = []): Outcome<EditDone> {
+      return writeVersion(actor, payload, offers, true);
+    },
+
+    /** Plan de archivado en cascada con su firma (solo lectura; el servidor lo vuelve a calcular al ejecutar). */
+    cascadePreview(kind: DefinitionKind, id: string, offers: readonly { skill: string; level: number }[] = []): { plan: CascadePlan; planHash: string } {
+      const plan = cascadePlan(editView(offers), kind, id);
+      return { plan, planHash: canonicalHash(plan.canonical) };
+    },
+
+    /**
+     * Archivar en cascada (G2, Q247 y Q253). TODO dentro de una única transacción: permisos, estado actual, dependencias, existencias
+     * y bloqueos se recalculan y se compara la firma del plan con la que previsualizó la persona; si algo cambió, no se aplica nada.
+     */
+    archiveCascade(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[] = []): Outcome<{ nodes: { kind: DefinitionKind; id: string; rev: number }[] }> {
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!isValidRequestId(message.requestId)) return { kind: "rejected", reason: "solicitud-invalida" };
+      const requestId = message.requestId;
+      const at = Date.now();
+      const cascade = (message.cascade ?? {}) as Record<string, unknown>;
+      const outcome = store.transaction((): Outcome<{ nodes: { kind: DefinitionKind; id: string; rev: number }[] }> => {
+        if (store.hasRequest(actor, requestId)) return { kind: "duplicate" };
+        if (!authorize(actor, "create-project", { admins: config.admins })) return { kind: "rejected", reason: "sin-permiso" };
+        const kind = message.kind as DefinitionKind, id = message.id;
+        if (!["objeto", "receta", "habilidad", "mision"].includes(kind) || typeof id !== "string" || typeof cascade.planHash !== "string") return { kind: "rejected", reason: "solicitud-invalida" };
+        if (message.expectedRev !== undefined && message.expectedRev !== revOf(kind, id)) {
+          const last = revInfo.get(vkey(kind, id));
+          return { kind: "rejected", reason: "version-obsoleta", details: [`La revisión vigente es la ${revOf(kind, id)} y tú tenías la ${String(message.expectedRev)}${last ? `: ${last.change} (${last.by})` : ""}.`] };
+        }
+        const plan = cascadePlan(editView(offers), kind, id);
+        if (!plan.executable) return { kind: "rejected", reason: "definicion-en-uso", details: plan.blockers.map((b) => `${b.reason} (${b.path.join(" → ")})`) };
+        if (canonicalHash(plan.canonical) !== cascade.planHash) return { kind: "rejected", reason: "plan-desactualizado", details: ["El plan ha cambiado desde que lo previsualizaste: revisa el plan nuevo."] };
+        const nodes = plan.order.map((n) => {
+          store.addArchive(n.kind, n.id, actor, at);
+          return { kind: n.kind, id: n.id, rev: store.bumpDefRev(n.kind, n.id, actor, at, `archivada en cascada desde «${plan.root.name}»`) };
+        });
+        store.event("def-cascade-archived", actor, requestId, { root: { kind, id }, order: plan.order.map((n) => keyOf(n.kind, n.id)) });
+        return { kind: "done", value: { nodes } };
+      });
+      if (outcome.kind === "done") {
+        for (const n of outcome.value.nodes) {
+          archived.add(`${n.kind}:${n.id}`);
+          revInfo.set(vkey(n.kind, n.id), { rev: n.rev, change: "archivada en cascada", by: actor, at });
+        }
+      }
+      return outcome;
+    },
+
+    /** Retirar un edificio del panel, también construido (administración, G2, Q246): con análisis previo confirmado y `expectedRev`. */
+    retireStructure(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[] = []): Outcome<{ structureId: string; rev: number }> {
+      return changeStructure(actor, payload, offers, true);
+    },
+
+    /** Restaurar un edificio retirado: reglas propias (solar libre y proyecto abierto). */
+    restoreStructure(actor: string, payload: unknown, offers: readonly { skill: string; level: number }[] = []): Outcome<{ structureId: string; rev: number }> {
+      return changeStructure(actor, payload, offers, false);
+    },
+
+    isAdmin: (name: string) => authorize(name, "create-project", { admins: config.admins }),
+
+    isRetired: (id: string) => Boolean(structures.get(id)?.retiredAt),
 
     /** Apuntar o asignar a un responsable (F1c, Q181). */
     assign: (actor: string, payload: unknown) => assignment(actor, payload, true),
@@ -730,6 +1011,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         let retiredStructure: string | undefined;
         if (structure && !built) {
           store.retireStructureDef(structure.def.id, at);
+          store.bumpDefRev("construccion", structure.def.id, actor, at, "retirada (proyecto cerrado)");
           retiredStructure = structure.def.id;
         }
         return { kind: "done", value: { ...entry!, closedBy: actor, closedAt: at, retiredStructure } };
@@ -738,7 +1020,10 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const { retiredStructure, ...entry } = outcome.value;
         projects.set(entry.def.id, entry);
         const retired = retiredStructure ? structures.get(retiredStructure) : undefined;
-        if (retired) structures.set(retired.def.id, { ...retired, retiredAt: entry.closedAt });
+        if (retired) {
+          structures.set(retired.def.id, { ...retired, retiredAt: entry.closedAt });
+          revInfo.set(vkey("construccion", retired.def.id), { rev: revOf("construccion", retired.def.id) + 1, change: "retirada (proyecto cerrado)", by: actor, at: entry.closedAt });
+        }
       }
       return outcome;
     },
@@ -762,7 +1047,10 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const entry: MissionEntry = { def: check.def, origin: "panel", createdBy: actor, createdAt: at };
         return { kind: "done", value: { entry, completed: completeMissions(actor, at, [check.def]) } };
       });
-      if (outcome.kind === "done") missions.set(outcome.value.entry.def.id, outcome.value.entry);
+      if (outcome.kind === "done") {
+        missions.set(outcome.value.entry.def.id, outcome.value.entry);
+        originals.set(vkey("mision", outcome.value.entry.def.id), { definition: outcome.value.entry.def, by: actor, at });
+      }
       return outcome;
     },
 

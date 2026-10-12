@@ -35,12 +35,12 @@ export function createMinimap(config: WorldConfig, room: PanelRoom) {
   function mapContext(): MapContext {
     return {
       width, height, nodeCells, spawn: config.spawn, side: config.buildLimits.side,
-      structures: [...room.state.structures.entries()].map(([id, s]) => structureDefFromState(id, s)),
+      structures: [...room.state.structures.entries()].filter(([, s]) => !s.retired).map(([id, s]) => structureDefFromState(id, s)),
     };
   }
 
   function draw() {
-    const structures = [...room.state.structures.entries()];
+    const structures = [...room.state.structures.entries()].filter(([, s]) => !s.retired);
     const solar = current;
     const signature = JSON.stringify([structures.map(([id, s]) => [id, s.x, s.y, s.width, s.height, s.built]), solar]);
     if (signature === lastSignature) return;

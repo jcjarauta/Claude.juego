@@ -18,7 +18,7 @@ const svg = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
 /** Recetas del estado sincronizado descritas para mostrarlas (con existencias si se pasa `stock`). */
 export function chainsFromState(state: WorldState, config: WorldConfig, stock?: (id: string) => number, mySkill?: (skill: string) => number): ChainEntry[] {
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name]));
-  const structures = new Map([...state.structures.entries()].map(([id, s]) => [id, { def: structureDefFromState(id, s), built: s.built }]));
+  const structures = new Map([...state.structures.entries()].filter(([, s]) => !s.retired).map(([id, s]) => [id, { def: structureDefFromState(id, s), built: s.built }]));
   return describeChains({
     recipes: [...state.recipes.entries()].filter(([, r]) => !r.archived).map(([id, r]) => recipeDefFromState(id, r)),
     building: (id) => { const s = structures.get(id); return s && { name: s.def.name, built: s.built }; },

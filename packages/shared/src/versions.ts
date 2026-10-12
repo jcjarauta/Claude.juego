@@ -339,11 +339,12 @@ export function checkEditDef({ actor, admins, payload, view, hash = identityHash
   if (!found || !meta) return { ok: false, reason: "definicion-invalida", details: ["No existe esa definición."] };
   const name = (found.def as { name?: string }).name ?? (found.def as ConstructionDef).project?.name ?? p.id;
   if (meta.origin !== "panel") return { ok: false, reason: "definicion-invalida", details: [`«${name}» viene de la configuración y no se edita: duplícala y archiva la original.`] };
-  if (found.unavailable) return { ok: false, reason: "definicion-invalida", details: [`«${name}» ${found.unavailable}: restaura la definición antes de editarla.`] };
+  // Primero la revisión: si otra persona cambió algo (p. ej. archivó), lo que debe saber es que su pantalla es de un estado anterior.
   if (meta.rev !== p.expectedRev) {
     const last = view.lastChange?.(p.kind, p.id);
     return { ok: false, reason: "version-obsoleta", details: [`La revisión vigente es la ${meta.rev} y tú tenías la ${p.expectedRev}${last ? `: ${last}` : ""}.`] };
   }
+  if (found.unavailable) return { ok: false, reason: "definicion-invalida", details: [`«${name}» ${found.unavailable}: restaura la definición antes de editarla.`] };
   if (meta.version >= MAX_VERSIONS) return { ok: false, reason: "definicion-invalida", details: [`«${name}» ya tiene ${MAX_VERSIONS} versiones, el máximo.`] };
   const content = validateContent(view, p);
   if ("errors" in content) return { ok: false, reason: "definicion-invalida", details: content.errors };

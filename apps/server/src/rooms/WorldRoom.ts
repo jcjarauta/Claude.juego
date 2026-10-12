@@ -4,7 +4,7 @@ import {
   applyMove, checkBuild, checkCollect, checkCraft, checkTeach, checkTransfer, recipeProducts, Contribution, ContributorTotals, isValidName,
   isValidRequestId, MAX_PANELS, MAX_PLAYERS, MESSAGE, MissionState, Player, ProjectState, regenerate,
   ItemState, RecipeState, SkillLevelState, SkillState, StructureState, TaskState, taskStatus, TEACH_OFFER_MS, TEACH_PER_MINUTE, VIEWS, WorldState,
-  type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
+  EDITABLE_KINDS, type CascadePlanMessage, type DefinitionKind, type EditableKind, type HistoryMessage, type JoinOptions, type NewsMessage, type NodeView, type ProjectDef, type RejectedMessage, type RejectReason, type ReviewDecision,
   type SkillGrantedMessage, type StructureDef, type TeachOfferedMessage, type TeachResultMessage, type View,
 } from "@juego/shared";
 import type { Account } from "../accounts.ts";
@@ -57,7 +57,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   /** Paneles profesionales conectados (M5b): sessionId → nombre. No tienen personaje. */
   private panels = new Map<string, string>();
   /** Ofertas de enseñanza pendientes (F2c, Q198): en memoria, caducan solas y se pierden al reiniciar sin consecuencias. */
-  private offers = new Map<string, { id: string; from: string; to: string; skill: string; level: number; expiresAt: number; timer: { clear(): void } }>();
+  private offers = new Map<string, { id: string; from: string; to: string; skill: string; level: number; skillVersion: number; expiresAt: number; timer: { clear(): void } }>();
   private teachLog = new Map<string, number[]>();
   /** Plazos de reconexión abiertos por sessionId, para poder cancelarlos. */
   private pendingReconnections = new Map<string, ReturnType<Room["allowReconnection"]>>();
@@ -86,7 +86,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.syncLimits();
     // Estructuras y misiones antes que los proyectos: el estado del proyecto depende de si su estructura existe.
     for (const entry of this.core.itemEntries()) this.loadItem(entry);
-    for (const entry of this.core.structureEntries()) if (!entry.retiredAt) this.loadStructure(entry);
+    for (const entry of this.core.structureEntries()) this.loadStructure(entry);
     for (const entry of this.core.recipeEntries()) this.loadRecipe(entry);
     for (const entry of this.core.skillEntries()) this.loadSkill(entry);
     for (const entry of this.core.missionEntries()) this.loadMission(entry);
@@ -395,8 +395,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const projectState = this.state.projects.get(outcome.value.def.id)!;
       projectState.phase = "cerrado";
       projectState.closedBy = outcome.value.closedBy;
-      // Un solar sin construir desaparece del mapa para todos (Q187).
-      if (outcome.value.retiredStructure) this.state.structures.delete(outcome.value.retiredStructure);
+      // Un solar sin construir desaparece del mapa para todos (Q187), pero sigue en el estado como retirado (G2, Q252).
+      if (outcome.value.retiredStructure) this.syncStructure(outcome.value.retiredStructure);
     },
 
     /** Crear una construcción: proyecto y solar (F2a, Q186, solo administración). */
@@ -457,11 +457,80 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     [MESSAGE.archiveDef]: (client: Client, payload: unknown) => {
       const actor = this.actorOf(client);
       if (!actor || !this.withinLimit(client)) return;
+      const cascade = (payload as { cascade?: unknown } | undefined)?.cascade;
+      if (cascade !== undefined) return this.archiveCascade(client, actor, payload);
       const outcome = this.safely(client, () => this.core.archive(actor, payload));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details);
       this.syncArchived(outcome.value.kind, outcome.value.id);
       log("info", "definicion-archivada", outcome.value);
+    },
+
+    /** Editar una definición por versiones (G2, Q243, solo administración): análisis, confirmación y revisión esperada. */
+    [MESSAGE.editDef]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.editDef(actor, payload, this.pendingOffers()));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details, outcome.analysis);
+      this.reloadDef(outcome.value.kind, outcome.value.id);
+      log("info", "definicion-editada", { kind: outcome.value.kind, id: outcome.value.id, version: outcome.value.version });
+    },
+
+    /** Volver a una versión anterior (G2): crea una versión nueva con su contenido. */
+    [MESSAGE.restoreVersion]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.restoreVersion(actor, payload, this.pendingOffers()));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details, outcome.analysis);
+      this.reloadDef(outcome.value.kind, outcome.value.id);
+      log("info", "version-restaurada", { kind: outcome.value.kind, id: outcome.value.id, version: outcome.value.version });
+    },
+
+    /** Historial de una definición (G2, solo administración): todas sus versiones, con quién y cuándo. */
+    [MESSAGE.definitionHistory]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      if (!this.core.isAdmin(actor)) return this.reject(client, "sin-permiso");
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!EDITABLE_KINDS.includes(message.kind as EditableKind) || typeof message.id !== "string") return this.reject(client, "solicitud-invalida");
+      const history = this.core.definitionHistory(message.kind as EditableKind, message.id);
+      if (!history) return this.reject(client, "definicion-invalida", ["No hay historial de esa definición (¿viene de la configuración?)."]);
+      const reply: HistoryMessage = { kind: message.kind as string, id: message.id, ...history };
+      client.send(MESSAGE.history, reply);
+    },
+
+    /** Retirar un edificio del panel, también construido (G2, Q246): con análisis previo confirmado. */
+    [MESSAGE.retireStructure]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.retireStructure(actor, payload, this.pendingOffers()));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details, outcome.analysis);
+      this.syncStructure(outcome.value.structureId);
+      log("info", "edificio-retirado", outcome.value);
+    },
+
+    /** Restaurar un edificio retirado (G2): reglas propias, distintas de restaurar un archivado. */
+    [MESSAGE.restoreStructure]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      const outcome = this.safely(client, () => this.core.restoreStructure(actor, payload, this.pendingOffers()));
+      if (!outcome || outcome.kind === "duplicate") return;
+      if (outcome.kind === "rejected") return this.reject(client, outcome.reason, outcome.details, outcome.analysis);
+      this.syncStructure(outcome.value.structureId);
+      log("info", "edificio-restaurado", outcome.value);
+    },
+
+    /** Vista previa de un archivado en cascada (G2, Q247): plan, bloqueos con su camino y la firma que hay que reenviar. */
+    [MESSAGE.cascadePreview]: (client: Client, payload: unknown) => {
+      const actor = this.actorOf(client);
+      if (!actor || !this.withinLimit(client)) return;
+      if (!this.core.isAdmin(actor)) return this.reject(client, "sin-permiso");
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (!["objeto", "receta", "habilidad", "mision"].includes(String(message.kind)) || typeof message.id !== "string") return this.reject(client, "solicitud-invalida");
+      client.send(MESSAGE.cascadePlan, this.cascadeMessage(message.kind as DefinitionKind, message.id));
     },
 
     /** Restaurar una definición archivada (G1, solo administración). */
@@ -493,7 +562,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
       // Solo estructuras vigentes (las retiradas ya no existen para nadie).
-      const structure = this.state.structures.has(String(message.structureId)) ? this.core.structureById(message.structureId) : undefined;
+      const structure = this.state.structures.has(String(message.structureId)) && !this.core.isRetired(String(message.structureId)) ? this.core.structureById(message.structureId) : undefined;
       const now = Date.now();
 
       const outcome = this.safely(client, () => this.store.transaction(() => {
@@ -509,8 +578,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         });
         if (!check.ok || !project) return { kind: "rejected" as const, reason: check.ok ? "estructura-desconocida" as const : check.reason };
         const consumed = this.core.consumeForBuild(project);
-        this.store.addStructure(check.structure.id, player.name, now);
-        this.store.event("build", player.name, requestId, { structure: check.structure.id, project: project.id, consumed });
+        const structureVersion = this.core.versionOf("construccion", check.structure.id);
+        this.store.addStructure(check.structure.id, player.name, now, structureVersion);
+        this.store.event("build", player.name, requestId, { structure: check.structure.id, project: project.id, consumed, structureVersion });
         // Una misión «proyecto completado» del taller se cumple al construirlo (Q174).
         return { kind: "done" as const, structure: check.structure, project, missions: this.core.completeMissions(player.name, now) };
       }));
@@ -535,13 +605,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (!isValidRequestId(message.requestId)) return this.reject(client, "solicitud-invalida");
       const requestId = message.requestId;
       const recipe = this.core.recipeById(message.recipeId);
-      const structure = recipe && this.state.structures.has(recipe.structureId) ? this.core.structureById(recipe.structureId) : undefined;
+      const structure = recipe && this.state.structures.has(recipe.structureId) && !this.core.isRetired(recipe.structureId) ? this.core.structureById(recipe.structureId) : undefined;
       const now = Date.now();
 
       const outcome = this.safely(client, () => this.store.transaction(() => {
         if (this.store.hasRequest(player.name, requestId)) return { kind: "duplicate" as const };
         const stock = (id: string) => this.store.getAmount(COMMUNITY, id);
-        const builtIds = new Set(this.store.getStructures().map((s) => s.id));
+        const builtIds = new Set(this.store.getStructures().filter((s) => !this.core.isRetired(s.id)).map((s) => s.id));
         const levels = this.core.skillsOf(player.name);
         const check = checkCraft({
           recipe, structure, position: player, stock,
@@ -556,6 +626,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         for (const { item, amount } of products) this.store.addAmount(COMMUNITY, item, amount);
         this.store.event("craft", player.name, requestId, {
           recipe: check.recipe.id, consumed: inputs, produced: Object.fromEntries(products.map((p) => [p.item, p.amount])),
+          recipeVersion: this.core.versionOf("receta", check.recipe.id),
         });
         // Practicar (F2c, Q196): la fabricación cuenta y puede subir de nivel, en la misma transacción.
         const gained = this.core.recordPractice(player.name, check.recipe.id);
@@ -619,7 +690,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       if (recent.length >= TEACH_PER_MINUTE) return this.reject(client, "demasiadas-solicitudes");
       this.teachLog.set(teacher.name, [...recent, now]);
       const offer = {
-        id: randomUUID(), from: teacher.name, to: learner!.name, skill: message.skill, level: check.toLevel, expiresAt: now + TEACH_OFFER_MS,
+        id: randomUUID(), from: teacher.name, to: learner!.name, skill: message.skill, level: check.toLevel, skillVersion: this.core.versionOf("habilidad", message.skill), expiresAt: now + TEACH_OFFER_MS,
         timer: this.clock.setTimeout(() => this.closeOffer(offer.id, "caducada"), TEACH_OFFER_MS),
       };
       this.offers.set(offer.id, offer);
@@ -646,7 +717,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.closeOffer(offer.id, "anulada");
         return this.reject(client, "oferta-invalida", check.ok ? ["La oferta ya no es válida: han cambiado los niveles."] : check.details);
       }
-      const outcome = this.safely(client, () => this.core.teach(learner.name, message.requestId as string, offer.from, offer.skill, offer.level));
+      const outcome = this.safely(client, () => this.core.teach(learner.name, message.requestId as string, offer.from, offer.skill, offer.level, offer.skillVersion));
       if (!outcome || outcome.kind === "duplicate") return;
       if (outcome.kind === "rejected") {
         this.closeOffer(offer.id, "anulada");
@@ -727,7 +798,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private syncArchived(kind: string, id: string) {
     const archived = this.core.isArchived(kind as "objeto" | "receta" | "habilidad" | "mision", id);
     const state = kind === "objeto" ? this.state.items.get(id) : kind === "receta" ? this.state.recipes.get(id) : kind === "habilidad" ? this.state.skills.get(id) : this.state.missions.get(id);
-    if (state) state.archived = archived;
+    if (state) {
+      state.archived = archived;
+      state.rev = this.core.revOf(kind as EditableKind, id);
+    }
   }
 
   /** Refleja en el estado un nivel ganado por una persona conectada. */
@@ -739,7 +813,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   private loadSkill({ def, origin }: SkillEntry) {
     const state = new SkillState();
-    Object.assign(state, { name: def.name, description: def.description, origin, archived: this.core.isArchived("habilidad", def.id) });
+    Object.assign(state, { name: def.name, description: def.description, origin, archived: this.core.isArchived("habilidad", def.id), version: this.core.versionOf("habilidad", def.id), rev: this.core.revOf("habilidad", def.id) });
     for (const l of def.levels) state.levels.push(Object.assign(new SkillLevelState(), { name: l.name, recipe: l.practice.recipe, times: l.practice.times }));
     this.state.skills.set(def.id, state);
   }
@@ -757,6 +831,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
   }
 
+  private unblockFootprint(structure: StructureDef) {
+    for (let x = structure.x; x < structure.x + structure.width; x++) {
+      for (let y = structure.y; y < structure.y + structure.height; y++) this.builtCells.delete(`${x},${y}`);
+    }
+  }
+
   private blockFootprint(structure: StructureDef) {
     for (let x = structure.x; x < structure.x + structure.width; x++) {
       for (let y = structure.y; y < structure.y + structure.height; y++) this.builtCells.add(`${x},${y}`);
@@ -771,26 +851,29 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   }
 
   /** Estado sincronizado de una estructura, con su definición; si está construida, bloquea su huella (F2a). */
-  private loadStructure({ def, origin }: StructureEntry) {
+  private loadStructure({ def, origin, retiredAt }: StructureEntry) {
     const row = this.store.getStructures().find((s) => s.id === def.id);
     const state = new StructureState();
     Object.assign(state, {
       name: def.name, projectId: def.projectId, x: def.x, y: def.y, width: def.width, height: def.height, color: def.color, origin,
       built: Boolean(row), builtBy: row?.builtBy ?? "", builtAt: row?.builtAt ?? 0,
+      retired: Boolean(retiredAt), version: this.core.versionOf("construccion", def.id), rev: this.core.revOf("construccion", def.id),
     });
+    const previous = this.state.structures.get(def.id);
+    if (previous?.built && !retiredAt) this.unblockFootprint({ ...def, x: previous.x, y: previous.y, width: previous.width, height: previous.height });
     this.state.structures.set(def.id, state);
-    if (row) this.blockFootprint(def);
+    if (row && !retiredAt) this.blockFootprint(def);
   }
 
   private loadItem({ def, origin }: ItemEntry) {
     const state = new ItemState();
-    Object.assign(state, { name: def.name, origin, archived: this.core.isArchived("objeto", def.id) });
+    Object.assign(state, { name: def.name, origin, archived: this.core.isArchived("objeto", def.id), version: this.core.versionOf("objeto", def.id), rev: this.core.revOf("objeto", def.id) });
     this.state.items.set(def.id, state);
   }
 
   private loadRecipe({ def, origin }: RecipeEntry) {
     const state = new RecipeState();
-    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, verb: def.verb ?? "", origin, archived: this.core.isArchived("receta", def.id) });
+    Object.assign(state, { name: def.name, structureId: def.structureId, outputItem: def.output.item, outputAmount: def.output.amount, verb: def.verb ?? "", origin, archived: this.core.isArchived("receta", def.id), version: this.core.versionOf("receta", def.id), rev: this.core.revOf("receta", def.id) });
     for (const [resource, amount] of Object.entries(def.inputs)) state.inputs.set(resource, amount);
     for (const id of def.alsoNeeds ?? []) state.alsoNeeds.push(id);
     for (const { skill, level } of def.requiresSkills ?? []) state.requiresSkills.set(skill, level);
@@ -829,7 +912,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       objectiveAmount: o.kind === "item-in-community" ? o.amount : 0,
       origin, createdBy,
       status: row ? "completada" : "pendiente", completedBy: row?.completedBy ?? "", completedAt: row?.completedAt ?? 0,
-      archived: this.core.isArchived("mision", def.id),
+      archived: this.core.isArchived("mision", def.id), version: this.core.versionOf("mision", def.id), rev: this.core.revOf("mision", def.id),
     }));
   }
 
@@ -840,6 +923,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     Object.assign(projectState, {
       name: project.name, description: project.description, origin, createdBy, createdAt,
       phase: closedAt ? "cerrado" : "abierto", closedBy, requiresApproval: project.buildRequiresApproval,
+      version: this.core.versionOf("construccion", project.id), rev: this.core.revOf("construccion", project.id),
     });
     const schedule = this.core.scheduleOf(project);
     projectState.dueDate = schedule.projectDue;
@@ -934,8 +1018,57 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
   }
 
-  private reject(client: Client, reason: RejectReason, details?: string[]) {
-    const message: RejectedMessage = details?.length ? { reason, details } : { reason };
+  private reject(client: Client, reason: RejectReason, details?: string[], analysis?: RejectedMessage["analysis"]) {
+    const message: RejectedMessage = { reason, ...(details?.length ? { details } : {}), ...(analysis ? { analysis } : {}) };
     client.send(MESSAGE.rejected, message);
+  }
+
+  private cascadeMessage(kind: DefinitionKind, id: string): CascadePlanMessage {
+    const { plan, planHash } = this.core.cascadePreview(kind, id, this.pendingOffers());
+    return { kind, id, order: plan.order, blockers: plan.blockers, cycles: plan.cycles, executable: plan.executable, planHash };
+  }
+
+  private archiveCascade(client: Client, actor: string, payload: unknown) {
+    const outcome = this.safely(client, () => this.core.archiveCascade(actor, payload, this.pendingOffers()));
+    if (!outcome || outcome.kind === "duplicate") return;
+    if (outcome.kind === "rejected") {
+      this.reject(client, outcome.reason, outcome.details);
+      // Si el plan cambió, se le manda el nuevo para que lo revise.
+      const message = (payload ?? {}) as Record<string, unknown>;
+      if (outcome.reason === "plan-desactualizado" && typeof message.id === "string") client.send(MESSAGE.cascadePlan, this.cascadeMessage(message.kind as DefinitionKind, message.id));
+      return;
+    }
+    for (const n of outcome.value.nodes) this.syncArchived(n.kind, n.id);
+    log("info", "cascada-archivada", { nodes: outcome.value.nodes.length });
+  }
+
+  /** Ofertas de enseñanza pendientes, para los análisis de edición (G2). */
+  private pendingOffers() {
+    return [...this.offers.values()].map((o) => ({ skill: o.skill, level: o.level }));
+  }
+
+  /** Vuelve a cargar en el estado sincronizado una definición editada (G2). */
+  private reloadDef(kind: EditableKind, id: string) {
+    if (kind === "objeto") { const e = this.core.itemEntries().find((x) => x.def.id === id); if (e) this.loadItem(e); }
+    else if (kind === "receta") { const e = this.core.recipeEntries().find((x) => x.def.id === id); if (e) this.loadRecipe(e); }
+    else if (kind === "habilidad") { const e = this.core.skillEntries().find((x) => x.def.id === id); if (e) this.loadSkill(e); }
+    else if (kind === "mision") { const e = this.core.missionEntries().find((x) => x.def.id === id); if (e) this.loadMission(e); }
+    else {
+      const st = this.core.structureEntries().find((x) => x.def.id === id);
+      const pr = this.core.projectEntries().find((x) => x.def.id === id);
+      if (st) this.loadStructure(st);
+      if (pr) this.loadProject(pr);
+    }
+  }
+
+  /** Refleja en el estado la retirada o restauración de un edificio (G2): se oculta pero sigue en el estado; sus casillas dejan de bloquear. */
+  private syncStructure(id: string) {
+    const state = this.state.structures.get(id);
+    const def = this.core.structureById(id);
+    if (!state || !def) return;
+    const retired = this.core.isRetired(id);
+    state.retired = retired;
+    state.rev = this.core.revOf("construccion", id);
+    if (state.built) { if (retired) this.unblockFootprint(def); else this.blockFootprint(def); }
   }
 }

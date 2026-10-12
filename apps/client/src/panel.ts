@@ -61,7 +61,7 @@ function createProjectView(container: HTMLElement, config: WorldConfig, project:
   const resourceName = new Map(config.resources.map((r) => [r.id, r.name.toLowerCase()]));
   const coordinator = authorize(me, "review", project);
   const admin = authorize(me, "close-project", { admins: config.admins });
-  const hasStructure = [...room.state.structures.values()].some((s) => s.projectId === project.id);
+  const hasStructure = [...room.state.structures.values()].some((s) => s.projectId === project.id && !s.retired);
   const headingId = `proyecto-${project.id}`;
   const status = el("span");
   const phase = el("span");

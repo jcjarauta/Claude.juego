@@ -18,7 +18,8 @@ const RIGHT = { dx: 1, dy: 0 };
 const send = (v: Viewer, type: string, fields: Record<string, unknown>) => v.room.send(type, { requestId: randomUUID(), ...fields });
 const inv = (p: TestPlayer, id: string) => p.me().inventory.get(id) ?? 0;
 const community = (v: Viewer, id: string) => v.room.state.community.get(id) ?? 0;
-const structureNamed = (v: Viewer, name: string) => [...v.room.state.structures.entries()].find(([, s]) => s.name === name);
+// Un solar o edificio retirado sigue en el estado (G2, Q252) pero ya no existe para el juego: estos ayudantes solo ven los vigentes.
+const structureNamed = (v: Viewer, name: string) => [...v.room.state.structures.entries()].find(([, s]) => s.name === name && !s.retired);
 
 async function walk(p: TestPlayer, steps: MoveMessage[]) {
   for (const step of steps) {

@@ -97,6 +97,9 @@ export const ProjectState = schema({
   contributors: t.map(ContributorTotals),
   /** Últimos aportes, del más antiguo al más reciente (máximo 10). */
   recent: t.array(Contribution),
+  /** Versión de contenido y revisión de concurrencia (G2, Q249): la primera sube al editar, la segunda con cualquier cambio. */
+  version: t.uint16(),
+  rev: t.uint32(),
 }, "ProjectState");
 export type ProjectState = SchemaType<typeof ProjectState>;
 
@@ -114,6 +117,11 @@ export const StructureState = schema({
   built: t.boolean(),
   builtBy: t.string(),
   builtAt: t.float64(),
+  /** Retirado (G2, Q246): se oculta del mapa y deja de usarse, pero conserva su historial. */
+  retired: t.boolean(),
+  /** Versión de contenido y revisión de concurrencia (G2, Q249): la primera sube al editar, la segunda con cualquier cambio. */
+  version: t.uint16(),
+  rev: t.uint32(),
 }, "StructureState");
 export type StructureState = SchemaType<typeof StructureState>;
 
@@ -134,6 +142,9 @@ export const MissionState = schema({
   completedBy: t.string(),
   completedAt: t.float64(),
   archived: t.boolean(),
+  /** Versión de contenido y revisión de concurrencia (G2, Q249): la primera sube al editar, la segunda con cualquier cambio. */
+  version: t.uint16(),
+  rev: t.uint32(),
 }, "MissionState");
 export type MissionState = SchemaType<typeof MissionState>;
 
@@ -143,6 +154,9 @@ export const ItemState = schema({
   origin: t.string(),
   /** Archivado (G1): no se usa ni se muestra, pero conserva su historial. */
   archived: t.boolean(),
+  /** Versión de contenido y revisión de concurrencia (G2, Q249): la primera sube al editar, la segunda con cualquier cambio. */
+  version: t.uint16(),
+  rev: t.uint32(),
 }, "ItemState");
 export type ItemState = SchemaType<typeof ItemState>;
 
@@ -161,6 +175,9 @@ export const SkillState = schema({
   levels: t.array(SkillLevelState),
   origin: t.string(),
   archived: t.boolean(),
+  /** Versión de contenido y revisión de concurrencia (G2, Q249): la primera sube al editar, la segunda con cualquier cambio. */
+  version: t.uint16(),
+  rev: t.uint32(),
 }, "SkillState");
 export type SkillState = SchemaType<typeof SkillState>;
 
@@ -181,6 +198,9 @@ export const RecipeState = schema({
   requiresSkills: t.map("uint8"),
   origin: t.string(),
   archived: t.boolean(),
+  /** Versión de contenido y revisión de concurrencia (G2, Q249): la primera sube al editar, la segunda con cualquier cambio. */
+  version: t.uint16(),
+  rev: t.uint32(),
 }, "RecipeState");
 export type RecipeState = SchemaType<typeof RecipeState>;
 

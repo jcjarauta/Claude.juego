@@ -324,9 +324,9 @@ export function openStore(path: string) {
     contributedAmount: db.prepare(`SELECT COALESCE(SUM(json_extract(data, '$.amount')), 0) AS total FROM event
       WHERE type = 'contribute' AND json_extract(data, '$.project') = ? AND json_extract(data, '$.resource') = ?`),
     getStructures: db.prepare("SELECT id, built_at AS builtAt, built_by AS builtBy FROM structure"),
-    addStructure: db.prepare("INSERT INTO structure (id, built_at, built_by) VALUES (?, ?, ?)"),
+    addStructure: db.prepare("INSERT INTO structure (id, built_at, built_by, def_version) VALUES (?, ?, ?, ?)"),
     getMissions: db.prepare("SELECT id, completed_at AS completedAt, completed_by AS completedBy FROM mission"),
-    completeMission: db.prepare("INSERT INTO mission (id, completed_at, completed_by) VALUES (?, ?, ?)"),
+    completeMission: db.prepare("INSERT INTO mission (id, completed_at, completed_by, def_version) VALUES (?, ?, ?, ?)"),
     getReviews: db.prepare(`SELECT task_id AS taskId, decision, reviewed_by AS reviewedBy, reviewed_at AS reviewedAt, note
       FROM task_review WHERE project_id = ?`),
     putReview: db.prepare(`INSERT INTO task_review (project_id, task_id, decision, reviewed_by, reviewed_at, note) VALUES (?, ?, ?, ?, ?, ?)
@@ -381,8 +381,11 @@ export function openStore(path: string) {
     getSkillDefs: db.prepare("SELECT definition, created_by AS createdBy, created_at AS createdAt FROM skill_def ORDER BY created_at, id"),
     addSkillDef: db.prepare("INSERT INTO skill_def (id, definition, created_by, created_at) VALUES (?, ?, ?, ?)"),
     getPlayerSkills: db.prepare("SELECT skill, level FROM player_skill WHERE player = ?"),
-    setPlayerSkill: db.prepare(`INSERT INTO player_skill (player, skill, level, source, at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (player, skill) DO UPDATE SET level = excluded.level, source = excluded.source, at = excluded.at WHERE excluded.level > player_skill.level`),
+    setPlayerSkill: db.prepare(`INSERT INTO player_skill (player, skill, level, source, at, def_version) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (player, skill) DO UPDATE SET level = excluded.level, source = excluded.source, at = excluded.at, def_version = excluded.def_version WHERE excluded.level > player_skill.level`),
+    getAllPlayerSkills: db.prepare("SELECT player, skill, level FROM player_skill"),
+    getAllCraftCounts: db.prepare("SELECT player, recipe, n FROM craft_count"),
+    unretireStructureDef: db.prepare("UPDATE structure_def SET retired_at = NULL WHERE id = ? AND retired_at IS NOT NULL"),
     getCraftCounts: db.prepare("SELECT recipe, n FROM craft_count WHERE player = ?"),
     incCraftCount: db.prepare(`INSERT INTO craft_count (player, recipe, n) VALUES (?, ?, 1)
       ON CONFLICT (player, recipe) DO UPDATE SET n = n + 1`),
@@ -471,14 +474,14 @@ export function openStore(path: string) {
     getStructures(): { id: string; builtAt: number; builtBy: string }[] {
       return (q.getStructures.all() as { id: string; builtAt: number; builtBy: string }[]).map((r) => ({ id: r.id, builtAt: Number(r.builtAt), builtBy: r.builtBy }));
     },
-    addStructure(id: string, by: string, at: number) {
-      q.addStructure.run(id, at, by);
+    addStructure(id: string, by: string, at: number, defVersion: number | null = null) {
+      q.addStructure.run(id, at, by, defVersion);
     },
     getMissions(): { id: string; completedAt: number; completedBy: string }[] {
       return (q.getMissions.all() as { id: string; completedAt: number; completedBy: string }[]).map((r) => ({ id: r.id, completedAt: Number(r.completedAt), completedBy: r.completedBy }));
     },
-    completeMission(id: string, by: string, at: number) {
-      q.completeMission.run(id, at, by);
+    completeMission(id: string, by: string, at: number, defVersion: number | null = null) {
+      q.completeMission.run(id, at, by, defVersion);
     },
     getAccountByName(name: string): AccountRow | undefined {
       const r = q.getAccountByName.get(name) as AccountRow | undefined;
@@ -558,6 +561,17 @@ export function openStore(path: string) {
       q.addStructureDef.run(def.id, JSON.stringify(def), by, at);
     },
     /** Retira un solar sin construir; lanza si no existe o ya estaba retirado. */
+    /** Restaurar un edificio retirado (G2): quita la marca de retirada; nada más cambia. */
+    unretireStructureDef(id: string) {
+      if (Number(q.unretireStructureDef.run(id).changes) !== 1) throw new Error(`estructura-no-retirada: ${id}`);
+    },
+    /** Todos los niveles y las veces fabricadas, de todas las personas (para los análisis de edición, G2). */
+    getAllPlayerSkills(): { player: string; skill: string; level: number }[] {
+      return (q.getAllPlayerSkills.all() as { player: string; skill: string; level: number }[]).map((r) => ({ player: r.player, skill: r.skill, level: Number(r.level) }));
+    },
+    getAllCraftCounts(): { player: string; recipe: string; n: number }[] {
+      return (q.getAllCraftCounts.all() as { player: string; recipe: string; n: number }[]).map((r) => ({ player: r.player, recipe: r.recipe, n: Number(r.n) }));
+    },
     retireStructureDef(id: string, at: number) {
       if (Number(q.retireStructureDef.run(at, id).changes) !== 1) throw new Error(`estructura-no-retirable: ${id}`);
     },
@@ -626,8 +640,8 @@ export function openStore(path: string) {
       return Object.fromEntries((q.getPlayerSkills.all(player) as { skill: string; level: number }[]).map((r) => [r.skill, Number(r.level)]));
     },
     /** Fija el nivel; solo sube (un nivel igual o menor no cambia nada). Devuelve si cambió. */
-    setPlayerSkill(player: string, skill: string, level: number, source: string, at: number): boolean {
-      return Number(q.setPlayerSkill.run(player, skill, level, source, at).changes) === 1;
+    setPlayerSkill(player: string, skill: string, level: number, source: string, at: number, defVersion: number | null = null): boolean {
+      return Number(q.setPlayerSkill.run(player, skill, level, source, at, defVersion).changes) === 1;
     },
     /** Veces que una persona ha fabricado cada receta (F2c). */
     getCraftCounts(player: string): Record<string, number> {
