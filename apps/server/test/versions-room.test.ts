@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Client } from "@colyseus/sdk";
-import { MESSAGE, ROOM_NAME, WorldState, type CascadePlanMessage, type HistoryMessage, type MoveMessage, type Player, type RejectedMessage } from "@juego/shared";
+import { MESSAGE, ROOM_NAME, WorldState, type CascadePlanMessage, type DefSavedMessage, type HistoryMessage, type MoveMessage, type Player, type RejectedMessage } from "@juego/shared";
 import { fixture, sessionFor, sleep, startServer, tempDb, waitFor } from "./helpers.ts";
 
 // G2, P1 (TP-32): edición por versiones, concurrencia, historial, retirada de edificios y cascada, con el servidor REAL.
@@ -30,16 +30,18 @@ interface Session {
   rejected: RejectedMessage[];
   history: HistoryMessage[];
   plans: CascadePlanMessage[];
+  saved: DefSavedMessage[];
   me: () => Player;
 }
 
 async function enter(url: string, name: string): Promise<Session> {
   const token = await sessionFor(url, name);
   const room = (await new Client(url).join(ROOM_NAME, { token }, WorldState)) as Session["room"];
-  const s: Session = { room, rejected: [], history: [], plans: [], me: () => room.state.players.get(room.sessionId)! };
+  const s: Session = { room, rejected: [], history: [], plans: [], saved: [], me: () => room.state.players.get(room.sessionId)! };
   room.onMessage(MESSAGE.rejected, (m: RejectedMessage) => s.rejected.push(m));
   room.onMessage(MESSAGE.history, (m: HistoryMessage) => s.history.push(m));
   room.onMessage(MESSAGE.cascadePlan, (m: CascadePlanMessage) => s.plans.push(m));
+  room.onMessage(MESSAGE.defSaved, (m: DefSavedMessage) => s.saved.push(m));
   await waitFor(() => Boolean(room.state?.players?.get(room.sessionId)));
   return s;
 }
@@ -238,6 +240,11 @@ test("TP-32: editar una construcción antes de construirla; retirar un edificio 
     // Renombrar no tiene avisos ni efectos (sin aportes ni recetas): se aplica sin pedir confirmación.
     send(luis, MESSAGE.editDef, { kind: "construccion", id, def: def("Molino grande"), expectedRev: 1 });
     await waitFor(() => structure(ana).name === "Molino grande");
+    // Quien edita recibe SU confirmación (la pantalla cierra el diálogo con ella y no con el cambio de otra persona); la otra sesión, no.
+    await waitFor(() => luis.saved.length === 1);
+    assert.deepEqual([luis.saved[0]!.kind, luis.saved[0]!.id, luis.saved[0]!.version, luis.saved[0]!.rev, ana.saved.length], ["construccion", id, 2, 2, 0]);
+    // Los valores por omisión de las tareas (criterio de aceptación) se completan como al crear la construcción.
+    assert.equal(ana.room.state.projects.get(id)!.tasks.get("madera")!.acceptance, "Aportar 1 de madera");
     assert.deepEqual([structure(ana).version, ana.room.state.projects.get(id)!.name, ana.room.state.projects.get(id)!.version], [2, "Molino grande", 2]);
 
     // Aportar y construir (versión 2 vigente).

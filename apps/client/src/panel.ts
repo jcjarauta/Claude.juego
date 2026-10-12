@@ -317,7 +317,7 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
 
   const container = byId("proyectos");
   const adminForms = admin ? createAdminForms(config, room, announce) : undefined;
-  const library = admin ? createLibrary(room, announce) : undefined;
+  const library = admin ? createLibrary(room, config, announce) : undefined;
 
   // Vistas de gestión (F1b): pestañas y selector de proyecto sobre los mismos datos.
   const projectFilter = byId<HTMLSelectElement>("vista-proyecto");
@@ -352,7 +352,8 @@ function startPanel(room: PanelRoom, config: WorldConfig, name: string, asked: b
   projectFilter.onchange = () => render();
 
   let rejectionTimer: number | undefined;
-  room.onMessage(MESSAGE.rejected, ({ reason, details }: RejectedMessage) => {
+  room.onMessage(MESSAGE.rejected, ({ reason, details, analysis }: RejectedMessage) => {
+    if (library?.showRejection(REJECT_TEXT[reason], details, analysis, reason)) return;
     if (adminForms?.showRejection(REJECT_TEXT[reason], details)) return;
     rejection.textContent = REJECT_TEXT[reason];
     window.clearTimeout(rejectionTimer);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { historyRows, libraryRows, nameInVersion, type LibraryState } from "../src/library-model.ts";
+import { currentVersion, historyRows, libraryRows, nameInVersion, type LibraryState } from "../src/library-model.ts";
 import { sectionFromHash } from "../src/sections.ts";
 
 // G2, P2 (TP-32): modelo puro de la Biblioteca y elección de sección por #hash.
@@ -16,6 +16,7 @@ const state: LibraryState = {
     ["horno", { ...entry("Horno", "panel"), built: false, retired: false }],
     ["faro", { ...entry("Faro", "panel", 1, 3), built: true, retired: true }],
   ]),
+  projects: new Map([["molino", { phase: "abierto" }], ["horno", { phase: "cerrado" }], ["faro", { phase: "abierto" }]]),
 };
 
 test("las filas llevan versión, origen y estado en texto, ordenadas por nombre sin distinguir mayúsculas", () => {
@@ -55,4 +56,17 @@ test("el #hash elige la sección y cae en la primera si no existe o no está dis
   assert.equal(sectionFromHash("#diseno", ids), "proyectos", "un participante no tiene «diseno»");
   assert.equal(sectionFromHash("", ids), "proyectos");
   assert.equal(sectionFromHash("#%E2%82%AC", ids), "proyectos");
+});
+
+test("la pantalla avisa de lo que no se puede editar y por qué (el servidor decide siempre)", () => {
+  const why = (kind: Parameters<typeof libraryRows>[1], id: string) => { const r = libraryRows(state, kind).find((x) => x.id === id)!; return [r.editable, r.whyNot]; };
+  assert.deepEqual(why("objeto", "harina"), [true, ""]);
+  assert.deepEqual(why("objeto", "pan"), [false, "viene de la configuración"]);
+  assert.deepEqual(why("mision", "m1"), [true, ""]);
+  assert.deepEqual(why("mision", "m2"), [false, "viene de la configuración"]);
+  assert.deepEqual(why("mision", "m3"), [false, "restáurala antes en Diseño"]);
+  assert.deepEqual(why("construccion", "molino"), [false, "ya está construido"]);
+  assert.deepEqual(why("construccion", "horno"), [false, "su proyecto está cerrado"]);
+  assert.deepEqual(why("construccion", "faro"), [false, "está retirado"]);
+  assert.deepEqual([currentVersion(state, "objeto", "harina"), currentVersion(state, "objeto", "no-existe"), currentVersion(state, "construccion", "molino")], [3, 1, 2]);
 });

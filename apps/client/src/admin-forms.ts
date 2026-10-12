@@ -18,7 +18,7 @@ import { createMinimap } from "./views/minimap.ts";
 // sin programar. El servidor valida todo; aquí solo se ayuda a rellenar y se muestran sus motivos.
 
 /** Mensajes de validación del servidor en lenguaje del formulario (sin ids internos ni nombres de campo en inglés). */
-function readable(detail: string): string {
+export function readable(detail: string): string {
   return detail
     .replace(/^(proyecto|misión|construcción|objeto|receta|habilidad) "[^"]*": /, "")
     .replace(/^(proyecto|misión|construcción)\.tasks\[(\d+)\]: /, (_m, _w, n: string) => `Tarea ${Number(n) + 1}: `)

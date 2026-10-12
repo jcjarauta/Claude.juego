@@ -41,6 +41,8 @@ export const MESSAGE = {
   history: "history",
   /** Servidor → quien lo pidió: plan de archivado en cascada con su firma. */
   cascadePlan: "cascade-plan",
+  /** Servidor → quien lo pidió: la edición o la vuelta a una versión se aplicó (con la versión y la revisión nuevas). */
+  defSaved: "def-saved",
   teachOffer: "teach-offer",
   teachRespond: "teach-respond",
   /** Servidor → destinatario: alguien le ofrece enseñarle una habilidad. */
@@ -331,6 +333,15 @@ export interface HistoryMessage {
   version: number;
   rev: number;
   versions: { version: number; definition: unknown; changedBy: string; changedAt: number; note: string }[];
+}
+
+/** Respuesta a `edit-def` y `restore-version` cuando se aplican: la pantalla cierra su diálogo solo con SU confirmación, no con el cambio de otra persona. */
+export interface DefSavedMessage {
+  requestId: string;
+  kind: string;
+  id: string;
+  version: number;
+  rev: number;
 }
 
 /** Respuesta a `cascade-preview`: el plan, sus bloqueos y la firma que hay que reenviar para ejecutarlo. */

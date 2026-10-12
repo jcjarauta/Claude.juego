@@ -339,3 +339,10 @@ Diseño medido (mundo de prueba): a 1280 px, rejilla `800px 428px`, página de *
 - `#hash` = id de la sección (`proyectos`, `biblioteca`, `crear`, `diseno`, `cadenas`); uno desconocido o no disponible cae en `proyectos`. Al cambiar de sección el foco va a su primer `h2` (`tabindex="-1"`).
 - Biblioteca: `div#biblioteca-listas` con una `dataTable` por tipo (`caption`, `th scope="col"`); el botón «Historial» de cada fila lleva `aria-label` («Historial de receta «X»») y abre un diálogo con la tabla de versiones.
 - CSS en `panel.html`: `.layout`, `#secciones` y `.secciones`; a menos de 900 px una sola columna con la navegación en fila; `#biblioteca-listas table` sin ancho mínimo.
+
+### Edición por versiones en la Biblioteca (puerta P3 de G2)
+
+- En cada fila de la Biblioteca de lo creado en el panel: botones «Editar» e «Historial» (con `aria-label` que nombran el elemento); «Editar» queda con `aria-disabled="true"` y el motivo en texto si no se puede (archivado, cumplida, construido, retirado). Lo de la configuración dice «Solo lectura».
+- «Editar» abre un `<dialog>` modal con el formulario del tipo (los mismos controles y listas dinámicas que al crear), el campo «Nota del cambio (opcional)» (`#edicion-nota`), la zona `div.analisis` (el análisis o el rechazo, `role="status"` o `role="alert"`) y los botones «Revisar el cambio» → «Confirmar el cambio» o «Cargar lo vigente».
+- «Historial» abre un `<dialog>` con una tabla (`Versión`, `Nombre en esa versión`, `Quién`, `Cuándo`, `Nota`, `Acción`); la acción «Volver a esta versión» abre otro diálogo con «Revisar la vuelta» → «Confirmar y volver a esa versión». Al aplicarse, se cierran los dos.
+- Mensajes nuevos: `edit-def`, `restore-version`, `definition-history`, respuestas `history` y `def-saved`; un rechazo puede traer `analysis`. Foco: dentro del diálogo al abrir; al cerrar vuelve al control que lo abrió.

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
   authorize, blockedBy, checkAssign, checkCloseProject, checkComment, checkContribution, checkCreateConstruction, checkCreateItem, checkCreateMission,
   checkCreateProject, checkCreateRecipe, checkCreateSkill, checkGrantSkill, checkReschedule, checkReview, isTaskDone, isValidRequestId, levelAfterCraft,
-  checkArchive, checkRestore, checkUpdateLimits, HARD_BUILD_LIMITS, LIMIT_KEYS, missionSatisfied, projectStatus, taskStatus,
+  checkArchive, checkRestore, checkUpdateLimits, HARD_BUILD_LIMITS, LIMIT_KEYS, missionSatisfied, projectStatus, taskStatus, withProjectDefaults,
   cascadePlan, checkEditDef, checkRestoreStructure, checkRestoreVersion, checkRetireStructure, keyOf,
   type BuildLimits, type CascadePlan, type ConstructionDef, type ContributionSource, type DefinitionKind, type DefMeta, type DefVersion, type DesignView, type EditableDef, type EditableKind, type EditView,
   type ItemDef, type MissionDef, type PlayerFacts, type ProjectDef, type RecipeDef, type RejectedMessage, type RetireAnalysis, type RejectReason, type ReviewDecision, type SkillDef,
@@ -436,6 +436,7 @@ export function createProjectCore(store: Store, config: WorldConfig) {
         const unknown = next.project.coordinators.filter((name) => !store.getAccountByName(name));
         if (unknown.length) return { kind: "rejected", reason: "definicion-invalida", details: unknown.map((n) => `coordinador sin cuenta: "${n}"`) };
         next.project.coordinators = next.project.coordinators.map((n) => store.getAccountByName(n)!.name);
+        check.next = { project: withProjectDefaults(next.project, resourceName), structure: next.structure } satisfies ConstructionDef;
       }
       store.addDefVersion(check.kind, check.id, check.newVersion, check.next, actor, at, check.note);
       const rev = store.bumpDefRev(check.kind, check.id, actor, at, `${fromHistory ? "vuelve a una versión anterior" : "editada"} (v${check.newVersion})`);
